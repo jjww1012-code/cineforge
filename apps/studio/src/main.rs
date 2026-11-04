@@ -64,6 +64,14 @@ fn main() -> AppExit {
 
     let (w, h) = args.size;
     let mut app = App::new();
+    // Dateien im CineForge-Ordner (z. B. 3D-Modelle) als Asset-Quelle „cineforge://“.
+    if let Ok(root) = project::root_dir() {
+        let _ = std::fs::create_dir_all(&root);
+        app.register_asset_source(
+            "cineforge",
+            bevy::asset::io::AssetSourceBuilder::platform_default(&root.to_string_lossy(), None),
+        );
+    }
     app.add_plugins(
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

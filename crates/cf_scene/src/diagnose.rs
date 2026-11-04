@@ -94,7 +94,7 @@ fn check_object(inp: &Value, obj: &Object, path: &str, out: &mut Vec<String>) {
         known.extend(m.keys().cloned());
     }
     // Optionale Felder, die beim Serialisieren weggelassen werden, wenn sie leer sind
-    known.extend(["radius_end", "holes", "on_terrain", "material_override"].map(String::from));
+    known.extend(["radius_end", "holes", "on_terrain", "material_override", "svg", "file"].map(String::from));
     for key in map.keys() {
         if !known.iter().any(|k| k == key) {
             let hint = suggest(key, known.iter().map(String::as_str)).map(|s| format!(" → Meintest du „{s}“?")).unwrap_or_default();

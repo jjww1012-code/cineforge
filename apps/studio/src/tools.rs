@@ -81,7 +81,9 @@ Arbeitsweise:
 3. list_objects / get_scene zeigen den aktuellen Stand der geöffneten Szene.
 4. Ändern mit add_objects, update_object, remove_objects, update_scene_settings – oder set_scene für komplett neue Szenen.
 5. Nach jeder sichtbaren Änderung screenshot aufrufen und das Bild kritisch prüfen (Komposition, Licht, Größenverhältnisse, Überschneidungen). Dann verbessern.
-6. Fehler? undo stellt die vorherige Fassung wieder her.
+6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
+7. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
+Medien: Bilder (PNG/JPG/SVG) in Bilder/, 3D-Modelle (glTF/GLB) in Modelle/ (type \"model\"). 2D-Grafiken zeichnest du selbst als SVG (type \"svg\"), Geräusche mit create_sound, Musik mit create_music. Cartoons: 2D-Kamera (camera.orthographic) + SVG-Figuren, siehe get_guide.
 Einheiten: Meter und Grad, Y zeigt nach oben. Jedes Objekt braucht eine eindeutige, sprechende id.";
 
 const GUIDE: &str = include_str!("../../../docs/SZENEN-FORMAT.md");
@@ -231,7 +233,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "list_media",
-            "description": "Listet die Mediendateien des Projekts: Audio/ (Musik, Geräusche, Stimmen), Clips/ (Videos), Bilder/ (Logos, Fotos) mit Länge.",
+            "description": "Listet die Mediendateien des Projekts: Audio/ (Musik, Geräusche, Stimmen), Clips/ (Videos), Bilder/ (Logos, Fotos, SVG), Modelle/ (3D-Modelle glTF/GLB) mit Länge.",
             "inputSchema": {"type": "object", "properties": {}}
         },
         {
@@ -576,8 +578,14 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
                 } else {
                     "übernommen und gespeichert. Die App zeigt die Änderung jetzt an".into()
                 };
+                let missing = crate::media::check_files(cx.project, &scene);
+                let warn = if missing.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n⚠ Achtung, Dateien fehlen oder sind fehlerhaft (Objekt bleibt bis dahin leer):\n- {}\n", missing.join("\n- "))
+                };
                 ToolOutput::text(format!(
-                    "✓ {where_}.\nTipp: Mit screenshot das Ergebnis prüfen.\n\n{}",
+                    "✓ {where_}.{warn}\nTipp: Mit screenshot das Ergebnis prüfen.\n\n{}",
                     ops::outline(&scene)
                 ))
             }
@@ -798,14 +806,14 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         }
         "list_media" => {
             let mut out = String::new();
-            for folder in [crate::media::AUDIO, crate::media::CLIPS, crate::media::IMAGES] {
+            for folder in [crate::media::AUDIO, crate::media::CLIPS, crate::media::IMAGES, crate::media::MODELS] {
                 let (dir, files) = crate::media::list(cx.project, folder);
                 out += &format!("{folder}/ ({}):\n", dir.display());
                 if files.is_empty() {
                     out += "  (leer)\n";
                 }
                 for f in files {
-                    let info = if folder == crate::media::IMAGES {
+                    let info = if folder == crate::media::IMAGES || folder == crate::media::MODELS {
                         String::new()
                     } else {
                         crate::media::probe(&dir.join(&f))

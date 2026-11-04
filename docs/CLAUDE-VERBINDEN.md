@@ -69,7 +69,10 @@ unberührt. Im Logbuch steht, welcher Agent was getan hat.
   (`clip`, z. B. KI-Video oder Handy-Aufnahme aus dem Ordner `Clips/`).
 - **Ton:** `soundtrack` (Musik über den ganzen Film) und `audio` je Shot (Geräusche, Sprecher)
   mit Dateien aus `Audio/`. Sprechertexte erzeugt `generate_voice` mit den Systemstimmen.
-- **Bilder** (Logos, Fotos) legst du in `Bilder/`.
+- **Bilder** (Logos, Fotos, PNG, SVG) legst du in `Bilder/`, **3D-Modelle** (glTF/GLB) in `Modelle/`.
+- **Eigene Klänge und Musik** erzeugt Claude direkt in CineForge: `create_sound` (Geräusche wie
+  Schritte, Tür, Explosion, Wind, Whoosh, UI-Klicks – aus fertigen Vorlagen oder eigenem Rezept)
+  und `create_music` (Musik nach Stil, Tempo und Akkorden). Die WAV-Dateien landen in `Audio/`.
 - `export_film` rendert jeden Shot einzeln und speichert ihn zwischen. Wird später nur ein
   Shot geändert, wird auch nur dieser neu gerendert. Bricht ein Export ab, macht ein neuer
   `export_film` beim ersten fehlenden Shot weiter.
@@ -97,7 +100,9 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `export_film` | Den ganzen Film rendern (auch 1 Stunde+): Shot für Shot mit Cache, Clips, Ton |
 | `check_film` | Film vor dem Export prüfen: Länge, fehlende Dateien, Cache-Stand |
 | `list_shots` | Storyboard seitenweise (für lange Filme) |
-| `list_media`, `generate_voice` | Medien (Audio/, Clips/, Bilder/) anzeigen, Sprechertext vertonen |
+| `list_media`, `generate_voice` | Medien (Audio/, Clips/, Bilder/, Modelle/) anzeigen, Sprechertext vertonen |
+| `create_sound` | Eigene Geräusche erzeugen (Vorlagen oder Rezept aus Klangschichten) |
+| `create_music` | Eigene Musik erzeugen (Stil, Tempo, Akkorde, Abschnitte) |
 | `save_asset`, `list_assets`, `get_asset` | Objekt-Bibliothek |
 | `undo` | Letzte Änderung zurücknehmen |
 | `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien im Projekt verwalten |

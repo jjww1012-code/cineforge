@@ -145,7 +145,10 @@ impl ActiveProject {
                 .map_err(|e| e.to_string())?
                 .to_json_pretty(),
         )?;
-        std::fs::create_dir_all(dir.join("Objekte")).ok();
+        // Ordner für eigene Dateien gleich anlegen, damit man sieht, wohin was gehört.
+        for sub in ["Objekte", crate::media::AUDIO, crate::media::CLIPS, crate::media::IMAGES, crate::media::MODELS] {
+            std::fs::create_dir_all(dir.join(sub)).ok();
+        }
         Ok((p, scene))
     }
 

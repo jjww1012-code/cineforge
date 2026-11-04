@@ -234,6 +234,8 @@ pub fn outline(scene: &Scene) -> String {
             Kind::Instance { asset, .. } => format!("instance \"{asset}\""),
             Kind::Particles(p) => format!("particles {:?}", p.preset).to_lowercase(),
             Kind::Image { file, width } => format!("image \"{file}\" b={width}"),
+            Kind::Svg { file, width, .. } => format!("svg {} b={width}", file.as_deref().map(|f| format!("\"{f}\"")).unwrap_or_else(|| "(inline)".into())),
+            Kind::Model { file } => format!("model \"{file}\""),
         }
     }
     fn rec(out: &mut String, objs: &[Object], depth: usize) {

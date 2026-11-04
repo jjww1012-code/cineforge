@@ -614,6 +614,51 @@ pub fn text(font_data: &[u8], spec: &TextSpec) -> Result<MeshData, String> {
     Ok(m)
 }
 
+/// Füllt Konturen (Umrisse mit Löchern nach Verschachtelung) als flache Fläche
+/// (`depth` = 0, Vorderseite +Z) oder als Körper mit Tiefe.
+pub fn fill_contours(contours: &[Vec<[f32; 2]>], depth: f32) -> MeshData {
+    let mut m = MeshData::default();
+    emit_glyph(&mut m, contours, depth);
+    m
+}
+
+/// Linie (Kontur) mit runden Ecken und Enden, flach in der Ebene z, Vorderseite +Z.
+pub fn stroke_contour(m: &mut MeshData, pts: &[[f32; 2]], closed: bool, width: f32, z: f32) {
+    if pts.len() < 2 || width <= 0.0 {
+        return;
+    }
+    let hw = width / 2.0;
+    let up = [0.0, 0.0, 1.0];
+    let n = pts.len();
+    let segs = if closed { n } else { n - 1 };
+    for i in 0..segs {
+        let (a, b) = (pts[i], pts[(i + 1) % n]);
+        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+        let l = (dx * dx + dy * dy).sqrt();
+        if l < 1e-7 {
+            continue;
+        }
+        let (nx, ny) = (-dy / l * hw, dx / l * hw);
+        let p = |x: f32, y: f32| [x, y, z];
+        let (a1, a2, b1, b2) = (p(a[0] + nx, a[1] + ny), p(a[0] - nx, a[1] - ny), p(b[0] + nx, b[1] + ny), p(b[0] - nx, b[1] - ny));
+        push_tri(m, [a1, b1, b2], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]], up);
+        push_tri(m, [a1, b2, a2], [[0.0, 0.0], [1.0, 1.0], [0.0, 1.0]], up);
+    }
+    // Runde Verbindungen
+    for &c in pts {
+        for k in 0..10 {
+            let a0 = k as f32 / 10.0 * std::f32::consts::TAU;
+            let a1 = (k + 1) as f32 / 10.0 * std::f32::consts::TAU;
+            push_tri(
+                m,
+                [[c[0], c[1], z], [c[0] + hw * a0.cos(), c[1] + hw * a0.sin(), z], [c[0] + hw * a1.cos(), c[1] + hw * a1.sin(), z]],
+                [[0.5, 0.5], [0.0, 0.0], [1.0, 0.0]],
+                up,
+            );
+        }
+    }
+}
+
 fn emit_glyph(m: &mut MeshData, contours: &[Vec<[f32; 2]>], depth: f32) {
     let contours: Vec<Vec<[f32; 2]>> = contours.iter().map(|c| clean_ring(c)).filter(|c| c.len() >= 3).collect();
     // Verschachtelungstiefe bestimmt: gerade = Umriss, ungerade = Loch.

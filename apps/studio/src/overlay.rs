@@ -56,10 +56,14 @@ fn opacity_keys(o: &Overlay) -> Vec<Key<f32>> {
 }
 
 /// Einblendungen sollen genau ihre Farbe zeigen: Die filmische Tonwertkurve (AgX)
-/// dunkelt reines Weiß ab, daher wird die Farbe vorab angehoben.
-pub fn overlay_color(c: cf_scene::Rgb, alpha: f32) -> Color {
+/// dunkelt reines Weiß ab, daher wird die Farbe vorab angehoben (im Cartoon-Stil nicht nötig).
+pub fn overlay_boost(scene: &cf_scene::Scene) -> f32 {
+    if scene.exact_colors() { 1.0 } else { 2.2 }
+}
+
+pub fn overlay_color(c: cf_scene::Rgb, alpha: f32, boost: f32) -> Color {
     let l = Color::srgb(c.r, c.g, c.b).to_linear();
-    Color::LinearRgba(LinearRgba::new(l.red * 2.2, l.green * 2.2, l.blue * 2.2, alpha))
+    Color::LinearRgba(LinearRgba::new(l.red * boost, l.green * boost, l.blue * boost, alpha))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -83,6 +87,7 @@ fn sync_overlays(
             commands.entity(e).despawn();
         }
     }
+    let boost = overlay_boost(&src.scene);
     for cam in targets {
         for o in &src.scene.overlays {
             let spec = TextSpec {
@@ -104,7 +109,7 @@ fn sync_overlays(
                 continue;
             }
             let mat = materials.add(StandardMaterial {
-                base_color: overlay_color(o.color, 0.0),
+                base_color: overlay_color(o.color, 0.0, boost),
                 unlit: true,
                 alpha_mode: AlphaMode::Blend,
                 cull_mode: None,
@@ -133,7 +138,7 @@ fn sync_overlays(
                     base_opacity: 1.0,
                     has_pattern: false,
                     base_intensity: 0.0,
-                    overlay: true,
+                    overlay: Some(boost),
                 },
                 ChildOf(cam),
             ));
@@ -149,12 +154,15 @@ fn place_overlays(
     let win_aspect = window.single().map(|w| w.width() / w.height().max(1.0)).unwrap_or(16.0 / 9.0);
     for (item, mut a) in &mut items {
         let Ok((proj, aspect)) = cams.get(item.camera) else { continue };
-        let fov = match proj {
-            Projection::Perspective(p) => p.fov,
-            _ => 50f32.to_radians(),
-        };
         let aspect = aspect.map(|v| v.0).unwrap_or(win_aspect);
-        let h = (fov / 2.0).tan() * DIST;
+        let h = match proj {
+            Projection::Perspective(p) => (p.fov / 2.0).tan() * DIST,
+            Projection::Orthographic(o) => match o.scaling_mode {
+                bevy::camera::ScalingMode::FixedVertical { viewport_height } => viewport_height / 2.0 * o.scale,
+                _ => (o.area.height() / 2.0).max(0.01),
+            },
+            _ => (25f32.to_radians()).tan() * DIST,
+        };
         let o = &item.overlay;
         // Größe bezogen auf die kürzere Bildseite: passt in 16:9 und 9:16 gleichermaßen.
         let size = o.size * 2.0 * h * aspect.min(1.0);

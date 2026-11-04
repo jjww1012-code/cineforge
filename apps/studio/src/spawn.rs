@@ -30,6 +30,10 @@ pub const FONT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
 pub const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/Inter-Bold.ttf");
 pub const FONT_BLACK: &[u8] = include_bytes!("../assets/fonts/Inter-Black.ttf");
 
+/// 3D-Modell, das noch lädt (Aufnahmen warten darauf).
+#[derive(Component)]
+pub struct ModelLoading(pub Handle<bevy::world_serialization::WorldAsset>);
+
 /// Röhre, deren gezeichneter Anteil animiert wird.
 #[derive(Component)]
 pub struct DrawTube {
@@ -45,7 +49,7 @@ impl Plugin for SpawnPlugin {
         app.init_resource::<Library>()
             .init_resource::<SceneStats>()
             .init_resource::<crate::media::ImageCache>()
-            .add_systems(Update, rebuild_scene);
+            .add_systems(Update, (rebuild_scene, track_model_loading));
     }
 }
 
@@ -77,8 +81,8 @@ pub struct Animated {
     pub has_pattern: bool,
     /// Grund-Lichtstärke (nur point_light).
     pub base_intensity: f32,
-    /// Einblendung (Farbe wird gegen die Tonwertkurve angehoben).
-    pub overlay: bool,
+    /// Einblendung: Faktor, um den die Farbe gegen die Tonwertkurve angehoben wird.
+    pub overlay: Option<f32>,
 }
 
 /// Statistik und Warnungen für die Anzeige.
@@ -104,6 +108,7 @@ fn rebuild_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut image_cache: ResMut<crate::media::ImageCache>,
+    asset_server: Res<AssetServer>,
 ) {
     if loaded.read().count() == 0 {
         return;
@@ -123,6 +128,7 @@ fn rebuild_scene(
         materials: &mut materials,
         images: &mut images,
         image_cache: &mut image_cache,
+        asset_server: asset_server.clone(),
         material_cache: HashMap::new(),
         texture_cache: HashMap::new(),
         stats: SceneStats::default(),
@@ -153,6 +159,7 @@ struct Builder<'a, 'w, 's> {
     materials: &'a mut Assets<StandardMaterial>,
     images: &'a mut Assets<Image>,
     image_cache: &'a mut crate::media::ImageCache,
+    asset_server: AssetServer,
     /// Gleiche Materialien teilen sich ein GPU-Material ⇒ weniger Draw-Calls.
     material_cache: HashMap<String, Handle<StandardMaterial>>,
     texture_cache: HashMap<String, (Handle<Image>, Option<Handle<Image>>)>,
@@ -258,7 +265,7 @@ impl Builder<'_, '_, '_> {
                     Kind::PointLight(l) => l.intensity,
                     _ => 0.0,
                 },
-                overlay: false,
+                overlay: None,
             });
         }
 
@@ -290,6 +297,57 @@ impl Builder<'_, '_, '_> {
                         });
                         self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat)));
                     }
+                }
+            }
+            Kind::Svg { svg, file, width, depth } => {
+                let text = match (svg, file) {
+                    (Some(s), _) => Ok(s.clone()),
+                    (None, Some(f)) => crate::media::resolve(self.project, crate::media::IMAGES, f)
+                        .and_then(|p| std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))),
+                    _ => Err("svg oder file fehlt".to_string()),
+                };
+                match text.and_then(|t| cf_scene::svg::svg_shapes(&t, *width, *depth)) {
+                    Ok(shapes) => {
+                        for sh in shapes {
+                            let mut m = material.clone();
+                            m.color = sh.color;
+                            m.opacity = (material.opacity * sh.opacity).clamp(0.0, 1.0);
+                            m.unlit = material.unlit || *depth == 0.0;
+                            m.double_sided = true;
+                            m.pattern = None;
+                            let tris = sh.mesh.indices.len() / 3;
+                            let mesh = self.meshes.add(to_bevy_mesh(sh.mesh));
+                            let mat = self.material(&m);
+                            self.commands.spawn((Mesh3d(mesh), MeshMaterial3d(mat), Transform::default(), ChildOf(entity)));
+                            self.stats.triangles += tris;
+                        }
+                    }
+                    Err(e) => self.stats.warnings.push(format!("\"{full_id}\": {e}")),
+                }
+            }
+            Kind::Model { file } => {
+                match crate::media::resolve(self.project, crate::media::MODELS, file) {
+                    Ok(path) => {
+                        let rel = crate::project::root_dir()
+                            .ok()
+                            .and_then(|root| path.strip_prefix(&root).ok().map(|p| p.to_path_buf()))
+                            .map(|p| p.to_string_lossy().replace('\\', "/"));
+                        match rel {
+                            Some(rel) => {
+                                let handle: Handle<bevy::world_serialization::WorldAsset> = self
+                                    .asset_server
+                                    .load(GltfAssetLabel::Scene(0).from_asset(format!("cineforge://{rel}")));
+                                self.commands.spawn((
+                                    bevy::world_serialization::WorldAssetRoot(handle.clone()),
+                                    ModelLoading(handle),
+                                    Transform::default(),
+                                    ChildOf(entity),
+                                ));
+                            }
+                            None => self.stats.warnings.push(format!("\"{full_id}\": Modell muss im CineForge-Ordner liegen")),
+                        }
+                    }
+                    Err(e) => self.stats.warnings.push(format!("\"{full_id}\": {e}")),
                 }
             }
             Kind::Image { file, width } => {
@@ -451,7 +509,9 @@ impl Builder<'_, '_, '_> {
             | Kind::PointLight(_)
             | Kind::Instance { .. }
             | Kind::Particles(_)
-            | Kind::Image { .. } => return None,
+            | Kind::Image { .. }
+            | Kind::Svg { .. }
+            | Kind::Model { .. } => return None,
         };
         if mesh.count_vertices() == 0 {
             return None;
@@ -614,6 +674,24 @@ mod tests {
         let step = repeat_step(&rep([0.0; 3], [0.0, 90.0, 0.0], [-5.0, 0.0, 0.0]), &base);
         let t2 = step.mul_transform(step.mul_transform(base));
         assert!(t2.translation.abs_diff_eq(Vec3::new(0.0, 0.0, 0.0), 1e-3), "{:?}", t2.translation);
+    }
+}
+
+/// Entfernt die Lade-Markierung, sobald ein Modell (samt Texturen) geladen ist – oder fehlgeschlagen.
+fn track_model_loading(
+    mut commands: Commands,
+    loading: Query<(Entity, &ModelLoading)>,
+    server: Res<AssetServer>,
+    mut stats: ResMut<SceneStats>,
+) {
+    for (e, m) in &loading {
+        if server.is_loaded_with_dependencies(&m.0) {
+            commands.entity(e).remove::<ModelLoading>();
+        } else if let Some(bevy::asset::LoadState::Failed(err)) = server.get_load_state(&m.0) {
+            stats.warnings.push(format!("Modell konnte nicht geladen werden: {err}"));
+            warn!("Modell konnte nicht geladen werden: {err}");
+            commands.entity(e).remove::<ModelLoading>();
+        }
     }
 }
 

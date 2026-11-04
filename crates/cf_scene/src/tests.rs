@@ -156,3 +156,16 @@ fn all_example_scenes_are_valid() {
         }
     }
 }
+
+#[test]
+fn look_defaults_to_cartoon_for_2d_camera() {
+    let s = Scene::from_json(r#"{"camera": {"orthographic": 8}}"#).unwrap();
+    assert!(s.exact_colors());
+    let s = Scene::from_json(r#"{"camera": {"orthographic": 8}, "environment": {"look": "film"}}"#).unwrap();
+    assert!(!s.exact_colors());
+    let s = Scene::from_json(r#"{"environment": {"look": "cartoon"}}"#).unwrap();
+    assert!(s.exact_colors());
+    assert!(!Scene::from_json("{}").unwrap().exact_colors());
+    let err = Scene::from_json(r#"{"environment": {"look": "cartton"}}"#).unwrap_err().to_string();
+    assert!(err.contains("Meintest du „cartoon“?"), "{err}");
+}

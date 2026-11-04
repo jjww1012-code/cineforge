@@ -152,19 +152,33 @@ fn ground_color(scene: &cf_scene::Scene) -> Option<Rgb> {
     best.map(|(_, c)| c)
 }
 
-/// Setzt alle kamerabezogenen Einstellungen (Belichtung, Himmel, Nebel, Bloom, Bildwinkel).
-pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
-    let env = &scene.environment;
-    cam.insert((
-        Tonemapping::AgX,
-        // Für Glas/Wasser (Material transmission); in Bevy 0.20 muss das pro Kamera aktiviert werden.
-        bevy::pbr::ScreenSpaceTransmission::default(),
-        Projection::Perspective(PerspectiveProjection {
-            fov: scene.camera.fov.clamp(5.0, 150.0).to_radians(),
+/// Perspektive oder 2D-Kamera (orthografisch) laut Szene.
+pub fn scene_projection(cam: &cf_scene::CameraSpec) -> Projection {
+    match cam.orthographic {
+        Some(h) => Projection::Orthographic(OrthographicProjection {
+            scaling_mode: bevy::camera::ScalingMode::FixedVertical { viewport_height: h.max(0.01) },
+            // Kleiner Tiefenbereich = hohe Genauigkeit für dicht gestapelte 2D-Ebenen.
+            near: -50.0,
+            far: 2_000.0,
+            ..OrthographicProjection::default_3d()
+        }),
+        None => Projection::Perspective(PerspectiveProjection {
+            fov: cam.fov.clamp(5.0, 150.0).to_radians(),
             near: 0.1,
             far: 20_000.0,
             ..default()
         }),
+    }
+}
+
+/// Setzt alle kamerabezogenen Einstellungen (Belichtung, Himmel, Nebel, Bloom, Bildwinkel).
+pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
+    let env = &scene.environment;
+    cam.insert((
+        if scene.exact_colors() { Tonemapping::None } else { Tonemapping::AgX },
+        // Für Glas/Wasser (Material transmission); in Bevy 0.20 muss das pro Kamera aktiviert werden.
+        bevy::pbr::ScreenSpaceTransmission::default(),
+        scene_projection(&scene.camera),
     ));
     if matches!(env.sky, Sky::Atmosphere) {
         cam.insert((

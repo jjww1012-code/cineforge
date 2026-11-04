@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-04 · Lange Filme (Cache, Ton, Clips, Bilder, Einblendungen) fertig
+**Zuletzt aktualisiert:** 2026-11-04 · 2D-Grafik (SVG), 2D-Kamera, Cartoon-Stil, 3D-Modell-Import fertig
 
 ## Fertig
 
@@ -61,18 +61,37 @@
   18 neu, Ergebnis bildgenau (180 Bilder, 18,0 s, mit Ton).
   Speicherbedarf grob: 1 h in 1080p ≈ 3–7 GB Cache + gleich viel für das fertige Video.
 
+- **Schneller arbeiten & Fehler sofort beheben:** Fehlermeldungen mit genauer Stelle
+  (`objects[3].material.color`) und „Meintest du …?“ (`cf_scene::diagnose`), Erkennung von
+  Tippfehlern in Feldnamen, `batch` (viele Änderungen, alles oder nichts), `duplicate_object`.
+- **Mehrere Agenten:** `claim_task` (Aufgabe mit Besitzer), Parameter `scene` bearbeitet andere
+  Szenen ohne sie zu öffnen, `agent` im Logbuch; MCP-Vorlage „Als weiterer Agent mitarbeiten“.
+- **Klangsynthese (`crates/cf_audio`):** eigene Geräusche ohne KI (Oszillatoren, Rauschen,
+  Filter, Hüllkurven, FM, Hall, Echo), 26 Vorlagen + Rezepte aus Schichten (`create_sound`),
+  Musik-Generator mit Stilen, Akkorden, Abschnitten (`create_music`), WAV in `Audio/`.
+- **2D & Import:** `type: "svg"` (SVG-Text inline oder Datei aus `Bilder/`, jede Fläche/Kontur
+  mit eigener Farbe, `depth` = 3D-Relief; `cf_scene::svg`), 2D-Kamera `camera.orthographic`,
+  Bildstil `environment.look` (`cartoon` = exakte Farben ohne Tonwertkurve, automatisch bei
+  2D-Kamera), `type: "model"` (glTF/GLB aus `Modelle/`, Asset-Quelle `cineforge://`; Render-
+  Aufträge warten, bis Modelle geladen sind). Fehlende/kaputte Dateien werden in der Antwort
+  an Claude sofort gemeldet (`media::check_files`). Neue Projekte bekommen die Ordner
+  `Audio/ Clips/ Bilder/ Modelle/`. Beispiel `scenes/cartoon.json`. Behoben: Ebenen-Flimmern
+  bei 2D-Kamera (Tiefenbereich -50…2000 m, SVG-Ebenenabstand ≥ 1 mm).
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **Ton-Vorschau in der App** (Wiedergabe synchron zur Zeitleiste) und Lippen-/Beat-Sync.
-2. **Klicken & sagen:** Objekt im Fenster anklicken → hervorheben → Claude bekommt die id.
-3. **Ton:** lokale KI-Stimmen (Piper), Musik, Untertitel, Ton im Export.
-4. Danach laut Fahrplan: Klicken & sagen, Ton, Figuren-Animation, Produkt, Teams.
+1. **Übersichtliche Oberfläche wie CapCut:** Zeitleiste mit Spuren (Shots, Ton, Einblendungen),
+   Medien-Leiste, Eigenschaften-Bereich, Vorschau-Fenster; Szenen-Änderungen **inkrementell**
+   (nur geänderte Objekte neu aufbauen statt der ganzen Szene).
+2. **Noch detailliertere 3D-Modelle:** Glätten/Unterteilen, Boolesche Operationen, Verformen.
+3. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
+4. **Ton-Vorschau in der App** (synchron zur Zeitleiste), Klicken & sagen.
 
 ## Offene Punkte / Wissenswertes
 
 - GitHub: `jjww1012-code/cineforge` (privat). CI-Status noch nicht von hier aus prüfbar
   (gh-Token ungültig) – der Nutzer sieht ihn unter „Actions“.
-- Noch nie auf echter Mac-Hardware getestet.
-- Export braucht ffmpeg (noch nicht gebündelt) – ohne ffmpeg PNG-Folge.
+- Export braucht ffmpeg (in CI mitgeliefert) – ohne ffmpeg PNG-Folge.
+- Klänge kann Claude nicht anhören: Qualität der Sound-Vorlagen vom Nutzer beurteilen lassen.
 - Prüfen von Videos bildgenau: `ffmpeg -i x.mp4 -vf "select=eq(n\,19)" -vsync 0 -frames:v 1 out.png`
   (`-ss` springt auf das nächste Bild *ab* dem Zeitpunkt).

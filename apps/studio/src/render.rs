@@ -205,6 +205,7 @@ fn drive_jobs(
     mut images: ResMut<Assets<Image>>,
     mut cams: Query<(&mut Transform, &mut Projection), Without<crate::MainCamera>>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
+    models_loading: Query<(), With<crate::spawn::ModelLoading>>,
 ) {
     // Neuen Auftrag starten
     if queue.active.is_none() {
@@ -291,6 +292,10 @@ fn drive_jobs(
 
     let cancel = std::mem::take(&mut queue.cancel);
     let mut job = queue.active.take().expect("aktiv");
+    // Große 3D-Modelle laden im Hintergrund: Aufnahme wartet, bis alles da ist.
+    if !models_loading.is_empty() {
+        job.warmup = job.warmup.max(2);
+    }
     let set_camera = |cams: &mut Query<(&mut Transform, &mut Projection), Without<crate::MainCamera>>, tf: Transform, fov: f32| {
         if let Ok((mut t, mut p)) = cams.get_mut(job.camera) {
             *t = tf;

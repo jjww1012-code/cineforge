@@ -37,6 +37,17 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `ambient` | 1 | Umgebungslicht (0 = harte Schatten) |
 | `exposure` | 0 | Belichtung in Blendenstufen (+1 = doppelt so hell) |
 | `bloom` | 0.15 | Glühen heller Stellen (0 = aus) |
+| `look` | auto | `"film"` = natürliche, filmische Tonwerte (Farben etwas gedämpft) · `"cartoon"` = Farben **exakt** wie angegeben (Cartoons, 2D, Grafiken, Logos). Ohne Angabe: `cartoon` bei 2D-Kamera, sonst `film` |
+
+## camera
+
+| Feld | Standard | Bedeutung |
+|---|---|---|
+| `position` | [0,5,20] | Standort der Kamera |
+| `look_at` | [0,0,0] | Punkt, auf den sie schaut |
+| `fov` | 50 | Bildwinkel in Grad (klein = Tele/Zoom, groß = Weitwinkel) |
+| `orthographic` | – | **2D-Kamera** ohne Perspektive: sichtbare Bildhöhe in Metern (z. B. `7`). Ideal für Cartoons, Erklärvideos, Seitenansichten. Weiter entfernte Objekte werden nicht kleiner – Tiefe (z) bestimmt nur, was vorne liegt |
+| `animate` | – | Kamerafahrt, siehe unten |
 
 ## Gemeinsame Felder aller Objekte
 
@@ -127,6 +138,34 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2 (0 = flach, z. B. für Bildschirm-Inhalte und Einblendungen), `align` center/left/right, `letter_spacing` 0, `weight` regular/bold/black, `italic` false – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
 | `image` | `file` (im Ordner `Bilder/` des Projekts), `width` 1 – Bildfläche mit dem Seitenverhältnis des Bildes (PNG mit Transparenz möglich), XY-Ebene, schaut nach +Z. Für exakte Farben `"material": {"unlit": true}` |
+| `svg` | `svg` (SVG-Text direkt im Feld) **oder** `file` (SVG-Datei in `Bilder/`), `width` 1, `depth` 0 – **2D-Grafik**: jede Fläche und Kontur des SVG wird mit ihrer eigenen Farbe übernommen, mittig, XY-Ebene, schaut nach +Z. `depth` > 0 macht daraus ein 3D-Relief (Logos). Siehe „Cartoons und 2D“ |
+| `model` | `file` (glTF/GLB-Datei im Ordner `Modelle/`) – **3D-Modell importieren** (z. B. von Sketchfab, Blender, KI-3D-Generatoren) mit eigenen Materialien und Texturen. Größe/Lage über `position`, `rotation`, `scale` |
+
+## Cartoons und 2D
+
+Für Zeichentrick-Look: **2D-Kamera** (`camera.orthographic`) + **SVG-Grafiken** (`type: "svg"`).
+Farben werden dann automatisch exakt wiedergegeben (`look: "cartoon"`).
+
+```json
+"environment": {"sky": {"type": "color", "color": "#9ad8ff"}, "bloom": 0},
+"camera": {"position": [0, 2.5, 20], "look_at": [0, 2.5, 0], "orthographic": 7},
+"objects": [
+  {"id": "hintergrund", "type": "svg", "width": 18, "position": [0, 2.5, -3], "svg": "<svg …>…</svg>"},
+  {"id": "junge", "type": "svg", "width": 1.6, "position": [0, 1.4, 0], "svg": "<svg viewBox='0 0 100 150'>…</svg>"}
+]
+```
+
+- **Ebenen über z:** Hintergrund z = -3, Bäume z = -1, Figuren z = 0, Vordergrund z = 1.
+  Innerhalb eines SVG liegt jedes spätere Element vor dem vorherigen (wie beim Zeichnen).
+- **Im SVG:** `rect`, `circle`, `ellipse`, `path` (auch Kurven), `polygon`, `stroke` (Konturen,
+  `stroke-linecap: round`), `fill-opacity`, `transform`, Gruppen. Verläufe werden als einfarbige
+  Fläche (erste Farbe) gezeichnet. Einfache Hochkommas `'` im SVG sparen Escape-Zeichen im JSON.
+- **Bewegung:** Figuren aus Teilen bauen (Körper, Kopf, Arme je als eigenes `svg`); Laufen =
+  `position` mit kleinem Auf und Ab. Ein `svg` dreht sich um seine Mitte. **Gelenke:** das Teil
+  (Arm) in eine eigene `group` legen, die am Gelenk (Schulter) sitzt, den Arm darin so verschieben,
+  dass die Schulter im Ursprung liegt, und die Gruppe mit `animate.rotation` (um z) drehen.
+- **Mischen:** 3D-Objekte dürfen in 2D-Szenen vorkommen (z. B. ein Logo mit `depth`).
+- Beispiel: [`scenes/cartoon.json`](../scenes/cartoon.json)
 
 ## Einblendungen (`overlays`)
 
@@ -259,3 +298,4 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
 
 - [`scenes/wueste.json`](../scenes/wueste.json) – Landschaft mit Gelände und Scatter
 - [`scenes/werkstatt.json`](../scenes/werkstatt.json) – alle Modellier-Werkzeuge und Muster
+- [`scenes/cartoon.json`](../scenes/cartoon.json) – 2D-Cartoon mit SVG-Grafiken und 2D-Kamera

@@ -21,6 +21,7 @@ use crate::project::{root_dir, ActiveProject};
 pub const IMAGES: &str = "Bilder";
 pub const AUDIO: &str = "Audio";
 pub const CLIPS: &str = "Clips";
+pub const MODELS: &str = "Modelle";
 
 /// Findet eine Mediendatei: Projekt/<Ordner>/datei, Projekt/datei, CineForge/<Ordner>/datei.
 pub fn resolve(project: &ActiveProject, folder: &str, file: &str) -> Result<PathBuf, String> {
@@ -49,6 +50,35 @@ pub fn resolve(project: &ActiveProject, folder: &str, file: &str) -> Result<Path
             let where_ = project.dir.as_ref().map(|d| d.join(folder)).unwrap_or_else(|| root.join(folder));
             format!("Datei „{file}“ nicht gefunden (bitte in {} ablegen)", where_.display())
         })
+}
+
+/// Prüft die Datei-Verweise einer Szene (3D-Modelle, Bilder, SVG-Dateien, Texturen),
+/// damit Claude fehlende oder kaputte Dateien sofort erfährt – nicht erst im Bild.
+pub fn check_files(project: &ActiveProject, scene: &cf_scene::Scene) -> Vec<String> {
+    use cf_scene::Kind;
+    let mut out = Vec::new();
+    scene.walk(&mut |o| {
+        let mut need = |folder: &str, file: &str| -> Option<PathBuf> {
+            resolve(project, folder, file).map_err(|e| out.push(format!("\"{}\": {e}", o.id))).ok()
+        };
+        let svg_problem = match &o.kind {
+            Kind::Model { file } => need(MODELS, file).and(None),
+            Kind::Image { file, .. } => need(IMAGES, file).and(None),
+            Kind::Svg { svg: None, file: Some(file), width, depth } => need(IMAGES, file).and_then(|path| {
+                std::fs::read_to_string(&path)
+                    .map_err(|e| e.to_string())
+                    .and_then(|text| cf_scene::svg::svg_shapes(&text, *width, *depth).map(|_| ()))
+                    .err()
+                    .map(|e| format!("\"{}\": {file}: {e}", o.id))
+            }),
+            _ => None,
+        };
+        if let Some(t) = &o.material.texture {
+            need(IMAGES, t);
+        }
+        out.extend(svg_problem);
+    });
+    out
 }
 
 /// Listet Dateien eines Medien-Ordners im Projekt.

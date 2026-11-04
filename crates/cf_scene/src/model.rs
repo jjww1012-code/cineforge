@@ -112,6 +112,10 @@ pub struct Environment {
     pub exposure: f32,
     /// Glühen heller Stellen (0 = aus, ~0.15 = natürlich, 0.5 = stark).
     pub bloom: f32,
+    /// Bildstil: "film" (natürliche Tonwerte) oder "cartoon" (Farben exakt wie angegeben).
+    /// Ohne Angabe: "cartoon" bei 2D-Kamera (`camera.orthographic`), sonst "film".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub look: Option<Look>,
     /// Änderungen über die Zeit (Sonnenstand, Belichtung).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub animate: Option<crate::animation::EnvironmentAnimation>,
@@ -126,9 +130,19 @@ impl Default for Environment {
             ambient: 1.0,
             exposure: 0.0,
             bloom: 0.15,
+            look: None,
             animate: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Look {
+    /// Filmische Tonwertkurve: natürlich bei hellem Sonnenlicht, Farben etwas gedämpft.
+    Film,
+    /// Farben exakt wie angegeben (Cartoons, 2D, Grafiken, Logos).
+    Cartoon,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -190,6 +204,9 @@ pub struct CameraSpec {
     pub look_at: [f32; 3],
     /// Vertikaler Bildwinkel in Grad.
     pub fov: f32,
+    /// 2D-Kamera ohne Perspektive: sichtbare Höhe in Metern (z. B. 10). Ideal für Cartoons/2D.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orthographic: Option<f32>,
     /// Kamerafahrt über die Zeit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub animate: Option<crate::animation::CameraAnimation>,
@@ -201,6 +218,7 @@ impl Default for CameraSpec {
             position: [0.0, 5.0, 20.0],
             look_at: [0.0, 0.0, 0.0],
             fov: 50.0,
+            orthographic: None,
             animate: None,
         }
     }
@@ -452,6 +470,21 @@ pub enum Kind {
         #[serde(default = "one")]
         width: f32,
     },
+    /// 2D-Grafik aus SVG (inline als `svg` oder Datei in Bilder/): Figuren, Logos, Hintergründe.
+    /// Steht in der XY-Ebene, schaut nach +Z, zentriert. `depth` > 0 macht sie dreidimensional.
+    Svg {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        svg: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        file: Option<String>,
+        /// Breite in Metern.
+        #[serde(default = "one")]
+        width: f32,
+        #[serde(default)]
+        depth: f32,
+    },
+    /// 3D-Modell (GLB/glTF, Datei im Ordner Modelle/), z. B. aus Blender, Sketchfab oder einem KI-3D-Generator.
+    Model { file: String },
     /// Partikel-Effekt (Feuer, Rauch, Funken, Schnee, Regen, Explosion, Magie, Staub, Fontäne).
     Particles(crate::particles::ParticleSpec),
     /// Objekt aus der Bibliothek.
@@ -740,6 +773,15 @@ impl std::fmt::Display for SceneError {
 impl std::error::Error for SceneError {}
 
 impl Scene {
+    /// Sollen Farben exakt wiedergegeben werden (Cartoon-Stil)?
+    pub fn exact_colors(&self) -> bool {
+        match self.environment.look {
+            Some(Look::Cartoon) => true,
+            Some(Look::Film) => false,
+            None => self.camera.orthographic.is_some(),
+        }
+    }
+
     pub fn from_json(text: &str) -> Result<Scene, SceneError> {
         let value: serde_json::Value = serde_json::from_str(text).map_err(|e| SceneError::Parse(format!("Kein gültiges JSON: {e}")))?;
         let scene = crate::diagnose::parse_scene(value).map_err(SceneError::Parse)?;
@@ -868,7 +910,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. }) {
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. }) {
                 p.push(format!("\"{id}\": scatter.shape muss eine einfache Form sein"));
             }
             if s.scale_range[0] > s.scale_range[1] {
@@ -941,6 +983,28 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             }
         }
         Kind::Particles(ps) => ps.validate(id, p),
+        Kind::Svg { svg, file, width, depth } => {
+            positive("width", *width, p);
+            if *depth < 0.0 {
+                p.push(format!("\"{id}\": depth darf nicht negativ sein"));
+            }
+            match (svg, file) {
+                (Some(_), Some(_)) => p.push(format!("\"{id}\": entweder svg oder file angeben, nicht beides")),
+                (None, None) => p.push(format!("\"{id}\": svg (Markup) oder file fehlt")),
+                (Some(s), None) => {
+                    if let Err(e) = crate::svg::svg_shapes(s, *width, *depth) {
+                        p.push(format!("\"{id}\": {e}"));
+                    }
+                }
+                _ => {}
+            }
+        }
+        Kind::Model { file } => {
+            let lower = file.to_lowercase();
+            if !(lower.ends_with(".glb") || lower.ends_with(".gltf")) {
+                p.push(format!("\"{id}\": Modelle müssen .glb oder .gltf sein (z. B. aus Blender exportieren)"));
+            }
+        }
         Kind::Image { file, width } => {
             positive("width", *width, p);
             if file.trim().is_empty() {
