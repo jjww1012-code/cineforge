@@ -66,7 +66,7 @@ impl Plugin for ManualCapturePlugin {
     }
 }
 
-fn capture_on_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
+fn capture_on_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>, preview: Option<Res<crate::studio_ui::PreviewTarget>>) {
     if keys.just_pressed(KeyCode::F12) {
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -79,6 +79,11 @@ fn capture_on_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join(format!("cineforge-{stamp}.png"));
         info!("Screenshot: {}", path.display());
-        commands.spawn(Screenshot::primary_window()).observe(save_to_disk(path));
+        // Nur das Vorschau-Bild (ohne Oberfläche), falls vorhanden.
+        let shot = match preview {
+            Some(p) => Screenshot::image(p.0.clone()),
+            None => Screenshot::primary_window(),
+        };
+        commands.spawn(shot).observe(save_to_disk(path));
     }
 }

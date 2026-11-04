@@ -210,34 +210,52 @@ pub fn duplicate(scene: &Scene, id: &str, new_id: Option<&str>, count: u32, offs
     from_value(v)
 }
 
+/// Sucht ein Objekt (auch in Gruppen) über seine id.
+pub fn find<'a>(scene: &'a Scene, id: &str) -> Option<&'a Object> {
+    fn rec<'a>(objs: &'a [Object], id: &str) -> Option<&'a Object> {
+        objs.iter().find_map(|o| {
+            if o.id == id {
+                Some(o)
+            } else if let Kind::Group { children } = &o.kind {
+                rec(children, id)
+            } else {
+                None
+            }
+        })
+    }
+    rec(&scene.objects, id)
+}
+
+/// Kurzbeschreibung eines Objekt-Typs, z. B. `sphere r=0.5`.
+pub fn kind_label(k: &Kind) -> String {
+    match k {
+        Kind::Box { size } => format!("box {size:?}"),
+        Kind::Sphere { radius } => format!("sphere r={radius}"),
+        Kind::Cylinder { radius, height } => format!("cylinder r={radius} h={height}"),
+        Kind::Cone { radius, height } => format!("cone r={radius} h={height}"),
+        Kind::Capsule { radius, length } => format!("capsule r={radius} l={length}"),
+        Kind::Torus { radius, thickness } => format!("torus r={radius} t={thickness}"),
+        Kind::Plane { size } => format!("plane {size:?}"),
+        Kind::Pyramid { size } => format!("pyramid {size:?}"),
+        Kind::Terrain(t) => format!("terrain {:?} {:?} h={}", t.style, t.size, t.height),
+        Kind::Scatter(s) => format!("scatter ×{}", s.count),
+        Kind::Group { children } => format!("group ({} Kinder)", children.len()),
+        Kind::PointLight(l) => format!("point_light {} lm", l.intensity),
+        Kind::RoundedBox { size, radius, .. } => format!("rounded_box {size:?} r={radius}"),
+        Kind::Extrude(e) => format!("extrude {} Punkte h={}", e.profile.len(), e.height),
+        Kind::Lathe(l) => format!("lathe {} Punkte", l.profile.len()),
+        Kind::Tube(t) => format!("tube {} Punkte r={}", t.path.len(), t.radius),
+        Kind::Text(t) => format!("text \"{}\"", t.text.chars().take(30).collect::<String>()),
+        Kind::Instance { asset, .. } => format!("instance \"{asset}\""),
+        Kind::Particles(p) => format!("particles {:?}", p.preset).to_lowercase(),
+        Kind::Image { file, width } => format!("image \"{file}\" b={width}"),
+        Kind::Svg { file, width, .. } => format!("svg {} b={width}", file.as_deref().map(|f| format!("\"{f}\"")).unwrap_or_else(|| "(inline)".into())),
+        Kind::Model { file } => format!("model \"{file}\""),
+    }
+}
+
 /// Kurze Übersicht als Baum, z. B. für Claude oder die Objektliste.
 pub fn outline(scene: &Scene) -> String {
-    fn kind_label(k: &Kind) -> String {
-        match k {
-            Kind::Box { size } => format!("box {size:?}"),
-            Kind::Sphere { radius } => format!("sphere r={radius}"),
-            Kind::Cylinder { radius, height } => format!("cylinder r={radius} h={height}"),
-            Kind::Cone { radius, height } => format!("cone r={radius} h={height}"),
-            Kind::Capsule { radius, length } => format!("capsule r={radius} l={length}"),
-            Kind::Torus { radius, thickness } => format!("torus r={radius} t={thickness}"),
-            Kind::Plane { size } => format!("plane {size:?}"),
-            Kind::Pyramid { size } => format!("pyramid {size:?}"),
-            Kind::Terrain(t) => format!("terrain {:?} {:?} h={}", t.style, t.size, t.height),
-            Kind::Scatter(s) => format!("scatter ×{}", s.count),
-            Kind::Group { children } => format!("group ({} Kinder)", children.len()),
-            Kind::PointLight(l) => format!("point_light {} lm", l.intensity),
-            Kind::RoundedBox { size, radius, .. } => format!("rounded_box {size:?} r={radius}"),
-            Kind::Extrude(e) => format!("extrude {} Punkte h={}", e.profile.len(), e.height),
-            Kind::Lathe(l) => format!("lathe {} Punkte", l.profile.len()),
-            Kind::Tube(t) => format!("tube {} Punkte r={}", t.path.len(), t.radius),
-            Kind::Text(t) => format!("text \"{}\"", t.text.chars().take(30).collect::<String>()),
-            Kind::Instance { asset, .. } => format!("instance \"{asset}\""),
-            Kind::Particles(p) => format!("particles {:?}", p.preset).to_lowercase(),
-            Kind::Image { file, width } => format!("image \"{file}\" b={width}"),
-            Kind::Svg { file, width, .. } => format!("svg {} b={width}", file.as_deref().map(|f| format!("\"{f}\"")).unwrap_or_else(|| "(inline)".into())),
-            Kind::Model { file } => format!("model \"{file}\""),
-        }
-    }
     fn rec(out: &mut String, objs: &[Object], depth: usize) {
         for o in objs {
             let p = o.position;

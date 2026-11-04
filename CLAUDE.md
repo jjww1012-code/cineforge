@@ -18,7 +18,9 @@ damit eine neue Sitzung (z. B. nach Nutzungslimit) nahtlos weitermachen kann.
   `procedural` (Geometrie), `project` (Logbuch). Engine-unabhängig, gut testbar.
 - `apps/studio` – Bevy-App: `source` (Datei, Live-Reload, Verlauf), `spawn` (Szene → Entities),
   `environment` (Himmel/Sonne/Kamera), `control` (MCP-HTTP-Server), `tools` (MCP-Werkzeuge),
-  `bridge` (`cineforge mcp` stdio), `project` (Projektordner, zuletzt.json), `hud`, `capture`.
+  `bridge` (`cineforge mcp` stdio), `project` (Projektordner, zuletzt.json), `hud` (Schrift, Titel),
+  `studio_ui` (Oberfläche wie ein Schnittprogramm: Listen, Vorschau als `ViewportNode`,
+  Eigenschaften, Zeitleiste, Auswahl per Klick), `capture`.
 
 ## Befehle
 
@@ -41,6 +43,10 @@ python3 tools/mcp_test_client.py ./target/debug/cineforge /tmp/out steps.json
 ```
 
 Bilder immer ansehen (Read auf PNG/JPG) – die Bildkontrolle ist Pflicht.
+Oberfläche prüfen: `--hud` zeigt im Screenshot die komplette Oberfläche, `--select ID` wählt
+ein Objekt vor. Klicks testen: App auf `Xvfb :81 -screen 0 1600x900x24` starten,
+`xdotool mousemove X Y; xdotool mousedown 1; sleep 0.4; xdotool mouseup 1` (kein `--window`,
+das wären synthetische Ereignisse), Bild mit `import -window root out.png`.
 Software-Rendering ist langsam (~1 FPS, ~20 s pro Kontrollbild); auf echter GPU ist es schnell.
 **Nie `rm -rf $HOME` o. ä.** – für Tests `CINEFORGE_HOME` auf einen frischen Ordner setzen.
 
@@ -56,6 +62,10 @@ Software-Rendering ist langsam (~1 FPS, ~20 s pro Kontrollbild); auf echter GPU 
   `RenderTarget::Image(handle.into())`, `Screenshot::image(handle)` + `On<ScreenshotCaptured>`.
 - Standardschrift ohne Umlaute → Inter wird in `hud::install_font` in den Default-Handle geladen.
 - Shader-Pipelines kompilieren asynchron: vor Screenshots einige Frames warten.
+- `Button`/`Interaction` sind veraltet: Klicks über `MessageReader<PointerClick>` (Picking),
+  Hover über `Hovered`. 3D-Klicks brauchen CPU-Mesh-Daten (`RenderAssetUsages::default()`).
+- Neben der Vorschau-Kamera (rendert in ein Bild) gibt es eine `Camera2d` nur für die UI.
+  Gizmos liegen auf `RenderLayers` 7 – nur die Vorschau sieht sie, Exporte nicht.
 
 ## Regeln
 

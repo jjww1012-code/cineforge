@@ -894,3 +894,8 @@ mod glyph_check {
         assert!(missing.is_empty(), "Diese Zeichen fehlen in der Schrift: {missing:?}");
     }
 }
+
+/// Enthält die Schrift dieses Zeichen? (Für Oberflächen-Texte: keine leeren Kästchen.)
+pub fn font_has_char(font: &[u8], ch: char) -> bool {
+    ttf_parser::Face::parse(font, 0).ok().and_then(|f| f.glyph_index(ch)).is_some()
+}

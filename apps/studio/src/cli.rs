@@ -14,7 +14,8 @@ Optionen:
   --screenshot DATEI.png   Szene rendern, Bild speichern und beenden
   --size BREITExHÖHE       Fenster-/Bildgröße (Standard 1600x900)
   --frames N               Frames warten vor dem Screenshot (Standard 60)
-  --hud                    Einblendungen auch im Screenshot zeigen
+  --hud                    Komplette Studio-Oberfläche im Screenshot zeigen
+  --select ID              Objekt vorab auswählen (mit --hud)
   --time SEKUNDEN          Zeitpunkt für den Screenshot (Standard 0)
   --port N                 Port für die Claude-Verbindung (Standard 47800)
   -h, --help               Diese Hilfe
@@ -51,6 +52,8 @@ pub struct Args {
     pub hud: bool,
     pub time: f32,
     pub port: u16,
+    /// Objekt vorab auswählen (zum Testen der Oberfläche mit --hud).
+    pub select: Option<String>,
     /// `cineforge mcp`: stdio-Brücke statt Fenster.
     pub mcp_bridge: bool,
     pub help: bool,
@@ -60,7 +63,7 @@ impl Args {
     pub fn parse(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
         let mut a = Args {
             scene: None, screenshot: None, size: (1600, 900), frames: 60, hud: false, time: 0.0,
-            port: crate::control::DEFAULT_PORT, mcp_bridge: false, help: false,
+            port: crate::control::DEFAULT_PORT, select: None, mcp_bridge: false, help: false,
         };
         let mut first = true;
         while let Some(arg) = it.next() {
@@ -70,6 +73,7 @@ impl Args {
                 "--port" => a.port = it.next().and_then(|v| v.parse().ok()).ok_or("--port braucht eine Zahl")?,
                 "-h" | "--help" => a.help = true,
                 "--hud" => a.hud = true,
+                "--select" => a.select = Some(it.next().ok_or("--select braucht eine Objekt-id")?),
                 "--time" => a.time = it.next().and_then(|v| v.parse().ok()).ok_or("--time braucht Sekunden")?,
                 "--screenshot" => {
                     a.screenshot = Some(it.next().ok_or("--screenshot braucht einen Dateinamen")?.into())

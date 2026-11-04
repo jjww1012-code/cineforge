@@ -4,8 +4,8 @@
 entstehen als strukturierte Beschreibung und werden in Echtzeit auf der GPU gerendert,
 bis 4K, für macOS und Windows.
 
-> Status: **Etappe 2** – Claude ist verbunden: Es baut und ändert Szenen live in der
-> App und prüft das Ergebnis per Kontrollbild. Siehe [Fahrplan](docs/FAHRPLAN.md).
+> Status: Claude baut und ändert Szenen live in der App, prüft das Ergebnis per Kontrollbild,
+> erzeugt eigene Sounds, Musik und 2D-Grafiken und rendert ganze Filme. Siehe [Fahrplan](docs/FAHRPLAN.md).
 
 ## Mit Claude arbeiten
 
@@ -13,7 +13,23 @@ App starten, **F2** drücken, Claude Desktop neu starten. Danach zum Beispiel sc
 „Bau mir in CineForge eine Unterwasserstadt mit leuchtenden Kuppeln.“
 Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
-![Demo-Szene](docs/bilder/wueste.png)
+![Die Oberfläche](docs/bilder/oberflaeche.png)
+
+## Die Oberfläche
+
+Aufgebaut wie ein Schnittprogramm (ähnlich CapCut):
+
+- **Oben:** Projekt › Szene und ob Claude verbunden ist (mit der letzten Aktion).
+- **Links:** *Szenen* (Storyboard, Klick öffnet die Szene), *Objekte* (alle Teile der Szene,
+  Klick wählt aus), *Medien* (Audio, Clips, Bilder, 3D-Modelle des Projekts).
+- **Mitte:** die Vorschau. Ein Klick auf ein Objekt wählt es aus und rahmt es ein –
+  Claude weiß dann, was du mit „das hier“ meinst. Darunter Abspielen, Zeit, Schleife,
+  Szenen-/freie Kamera und 16:9 / 9:16 (Hochformat für TikTok/Reels).
+- **Rechts:** *Eigenschaften* des ausgewählten Objekts (oder der Szene) und *Was passiert* –
+  was Claude gerade gemacht hat und der nächste Schritt.
+- **Unten:** die Zeitleiste. Oben alle Shots des Films, darunter die Spuren der geöffneten
+  Szene: Kamera, Texte, Ton und jedes animierte Objekt mit seinen Keyframes (◆).
+  Klicken oder Ziehen springt an die Stelle.
 
 ## Ausprobieren
 
@@ -37,15 +53,16 @@ speichere – die Welt ändert sich sofort.**
 
 | Eingabe | Aktion |
 |---|---|
-| Rechte Maustaste halten + Maus | Umschauen |
+| Linke Maustaste in der Vorschau | Objekt auswählen |
+| Rechte Maustaste halten + Maus | Umschauen (Maus über der Vorschau) |
 | W A S D | Fliegen |
 | E / Q | Hoch / Runter |
 | Shift | Schneller |
 | Mausrad | Fluggeschwindigkeit |
 | C | Zurück zur Szenen-Kamera |
 | R | Szene neu laden |
-| H | Infos ein-/ausblenden |
-| F12 | Screenshot (landet in `Dokumente/CineForge/Screenshots`) |
+| Esc | Auswahl aufheben |
+| F12 | Bild der Vorschau speichern (landet in `Dokumente/CineForge/Screenshots`) |
 | Cmd/Strg + Z | Rückgängig (auch Änderungen von Claude) |
 | F2 | Mit Claude Desktop verbinden |
 | Leertaste | Animation abspielen / pausieren |

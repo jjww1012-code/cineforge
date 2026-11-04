@@ -841,7 +841,8 @@ fn track_model_loading(
 }
 
 pub fn to_bevy_mesh(d: MeshData) -> Mesh {
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
+    // CPU-Kopie behalten: nötig, damit man Objekte in der Vorschau anklicken kann.
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, d.positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, d.normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, d.uvs)

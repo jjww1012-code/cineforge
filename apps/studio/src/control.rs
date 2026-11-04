@@ -62,7 +62,8 @@ impl Plugin for ControlPlugin {
                 status.error = Some(msg);
             }
         }
-        app.insert_resource(status)
+        app.init_resource::<crate::studio_ui::Selection>()
+            .insert_resource(status)
             .insert_resource(Inbox(Mutex::new(rx)))
             .add_systems(Update, process_calls);
     }
@@ -77,6 +78,7 @@ fn process_calls(
     mut jobs: ResMut<crate::render::RenderQueue>,
     mut out: MessageWriter<SceneLoaded>,
     user_view: UserViewQuery,
+    mut selection: ResMut<crate::studio_ui::Selection>,
 ) {
     let Ok(rx) = inbox.0.lock() else { return };
     // Mehrere Aufrufe pro Frame abarbeiten, aber nicht unbegrenzt.
@@ -93,6 +95,7 @@ fn process_calls(
             jobs: &mut jobs,
             out: &mut out,
             user_view: user_view.single().ok().copied(),
+            selection: &mut selection,
         };
         tools::execute(call, &mut cx);
     }

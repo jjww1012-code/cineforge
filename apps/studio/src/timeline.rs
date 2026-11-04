@@ -47,8 +47,7 @@ impl Plugin for TimelinePlugin {
                 .in_set(TimelineSet),
         );
         if self.interactive {
-            app.add_systems(Startup, setup_ui)
-                .add_systems(Update, (playback_keys.before(TimelineSet), update_ui.after(TimelineSet)));
+            app.add_systems(Update, playback_keys.before(TimelineSet));
         }
     }
 }
@@ -280,96 +279,11 @@ fn follow_scene_camera(
 // Zeitleiste (Anzeige)
 // ---------------------------------------------------------------------------
 
-#[derive(Component)]
-struct TimeText;
-#[derive(Component)]
-struct TimeBarFill;
-
-fn setup_ui(mut commands: Commands) {
-    // Zeitanzeige oben rechts
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(14),
-                right: px(14),
-                padding: UiRect::axes(px(12), px(8)),
-                border_radius: BorderRadius::all(px(8)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.05, 0.05, 0.08, 0.72)),
-            Pickable::IGNORE,
-        ))
-        .with_children(|p| {
-            p.spawn((TimeText, Text::new(""), TextFont::from_font_size(15.0)));
-        });
-    // Fortschrittsbalken ganz unten
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: px(0),
-                left: px(0),
-                width: percent(100),
-                height: px(5),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.12)),
-            Pickable::IGNORE,
-        ))
-        .with_children(|p| {
-            p.spawn((
-                TimeBarFill,
-                Node { width: percent(0), height: percent(100), ..default() },
-                BackgroundColor(Color::srgb(1.0, 0.62, 0.2)),
-            ));
-        });
-}
-
 pub fn format_time(t: f32) -> String {
     let t = t.max(0.0);
     let m = (t / 60.0).floor() as u32;
     let s = t - m as f32 * 60.0;
     format!("{m:02}:{s:04.1}")
-}
-
-fn update_ui(
-    ph: Res<Playhead>,
-    src: Res<SceneSource>,
-    jobs: Option<Res<crate::render::RenderQueue>>,
-    mut text: Query<&mut Text, With<TimeText>>,
-    mut bar: Query<&mut Node, With<TimeBarFill>>,
-) {
-    let dur = src.scene.duration;
-    let state = if ph.locked_by_job {
-        "● Aufnahme"
-    } else if ph.playing {
-        "▶"
-    } else {
-        "Pause"
-    };
-    let export = jobs
-        .as_ref()
-        .filter(|j| j.export_running())
-        .and_then(|j| j.export_summary())
-        .map(|s| format!("\n{s}"))
-        .unwrap_or_default();
-    let line = format!(
-        "{state}  {} / {}{}{}\nLeertaste: Abspielen · ←/→: springen · V: {}{export}",
-        format_time(ph.time),
-        format_time(dur),
-        if ph.looping { "  ·  Schleife" } else { "" },
-        if ph.camera_view { "  ·  Szenen-Kamera" } else { "" },
-        if ph.camera_view { "freie Kamera" } else { "Szenen-Kamera" }
-    );
-    for mut t in &mut text {
-        if t.0 != line {
-            t.0 = line.clone();
-        }
-    }
-    for mut n in &mut bar {
-        n.width = percent((ph.time / dur.max(1e-3) * 100.0).clamp(0.0, 100.0));
-    }
 }
 
 #[cfg(test)]

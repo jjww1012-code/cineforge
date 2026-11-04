@@ -82,7 +82,8 @@ Arbeitsweise:
 4. Ändern mit add_objects, update_object, remove_objects, update_scene_settings – oder set_scene für komplett neue Szenen.
 5. Nach jeder sichtbaren Änderung screenshot aufrufen und das Bild kritisch prüfen (Komposition, Licht, Größenverhältnisse, Überschneidungen). Dann verbessern.
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
-7. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
+7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
+8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
 Medien: Bilder (PNG/JPG/SVG) in Bilder/, 3D-Modelle (glTF/GLB) in Modelle/ (type \"model\"). 2D-Grafiken zeichnest du selbst als SVG (type \"svg\"), Geräusche mit create_sound, Musik mit create_music. Cartoons: 2D-Kamera (camera.orthographic) + SVG-Figuren, siehe get_guide.
 Einheiten: Meter und Grad, Y zeigt nach oben. Jedes Objekt braucht eine eindeutige, sprechende id.";
 
@@ -105,6 +106,16 @@ pub fn definitions() -> Value {
             "name": "claim_task",
             "description": "Für mehrere Agenten gleichzeitig: übernimmt die nächste freie Aufgabe (status open, ohne Besitzer) für agent und setzt sie auf in_progress. So arbeiten nie zwei Agenten an derselben Aufgabe.",
             "inputSchema": {"type": "object", "properties": {"agent": {"type": "string"}}, "required": ["agent"]}
+        },
+        {
+            "name": "get_selection",
+            "description": "Welches Objekt hat der Mensch im CineForge-Fenster angeklickt? Liefert id und alle Felder. Nutze das, wenn er „das hier“, „dieses Objekt“, „das Ausgewählte“ o. ä. sagt.",
+            "inputSchema": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "select_object",
+            "description": "Markiert ein Objekt im Fenster (Rahmen in der Vorschau, Eigenschaften rechts), um dem Menschen zu zeigen, was du meinst. Ohne id: Markierung aufheben.",
+            "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}}
         },
         {
             "name": "get_guide",
@@ -412,6 +423,8 @@ pub struct Ctx<'a, 'm> {
     pub jobs: &'a mut crate::render::RenderQueue,
     pub out: &'a mut MessageWriter<'m, SceneLoaded>,
     pub user_view: Option<Transform>,
+    /// Was der Mensch im Fenster angeklickt hat.
+    pub selection: &'a mut crate::studio_ui::Selection,
 }
 
 /// Kurzbeschreibung einer Änderung fürs Protokoll.
@@ -598,7 +611,29 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     let reply = match call.name.as_str() {
         "get_guide" => ToolOutput::text(format!("{INSTRUCTIONS}\n\n{GUIDE}")),
         "get_scene" => ToolOutput::text(cx.src.scene.to_json_pretty()),
-        "list_objects" => ToolOutput::text(ops::outline(&cx.src.scene)),
+        "list_objects" => ToolOutput::text(format!("{}{}", ops::outline(&cx.src.scene), selection_line(cx))),
+        "get_selection" => match cx.selection.id.clone() {
+            None => ToolOutput::text("Im Fenster ist nichts ausgewählt."),
+            Some(id) => {
+                let detail = ops::find(&cx.src.scene, &id)
+                    .and_then(|o| serde_json::to_string_pretty(o).ok())
+                    .unwrap_or_else(|| "(Objekt gibt es in der geöffneten Szene nicht mehr)".into());
+                ToolOutput::text(format!("Der Mensch hat „{id}“ ausgewählt. Wenn er „das hier“, „dieses Objekt“ o. ä. sagt, meint er dieses.\n\n{detail}"))
+            }
+        },
+        "select_object" => {
+            let id = str_arg("id").map(String::from);
+            match &id {
+                Some(i) if ops::find(&cx.src.scene, i).is_none() => ToolOutput::error(format!("Kein Objekt „{i}“ in der geöffneten Szene.")),
+                _ => {
+                    cx.selection.id = id.clone();
+                    ToolOutput::text(match id {
+                        Some(i) => format!("„{i}“ ist jetzt im Fenster markiert (Rahmen in der Vorschau, Eigenschaften rechts)."),
+                        None => "Markierung aufgehoben.".into(),
+                    })
+                }
+            }
+        }
         "undo" => match cx.src.undo(cx.out) {
             Ok(true) => {
                 cx.project.log("claude", format!("[{scene_file}] rückgängig"));
@@ -1271,7 +1306,16 @@ fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
     ))
 }
 
+fn selection_line(cx: &Ctx) -> String {
+    cx.selection.id.as_ref().map(|id| format!("\nIm Fenster ausgewählt: „{id}“ (meint der Mensch mit „das hier“)\n")).unwrap_or_default()
+}
+
 fn resume_text(cx: &Ctx) -> String {
+    let text = resume_inner(cx);
+    format!("{text}{}", selection_line(cx))
+}
+
+fn resume_inner(cx: &Ctx) -> String {
     let scene = format!("Datei: {}\n{}", cx.src.path.display(), ops::outline(&cx.src.scene));
     if cx.project.dir.is_none() {
         return format!(

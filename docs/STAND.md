@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-04 · 2D-Grafik (SVG), 2D-Kamera, Cartoon-Stil, 3D-Modell-Import fertig
+**Zuletzt aktualisiert:** 2026-11-04 · Neue Oberfläche (wie ein Schnittprogramm) mit Auswahl per Klick fertig
 
 ## Fertig
 
@@ -83,13 +83,24 @@
   Bibliotheks-Dateien, Bilder/SVG/Modelle mit Änderungszeit). Umgebung (Himmel, Sonne) wird nur
   bei Änderung neu aufgebaut. Wüste: voller Aufbau 878 ms, Einzeländerung 0 ms. HUD zeigt „(N neu)“.
 
+- **Oberfläche wie ein Schnittprogramm (`studio_ui.rs`):** Kopfzeile (Projekt › Szene,
+  Claude-Status, Export-Fortschritt), links Szenen/Storyboard, Objekte (Baum), Medien;
+  Mitte Vorschau als `ViewportNode` (Hauptkamera rendert in ein Bild, 16:9 oder 9:16) mit
+  Wiedergabe-Leiste; rechts Eigenschaften (Objekt oder Szene) und „Was passiert“ (Logbuch,
+  nächster Schritt); unten Film-Leiste (Shots, Klick öffnet Szene) und Spuren der Szene
+  (Kamera, Text, Ton, animierte Objekte mit Keyframes), Klicken/Ziehen springt.
+  **Klicken & sagen:** Klick in Liste oder Vorschau wählt aus (Mesh-Picking, Rahmen per Gizmo
+  auf eigener Render-Ebene – nicht in Exporten); MCP `get_selection` / `select_object`,
+  Auswahl steht auch in `list_objects` und `resume`. F12 speichert nur die Vorschau.
+  CLI `--hud` zeigt die Oberfläche im Screenshot, `--select ID`. Getestet mit xdotool auf Xvfb.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **Übersichtliche Oberfläche wie CapCut:** Zeitleiste mit Spuren (Shots, Ton, Einblendungen),
-   Medien-Leiste, Eigenschaften-Bereich, Vorschau-Fenster.
-2. **Noch detailliertere 3D-Modelle:** Glätten/Unterteilen, Boolesche Operationen, Verformen.
-3. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
-4. **Ton-Vorschau in der App** (synchron zur Zeitleiste), Klicken & sagen.
+1. **Noch detailliertere 3D-Modelle:** Glätten/Unterteilen, Boolesche Operationen, Verformen.
+2. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
+3. **Ton-Vorschau in der App** (synchron zur Zeitleiste, Wellenform in der Ton-Spur).
+4. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen
+   umsortieren, Vorschaubilder der Shots in der Film-Leiste.
 
 ## Offene Punkte / Wissenswertes
 

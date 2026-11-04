@@ -23,6 +23,7 @@ mod project;
 mod render;
 mod source;
 mod spawn;
+mod studio_ui;
 mod timeline;
 mod tools;
 mod video;
@@ -109,12 +110,16 @@ fn main() -> AppExit {
 
     if let Some(path) = args.screenshot.clone() {
         app.add_plugins(capture::AutoCapturePlugin { path, frames: args.frames, time: args.time });
+        app.add_plugins(hud::HudPlugin);
         if args.hud {
-            app.add_plugins(hud::HudPlugin);
+            // Mit --hud zeigt der Screenshot die komplette Studio-Oberfläche.
+            app.add_plugins(studio_ui::StudioUiPlugin);
+            app.insert_resource(studio_ui::Selection { id: args.select.clone() });
         }
     } else {
         app.add_plugins((
             hud::HudPlugin,
+            studio_ui::StudioUiPlugin,
             capture::ManualCapturePlugin,
             control::ControlPlugin { port: args.port },
             claude_setup::ClaudeSetupPlugin,

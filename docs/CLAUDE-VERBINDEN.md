@@ -105,6 +105,7 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `create_music` | Eigene Musik erzeugen (Stil, Tempo, Akkorde, Abschnitte) |
 | `save_asset`, `list_assets`, `get_asset` | Objekt-Bibliothek |
 | `undo` | Letzte Änderung zurücknehmen |
+| `get_selection`, `select_object` | Was der Mensch im Fenster angeklickt hat / ein Objekt für den Menschen markieren |
 | `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien im Projekt verwalten |
 | `resume` | Kompletter Projekt-Stand zum Weitermachen |
 | `update_plan` | Ziel, Stil, Storyboard, nächster Schritt |
