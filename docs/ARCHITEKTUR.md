@@ -28,7 +28,9 @@ herauskommt.
 | Studio-App (Fenster, Vorschau, Flug-Kamera, Live-Reload, Screenshots) | `apps/studio` | ✅ Etappe 1 |
 | Zeitleiste & Animation (Keyframes, Kamerafahrten) | `crates/cf_timeline` | Etappe 3 |
 | Export (Hardware-Encoding, parallele Abschnitte, Szenen-Cache) | `crates/cf_export` | Etappe 3 |
-| Claude-Agent in der App + MCP-Server nach außen | `crates/cf_agent` | Etappe 2 |
+| Bearbeitungs-Operationen (Merge-Patch, Hinzufügen, Löschen, Übersicht) | `crates/cf_scene/src/ops.rs` | ✅ Etappe 2 |
+| MCP-Server (HTTP, nur lokal) + Werkzeuge + stdio-Brücke + Verlauf/Rückgängig | `apps/studio/src/{control,tools,bridge,claude_setup}.rs` | ✅ Etappe 2 |
+| Chat-Fenster in der App (Claude-API) | `crates/cf_agent` | Etappe 7 |
 | Effekte (Partikel, Explosionen, Wetter, Übergänge, Text) | `crates/cf_fx` | Etappe 5 |
 | Audio (KI-Stimmen lokal, Musik, Beat-Sync, Untertitel) | `crates/cf_audio` | Etappe 6 |
 | Server (Konten, Abo, Credits, Claude-Proxy, Sync) | `server/` | Etappe 7 |
@@ -56,13 +58,22 @@ herauskommt.
 - **Proxy-Vorschau:** Arbeiten in niedriger Auflösung, 4K erst beim Export.
 - **Instanzen:** Tausende gleiche Objekte (Steine, Bäume) teilen sich Mesh und Material.
 
-## Wie Claude arbeiten wird (Etappe 2+)
+## Wie Claude arbeitet
 
-Werkzeuge (Auswahl):
+```
+Claude Desktop ──stdio──► cineforge mcp (Brücke) ──HTTP──┐
+Claude Code ─────────────────────HTTP────────────────────┤
+                                                         ▼
+                                   127.0.0.1:47800/mcp  (Server-Thread)
+                                                         │  Kanal
+                                                         ▼
+                              Bevy-Welt: Werkzeug ausführen ─► Szene prüfen ─► speichern ─► neu aufbauen
+                                                         │
+                                         Screenshot: unsichtbare Kamera ─► JPEG ─► zurück an Claude
+```
 
-- `scene.get` / `scene.patch` – Dokument lesen / gezielt ändern (per Objekt-id)
-- `object.create`, `object.update`, `object.delete`
-- `view.screenshot(camera, size)` – Bild der aktuellen Ansicht
-- `view.contact_sheet(start, end, n)` – mehrere Zeitpunkte als Raster
-- `scene.validate` – Fehler und Warnungen in Klartext
-- `timeline.*`, `fx.*`, `audio.*`, `export.*`
+- Jede Änderung wird **vorher** vollständig geprüft; ungültige Befehle ändern nichts.
+- Änderungen landen sofort in der Szenen-Datei (atomar geschrieben) und im Verlauf.
+- Kontrollbilder rendert eine unsichtbare Zusatz-Kamera; das Fenster bleibt unberührt.
+  Dieselbe Technik wird für den Video-Export genutzt.
+- Später folgen: `contact_sheet` (mehrere Zeitpunkte), `timeline.*`, `fx.*`, `audio.*`, `export.*`.

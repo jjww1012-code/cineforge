@@ -1,23 +1,28 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
-//! CineForge Studio – Etappe 1
+//! CineForge Studio
 //!
 //! - lädt ein Szenen-Dokument (JSON) und baut daraus die 3D-Welt
-//! - freie Flug-Kamera
-//! - Live-Reload: Änderungen an der Datei (z. B. durch Claude) erscheinen sofort
+//! - freie Flug-Kamera, Live-Reload, Rückgängig
+//! - Claude-Verbindung (MCP) mit Werkzeugen zum Bauen und Prüfen
 //! - Screenshot-Modus für automatische Bildkontrolle (`--screenshot`)
 
+mod bridge;
 mod capture;
+mod claude_setup;
 mod cli;
+mod control;
 mod environment;
 mod hud;
 mod source;
 mod spawn;
+mod tools;
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     diagnostic::FrameTimeDiagnosticsPlugin,
     prelude::*,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 use cli::Args;
@@ -32,6 +37,10 @@ fn main() -> AppExit {
     };
     if args.help {
         println!("{}", cli::USAGE);
+        return AppExit::Success;
+    }
+    if args.mcp_bridge {
+        bridge::run(args.port);
         return AppExit::Success;
     }
 
@@ -68,6 +77,9 @@ fn main() -> AppExit {
         spawn::SpawnPlugin,
         source::SourcePlugin,
     ))
+    // Auch im Hintergrund weiterrechnen, damit Claude arbeiten kann,
+    // während das Fenster nicht im Vordergrund ist.
+    .insert_resource(WinitSettings { focused_mode: UpdateMode::Continuous, unfocused_mode: UpdateMode::Continuous })
     .add_systems(Startup, setup_camera);
 
     if let Some(path) = args.screenshot.clone() {
@@ -76,7 +88,12 @@ fn main() -> AppExit {
             app.add_plugins(hud::HudPlugin);
         }
     } else {
-        app.add_plugins((hud::HudPlugin, capture::ManualCapturePlugin));
+        app.add_plugins((
+            hud::HudPlugin,
+            capture::ManualCapturePlugin,
+            control::ControlPlugin { port: args.port },
+            claude_setup::ClaudeSetupPlugin,
+        ));
     }
 
     app.run()
@@ -88,6 +105,7 @@ pub struct MainCamera;
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
         MainCamera,
+        environment::SceneView,
         Camera3d::default(),
         Msaa::Sample4,
         FreeCamera {

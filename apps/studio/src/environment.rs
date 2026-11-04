@@ -48,36 +48,37 @@ pub fn sun_direction(azimuth_deg: f32, elevation_deg: f32) -> Vec3 {
     Vec3::new(az.sin() * el.cos(), el.sin(), -az.cos() * el.cos()).normalize()
 }
 
+/// Markiert jede Kamera, die die Szene zeigt (Fenster-Kamera und unsichtbare
+/// Aufnahme-Kameras). Alle bekommen dieselben Umgebungs-Einstellungen.
+#[derive(Component)]
+pub struct SceneView;
+
 fn apply_environment(
     mut commands: Commands,
     mut loaded: MessageReader<SceneLoaded>,
     src: Res<SceneSource>,
     medium: Res<EarthMedium>,
     old: Query<Entity, With<EnvEntity>>,
-    mut camera: Query<(Entity, &mut Transform, &mut Projection), With<MainCamera>>,
+    mut main_cam: Query<&mut Transform, With<MainCamera>>,
+    views: Query<Entity, With<SceneView>>,
 ) {
     let Some(new_file) = loaded.read().fold(None, |acc: Option<bool>, m| Some(acc.unwrap_or(false) | m.new_file))
     else {
         return;
     };
-    let Ok((cam, mut cam_tf, mut projection)) = camera.single_mut() else { return };
     for e in &old {
         commands.entity(e).despawn();
     }
-
     let scene = &src.scene;
     let env: &Environment = &scene.environment;
     let atmosphere = matches!(env.sky, Sky::Atmosphere);
 
-    // Kamera: Position nur beim ersten Laden setzen, damit man beim Live-Editieren
-    // nicht ständig zurückgeworfen wird.
+    // Kamera-Position nur beim Öffnen einer Datei setzen, damit man beim
+    // Live-Editieren nicht ständig zurückgeworfen wird.
     if new_file {
-        *cam_tf = scene_camera_transform(&scene.camera);
-    }
-    if let Projection::Perspective(p) = projection.as_mut() {
-        p.fov = scene.camera.fov.clamp(5.0, 150.0).to_radians();
-        p.far = 20_000.0;
-        p.near = 0.1;
+        if let Ok(mut tf) = main_cam.single_mut() {
+            *tf = scene_camera_transform(&scene.camera);
+        }
     }
 
     // Sonne
@@ -104,23 +105,8 @@ fn apply_environment(
     ));
     if atmosphere {
         sun.insert(SunDisk::EARTH);
-    }
-
-    let mut cam_cmd = commands.entity(cam);
-    cam_cmd.insert(Tonemapping::AgX);
-
-    if atmosphere {
-        commands.spawn((
-            EnvEntity,
-            Name::new("Atmosphäre"),
-            Atmosphere::earth(medium.0.clone()),
-        ));
+        commands.spawn((EnvEntity, Name::new("Atmosphäre"), Atmosphere::earth(medium.0.clone())));
         commands.insert_resource(GlobalAmbientLight::NONE);
-        commands.entity(cam).insert((
-            AtmosphereSettings::default(),
-            AtmosphereEnvironmentMapLight { intensity: env.ambient.max(0.0), ..default() },
-            Exposure { ev100: 13.0 - env.exposure },
-        ));
     } else {
         let Sky::Color { color: sky } = &env.sky else { unreachable!() };
         commands.insert_resource(ClearColor(color(*sky)));
@@ -129,35 +115,53 @@ fn apply_environment(
             brightness: 2500.0 * env.ambient.max(0.0),
             ..default()
         });
-        commands
-            .entity(cam)
-            .remove::<(AtmosphereSettings, AtmosphereEnvironmentMapLight)>()
-            .insert(Exposure { ev100: Exposure::EV100_SUNLIGHT - env.exposure });
     }
 
+    for view in &views {
+        configure_view(&mut commands.entity(view), scene);
+    }
+}
+
+/// Setzt alle kamerabezogenen Einstellungen (Belichtung, Himmel, Nebel, Bloom, Bildwinkel).
+pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
+    let env = &scene.environment;
+    cam.insert((
+        Tonemapping::AgX,
+        Projection::Perspective(PerspectiveProjection {
+            fov: scene.camera.fov.clamp(5.0, 150.0).to_radians(),
+            near: 0.1,
+            far: 20_000.0,
+            ..default()
+        }),
+    ));
+    if matches!(env.sky, Sky::Atmosphere) {
+        cam.insert((
+            AtmosphereSettings::default(),
+            AtmosphereEnvironmentMapLight { intensity: env.ambient.max(0.0), ..default() },
+            Exposure { ev100: 13.0 - env.exposure },
+        ));
+    } else {
+        cam.remove::<(AtmosphereSettings, AtmosphereEnvironmentMapLight)>()
+            .insert(Exposure { ev100: Exposure::EV100_SUNLIGHT - env.exposure });
+    }
     match &env.fog {
         Some(f) => {
             let c = color(f.color);
-            commands.entity(cam).insert(DistanceFog {
+            cam.insert(DistanceFog {
                 color: c,
                 directional_light_color: color(env.sun.color).with_alpha(0.4),
                 directional_light_exponent: 20.0,
-                falloff: FogFalloff::from_visibility_colors(
-                    f.visibility.max(1.0),
-                    c.mix(&Color::BLACK, 0.25),
-                    c,
-                ),
+                falloff: FogFalloff::from_visibility_colors(f.visibility.max(1.0), c.mix(&Color::BLACK, 0.25), c),
             });
         }
         None => {
-            commands.entity(cam).remove::<DistanceFog>();
+            cam.remove::<DistanceFog>();
         }
     }
-
     if env.bloom > 0.0 {
-        commands.entity(cam).insert(Bloom { intensity: env.bloom, ..Bloom::NATURAL });
+        cam.insert(Bloom { intensity: env.bloom, ..Bloom::NATURAL });
     } else {
-        commands.entity(cam).remove::<Bloom>();
+        cam.remove::<Bloom>();
     }
 }
 

@@ -22,9 +22,13 @@ pub struct SceneSource {
     poll: Timer,
     /// Zuletzt erfolgreich geladene Szene.
     pub scene: Scene,
-    /// Fehler der letzten Ladeversuchs (None = alles ok).
+    /// Fehler des letzten Ladeversuchs (None = alles ok).
     pub error: Option<String>,
+    /// Frühere Fassungen für „Rückgängig“ (neueste zuletzt).
+    history: Vec<Scene>,
 }
+
+const MAX_HISTORY: usize = 100;
 
 /// Wird gesendet, wenn eine neue gültige Szene geladen wurde.
 #[derive(Message)]
@@ -46,8 +50,76 @@ impl SceneSource {
             poll: Timer::new(Duration::from_millis(250), TimerMode::Repeating),
             scene,
             error: None,
+            history: Vec::new(),
         })
     }
+
+    /// Übernimmt eine neue (bereits geprüfte) Szene: merkt die alte für
+    /// „Rückgängig“, speichert die Datei und meldet die Änderung.
+    pub fn commit(&mut self, scene: Scene, out: &mut MessageWriter<SceneLoaded>) -> Result<(), String> {
+        self.write_file(&scene)?;
+        let old = std::mem::replace(&mut self.scene, scene);
+        self.push_history(old);
+        self.error = None;
+        out.write(SceneLoaded { new_file: false });
+        Ok(())
+    }
+
+    /// Stellt die vorherige Fassung wieder her. Liefert false, wenn es keine gibt.
+    pub fn undo(&mut self, out: &mut MessageWriter<SceneLoaded>) -> Result<bool, String> {
+        let Some(prev) = self.history.pop() else { return Ok(false) };
+        self.write_file(&prev)?;
+        self.scene = prev;
+        self.error = None;
+        out.write(SceneLoaded { new_file: false });
+        Ok(true)
+    }
+
+    pub fn history_len(&self) -> usize {
+        self.history.len()
+    }
+
+    /// Öffnet eine andere Szenen-Datei (Verlauf beginnt neu).
+    pub fn open_file(&mut self, path: PathBuf, out: &mut MessageWriter<SceneLoaded>) -> Result<(), String> {
+        let (scene, modified) = read_scene(&path)?;
+        self.path = path;
+        self.scene = scene;
+        self.modified = modified;
+        self.error = None;
+        self.history.clear();
+        out.write(SceneLoaded { new_file: true });
+        Ok(())
+    }
+
+    fn push_history(&mut self, old: Scene) {
+        if self.history.last() != Some(&old) {
+            self.history.push(old);
+            if self.history.len() > MAX_HISTORY {
+                self.history.remove(0);
+            }
+        }
+    }
+
+    fn write_file(&mut self, scene: &Scene) -> Result<(), String> {
+        // Erst in eine Hilfsdatei schreiben, dann umbenennen: so entsteht
+        // nie eine halb geschriebene Szene, falls etwas abbricht.
+        let tmp = self.path.with_extension("json.tmp");
+        std::fs::write(&tmp, scene.to_json_pretty())
+            .and_then(|_| std::fs::rename(&tmp, &self.path))
+            .map_err(|e| format!("Speichern fehlgeschlagen ({}): {e}", self.path.display()))?;
+        // Eigene Änderung nicht noch einmal als „Datei geändert“ einlesen.
+        self.modified = std::fs::metadata(&self.path).and_then(|m| m.modified()).ok();
+        Ok(())
+    }
+}
+
+/// Ordner für Szenen: Dokumente/CineForge/Szenen
+pub fn scenes_dir() -> Result<PathBuf, String> {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .ok_or("Benutzerordner nicht gefunden")?;
+    Ok(home.join("Documents").join("CineForge").join("Szenen"))
 }
 
 fn read_scene(path: &Path) -> Result<(Scene, Option<SystemTime>), String> {
@@ -61,11 +133,7 @@ fn read_scene(path: &Path) -> Result<(Scene, Option<SystemTime>), String> {
 /// Dokumente/CineForge/Szenen/wueste.json – wird beim ersten Start angelegt,
 /// damit man die Szene sofort bearbeiten und Live-Reload ausprobieren kann.
 fn demo_path() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .ok_or("Benutzerordner nicht gefunden")?;
-    let dir = home.join("Documents").join("CineForge").join("Szenen");
+    let dir = scenes_dir()?;
     let file = dir.join(DEMO_FILE_NAME);
     if !file.exists() {
         std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -82,14 +150,20 @@ impl Plugin for SourcePlugin {
             .add_systems(Startup, |mut w: MessageWriter<SceneLoaded>| {
                 w.write(SceneLoaded { new_file: true });
             })
-            .add_systems(Update, (poll_file, manual_reload, drop_file));
+            .add_systems(Update, (poll_file, manual_reload, drop_file, undo_key));
     }
 }
 
 fn reload(src: &mut SceneSource, out: &mut MessageWriter<SceneLoaded>, new_file: bool) {
     match read_scene(&src.path) {
         Ok((scene, modified)) => {
-            src.scene = scene;
+            if !new_file {
+                let old = std::mem::replace(&mut src.scene, scene);
+                src.push_history(old);
+            } else {
+                src.scene = scene;
+                src.history.clear();
+            }
             src.modified = modified;
             src.error = None;
             out.write(SceneLoaded { new_file });
@@ -135,6 +209,26 @@ fn drop_file(
                 src.path = path_buf.clone();
                 reload(&mut src, &mut out, true);
             }
+        }
+    }
+}
+
+fn undo_key(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut src: ResMut<SceneSource>,
+    mut out: MessageWriter<SceneLoaded>,
+) {
+    let modifier = keys.any_pressed([
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+        KeyCode::SuperLeft,
+        KeyCode::SuperRight,
+    ]);
+    if modifier && keys.just_pressed(KeyCode::KeyZ) {
+        match src.undo(&mut out) {
+            Ok(true) => info!("Rückgängig"),
+            Ok(false) => info!("Nichts mehr rückgängig zu machen"),
+            Err(e) => src.error = Some(e),
         }
     }
 }

@@ -5,6 +5,7 @@ CineForge Studio
 
 Aufruf:
   cineforge [SZENE.json] [Optionen]
+  cineforge mcp [--port N]     Brücke für Claude Desktop (stdio)
 
 Ohne SZENE wird die Demo-Szene aus Dokumente/CineForge/Szenen geöffnet
 (beim ersten Start wird sie dort angelegt).
@@ -14,6 +15,7 @@ Optionen:
   --size BREITExHÖHE       Fenster-/Bildgröße (Standard 1600x900)
   --frames N               Frames warten vor dem Screenshot (Standard 60)
   --hud                    Einblendungen auch im Screenshot zeigen
+  --port N                 Port für die Claude-Verbindung (Standard 47800)
   -h, --help               Diese Hilfe
 
 Steuerung im Fenster:
@@ -26,6 +28,12 @@ Steuerung im Fenster:
   R                                Szene neu laden
   H                                Infos ein-/ausblenden
   F12                              Screenshot speichern
+  Cmd/Strg + Z                     Rückgängig
+  F2                               Mit Claude Desktop verbinden
+
+Claude verbinden:
+  Claude Code:    claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
+  Claude Desktop: siehe docs/CLAUDE-VERBINDEN.md
 ";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,14 +43,24 @@ pub struct Args {
     pub size: (u32, u32),
     pub frames: u32,
     pub hud: bool,
+    pub port: u16,
+    /// `cineforge mcp`: stdio-Brücke statt Fenster.
+    pub mcp_bridge: bool,
     pub help: bool,
 }
 
 impl Args {
     pub fn parse(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
-        let mut a = Args { scene: None, screenshot: None, size: (1600, 900), frames: 60, hud: false, help: false };
+        let mut a = Args {
+            scene: None, screenshot: None, size: (1600, 900), frames: 60, hud: false,
+            port: crate::control::DEFAULT_PORT, mcp_bridge: false, help: false,
+        };
+        let mut first = true;
         while let Some(arg) = it.next() {
+            let is_first = std::mem::replace(&mut first, false);
             match arg.as_str() {
+                "mcp" if is_first => a.mcp_bridge = true,
+                "--port" => a.port = it.next().and_then(|v| v.parse().ok()).ok_or("--port braucht eine Zahl")?,
                 "-h" | "--help" => a.help = true,
                 "--hud" => a.hud = true,
                 "--screenshot" => {
@@ -97,5 +115,16 @@ mod tests {
         assert!(p(&["--wat"]).is_err());
         assert!(p(&["a.json", "b.json"]).is_err());
         assert!(p(&["-psn_0_12345"]).is_ok());
+    }
+
+    #[test]
+    fn mcp_subcommand_only_in_first_position() {
+        let a = p(&["mcp", "--port", "5000"]).unwrap();
+        assert!(a.mcp_bridge);
+        assert_eq!(a.port, 5000);
+        let a = p(&["szene.json"]).unwrap();
+        assert!(!a.mcp_bridge);
+        // Eine Szene namens "mcp" an zweiter Stelle bleibt eine Szene.
+        assert!(p(&["--hud", "mcp"]).unwrap().scene.is_some());
     }
 }

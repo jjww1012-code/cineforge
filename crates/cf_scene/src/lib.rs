@@ -8,6 +8,7 @@
 pub mod color;
 pub mod model;
 pub mod noise;
+pub mod ops;
 pub mod procedural;
 
 pub use color::Rgb;

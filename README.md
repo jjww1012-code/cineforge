@@ -4,8 +4,14 @@
 entstehen als strukturierte Beschreibung und werden in Echtzeit auf der GPU gerendert,
 bis 4K, für macOS und Windows.
 
-> Status: **Etappe 1** – 3D-Welt aus einer Szenen-Datei, freie Flug-Kamera,
-> Live-Reload, Screenshots. Siehe [Fahrplan](docs/FAHRPLAN.md).
+> Status: **Etappe 2** – Claude ist verbunden: Es baut und ändert Szenen live in der
+> App und prüft das Ergebnis per Kontrollbild. Siehe [Fahrplan](docs/FAHRPLAN.md).
+
+## Mit Claude arbeiten
+
+App starten, **F2** drücken, Claude Desktop neu starten. Danach zum Beispiel schreiben:
+„Bau mir in CineForge eine Unterwasserstadt mit leuchtenden Kuppeln.“
+Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 ![Demo-Szene](docs/bilder/wueste.png)
 
@@ -39,6 +45,8 @@ speichere – die Welt ändert sich sofort.**
 | R | Szene neu laden |
 | H | Infos ein-/ausblenden |
 | F12 | Screenshot (landet in `Dokumente/CineForge/Screenshots`) |
+| Cmd/Strg + Z | Rückgängig (auch Änderungen von Claude) |
+| F2 | Mit Claude Desktop verbinden |
 | JSON-Datei ins Fenster ziehen | Andere Szene öffnen |
 
 ## Für Entwickler
@@ -49,6 +57,7 @@ cargo run -p cineforge-studio -- scenes/wueste.json --screenshot bild.png --size
 cargo test --workspace
 ```
 
+- [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 - [Architektur](docs/ARCHITEKTUR.md)
 - [Szenen-Format](docs/SZENEN-FORMAT.md)
 - [Fahrplan](docs/FAHRPLAN.md)

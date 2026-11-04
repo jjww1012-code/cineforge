@@ -6,6 +6,7 @@ use bevy::{
 };
 
 use crate::{
+    control::ControlStatus,
     source::{SceneLoaded, SceneSource},
     spawn::SceneStats,
     MainCamera,
@@ -31,7 +32,7 @@ struct StatusText;
 struct ErrorText;
 
 const CONTROLS: &str =
-    "Rechte Maustaste + Maus: umschauen  ·  WASD: fliegen  ·  E/Q: hoch/runter  ·  Shift: schnell  ·  Mausrad: Tempo\nC: Szenen-Kamera  ·  R: neu laden  ·  H: Infos aus  ·  F12: Screenshot  ·  JSON-Datei ins Fenster ziehen: öffnen";
+    "Rechte Maustaste + Maus: umschauen  ·  WASD: fliegen  ·  E/Q: hoch/runter  ·  Shift: schnell  ·  Mausrad: Tempo\nC: Szenen-Kamera  ·  R: neu laden  ·  Cmd/Strg+Z: rückgängig  ·  H: Infos aus  ·  F12: Screenshot  ·  JSON-Datei ins Fenster ziehen: öffnen";
 
 fn panel() -> BackgroundColor {
     BackgroundColor(Color::srgba(0.05, 0.05, 0.08, 0.72))
@@ -145,6 +146,9 @@ fn update_error(
 fn update_status(
     diagnostics: Res<DiagnosticsStore>,
     stats: Res<SceneStats>,
+    src: Res<SceneSource>,
+    control: Option<Res<ControlStatus>>,
+    setup: Option<Res<crate::claude_setup::SetupState>>,
     cam: Query<&Transform, With<MainCamera>>,
     mut q: Query<&mut Text, With<StatusText>>,
 ) {
@@ -163,6 +167,16 @@ fn update_status(
         pos.y,
         pos.z
     );
+    let claude = match control.as_deref() {
+        Some(ControlStatus { port: Some(p), calls, last_action, .. }) => {
+            let last = last_action.as_deref().map(|a| format!(" · zuletzt: {a}")).unwrap_or_default();
+            format!("Claude-Verbindung: bereit (Port {p}) · {calls} Aktionen{last}")
+        }
+        Some(ControlStatus { error: Some(e), .. }) => format!("Claude-Verbindung: {e}"),
+        _ => "Claude-Verbindung: aus".to_string(),
+    };
+    let desktop = setup.map(|s| format!("  ·  {}", s.message)).unwrap_or_default();
+    let line = format!("{line}\n{claude}{desktop}  ·  Rückgängig: {} Schritte", src.history_len());
     for mut t in &mut q {
         t.0 = line.clone();
     }
