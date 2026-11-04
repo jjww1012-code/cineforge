@@ -237,6 +237,11 @@
         0,
         0
        ],
+       "scale": [
+        1,
+        0.15,
+        1
+       ],
        "material": {
         "color": "#00D9A3",
         "emissive": "#00D9A3",
@@ -277,6 +282,11 @@
         90,
         0,
         0
+       ],
+       "scale": [
+        1,
+        0.15,
+        1
        ],
        "material": {
         "color": "#3BA7FF",
@@ -360,8 +370,7 @@
        ],
        "material": {
         "color": "#17171d",
-        "unlit": true,
-        "opacity": 0.92
+        "unlit": true
        }
       },
       {
@@ -536,6 +545,11 @@
          "id": "flamme_kern",
          "type": "sphere",
          "radius": 0.0022,
+         "scale": [
+          1,
+          1,
+          0.15
+         ],
          "material": {
           "color": "#FF8A2B",
           "emissive": "#FF8A2B",
@@ -551,6 +565,11 @@
           0,
           0.0028,
           0
+         ],
+         "scale": [
+          1,
+          1,
+          0.15
          ],
          "material": {
           "color": "#FF8A2B",

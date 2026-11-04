@@ -41,14 +41,14 @@ def screen_content():
     # Widgets: zwei volle Ringe
     for i, (col, label, x) in enumerate([(MINT, "Ziel erreicht", -0.016), (WASSER, "8 / 8", 0.016)]):
         w.append({"id": f"ring_{i}", "type": "torus", "radius": 0.0068, "thickness": 0.0011,
-                  "position": [x, 0.018, 0], "rotation": [90, 0, 0],
+                  "position": [x, 0.018, 0], "rotation": [90, 0, 0], "scale": [1, 0.15, 1],
                   "material": {"color": col, "emissive": col, "emissive_strength": 2.5}})
         w.append(text(f"ring_label_{i}", label, 0.0026, [x, 0.0075, 0], "#e8ecf5"))
     w.append(text("ring_icon_0", "≈" if False else "13.920", 0.0024, [-0.016, 0.017, 0], "#ffffff", weight="bold"))
     w.append(text("ring_icon_1", "Wasser", 0.0021, [0.016, 0.017, 0], "#ffffff", weight="bold"))
     # Live-Aktivität: Vereinsmeisterschaft
     w.append({"id": "karte", "type": "rounded_box", "size": [0.064, 0.036, 0.0006], "radius": 0.0003,
-              "position": [0, -0.022, -0.0004], "material": unlit("#17171d", opacity=0.92)})
+              "position": [0, -0.022, -0.0004], "material": unlit("#17171d")})
     w.append(text("karte_verein", "BOXCLUB EISENHALLE  ·  ✓ Du bist dabei", 0.0024, [-0.029, -0.0085, 0], GOLD, align="left", weight="bold"))
     w.append(text("karte_titel", "Vereinsmeisterschaft", 0.0043, [-0.029, -0.0165, 0], "#ffffff", align="left", weight="bold"))
     w.append(text("karte_ort", "Sa 10:00  ·  Eisenhalle", 0.0027, [-0.029, -0.0225, 0], "#a6a6b4", align="left"))
@@ -60,8 +60,8 @@ def screen_content():
     w.append(text("karte_route_text", "Route", 0.0026, [0.022, -0.0334, 0.0004], "#ffffff", weight="bold"))
     # Streak-Flamme oben rechts: 47 → 48
     w.append({"id": "flamme", "type": "group", "position": [0.022, 0.068, 0], "children": [
-        {"id": "flamme_kern", "type": "sphere", "radius": 0.0022, "material": {"color": ORANGE, "emissive": ORANGE, "emissive_strength": 6}},
-        {"id": "flamme_spitze", "type": "cone", "radius": 0.0021, "height": 0.0045, "position": [0, 0.0028, 0],
+        {"id": "flamme_kern", "type": "sphere", "radius": 0.0022, "scale": [1, 1, 0.15], "material": {"color": ORANGE, "emissive": ORANGE, "emissive_strength": 6}},
+        {"id": "flamme_spitze", "type": "cone", "radius": 0.0021, "height": 0.0045, "position": [0, 0.0028, 0], "scale": [1, 1, 0.15],
          "material": {"color": ORANGE, "emissive": ORANGE, "emissive_strength": 6}},
     ], "animate": {"scale": [k(0, 1.0), k(2.0, 1.12, "in_out"), k(4.0, 1.0, "in_out"), k(6.0, 1.12, "in_out"), k(8.0, 1.0, "in_out")]}})
     w.append({**text("streak_47", "47", 0.0042, [0.0275, 0.0665, 0], ORANGE, align="left", weight="bold"),
