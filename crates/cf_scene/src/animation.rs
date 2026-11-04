@@ -209,6 +209,12 @@ pub struct Animation {
     pub opacity: Vec<Key<f32>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub visible: Vec<Key<bool>>,
+    /// Lichtstärke (nur bei point_light), z. B. Blitz bei einer Explosion.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub intensity: Vec<Key<f32>>,
+    /// Flackern der Lichtstärke (nur bei point_light): 0 = ruhig, 0.3 = Kerze/Feuer, 1 = stark.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub flicker: f32,
     /// Dauerdrehung in Grad pro Sekunde (zusätzlich zu rotation).
     #[serde(skip_serializing_if = "is_zero3")]
     pub spin: [f32; 3],
@@ -231,6 +237,8 @@ pub struct ObjectState {
     pub emissive_strength: Option<f32>,
     pub opacity: Option<f32>,
     pub visible: bool,
+    /// Faktor bzw. Wert für die Lichtstärke (None = unverändert).
+    pub intensity: Option<f32>,
 }
 
 impl Animation {
@@ -242,6 +250,7 @@ impl Animation {
         check_keys(&self.emissive_strength, &format!("\"{id}\" animate.emissive_strength"), p);
         check_keys(&self.opacity, &format!("\"{id}\" animate.opacity"), p);
         check_keys(&self.visible, &format!("\"{id}\" animate.visible"), p);
+        check_keys(&self.intensity, &format!("\"{id}\" animate.intensity"), p);
         if self.opacity.iter().any(|k| !(0.0..=1.0).contains(&k.v)) {
             p.push(format!("\"{id}\" animate.opacity: Werte zwischen 0 und 1"));
         }
@@ -262,6 +271,18 @@ impl Animation {
             .max(last(&self.emissive_strength))
             .max(last(&self.opacity))
             .max(last(&self.visible))
+            .max(last(&self.intensity))
+    }
+
+    /// Lichtstärke zum Zeitpunkt t (inkl. Flackern) ausgehend von `base`.
+    pub fn light_intensity_at(&self, base: f32, t: f32) -> Option<f32> {
+        if self.intensity.is_empty() && self.flicker == 0.0 {
+            return None;
+        }
+        let v = sample(&self.intensity, t).unwrap_or(base);
+        let f = self.flicker.clamp(0.0, 2.0);
+        let n = 0.5 * (t * 13.1).sin() + 0.3 * (t * 7.3 + 1.7).sin() + 0.2 * (t * 23.7 + 0.4).sin();
+        Some((v * (1.0 + f * 0.6 * n)).max(0.0))
     }
 
     /// Wendet die Animation auf die Grundwerte des Objekts an.
@@ -280,6 +301,7 @@ impl Animation {
             emissive_strength: sample(&self.emissive_strength, t),
             opacity: sample(&self.opacity, t),
             visible: sample(&self.visible, t).unwrap_or(!hidden),
+            intensity: None,
         }
     }
 }
@@ -433,6 +455,12 @@ mod tests {
         assert!(!a.state_at([0.0; 3], [0.0; 3], [1.0; 3], 0.5, false).visible);
         assert!(a.affects_material());
         assert_eq!(a.last_key_time(), 2.0);
+        // Licht: Blitz + Flackern bleibt positiv und schwankt
+        let l: Animation = serde_json::from_str(r#"{"intensity":[{"t":0,"v":0},{"t":0.1,"v":1000,"ease":"linear"}],"flicker":0.5}"#).unwrap();
+        let vals: Vec<f32> = (0..20).map(|i| l.light_intensity_at(10.0, 0.2 + i as f32 * 0.05).unwrap()).collect();
+        assert!(vals.iter().all(|v| *v >= 0.0));
+        assert!(vals.iter().cloned().fold(f32::MIN, f32::max) - vals.iter().cloned().fold(f32::MAX, f32::min) > 50.0);
+        assert!(Animation::default().light_intensity_at(5.0, 1.0).is_none());
         // Ohne Animation bleiben Grundwerte
         let none = Animation::default().state_at([1.0, 2.0, 3.0], [0.0; 3], [1.0; 3], 5.0, true);
         assert_eq!(none.position, [1.0, 2.0, 3.0]);

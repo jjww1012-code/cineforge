@@ -62,6 +62,8 @@ pub struct Animated {
     pub base_emissive_strength: f32,
     pub base_opacity: f32,
     pub has_pattern: bool,
+    /// Grund-Lichtstärke (nur point_light).
+    pub base_intensity: f32,
 }
 
 /// Statistik und Warnungen für die Anzeige.
@@ -233,6 +235,10 @@ impl Builder<'_, '_, '_> {
                 base_emissive_strength: material.emissive_strength,
                 base_opacity: material.opacity,
                 has_pattern: material.pattern.is_some(),
+                base_intensity: match &o.kind {
+                    Kind::PointLight(l) => l.intensity,
+                    _ => 0.0,
+                },
             });
         }
 

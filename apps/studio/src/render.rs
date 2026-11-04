@@ -58,7 +58,18 @@ pub struct ViewSpec {
 pub enum JobRequest {
     Still { reply: Sender<ToolOutput>, time: Option<f32>, view: ViewSpec, width: u32, height: u32 },
     Sheet { reply: Sender<ToolOutput>, times: Vec<f32>, width: u32, height: u32, columns: u32 },
-    Export { output: PathBuf, width: u32, height: u32, fps: u32, start: f32, end: f32, quality: Quality },
+    Export { output: PathBuf, width: u32, height: u32, fps: u32, segments: Vec<Segment>, quality: Quality },
+}
+
+/// Ein Abschnitt eines Videos: eine Szene (None = die geöffnete) ab `start` für `duration` Sekunden.
+#[derive(Debug, Clone)]
+pub struct Segment {
+    pub path: Option<PathBuf>,
+    pub start: f32,
+    pub duration: f32,
+    /// Aus Schwarz einblenden / nach Schwarz abblenden (je 0,4 s).
+    pub fade_in: bool,
+    pub fade_out: bool,
 }
 
 /// Warteschlange + Status des laufenden/letzten Exports.
@@ -117,7 +128,21 @@ impl RenderQueue {
 enum Stage {
     Still { reply: Sender<ToolOutput>, time: Option<f32>, fixed: Option<(Transform, Option<f32>)>, done: Arc<Mutex<bool>> },
     Sheet { reply: Sender<ToolOutput>, times: Vec<f32>, next: usize, columns: u32, results: Arc<Mutex<Vec<Option<Image>>>> },
-    Export { frames: u32, next: u32, fps: u32, start: f32, tx: Option<SyncSender<(u32, Vec<u8>)>>, captured: Arc<Mutex<u32>>, last_progress: Instant, last_count: u32 },
+    Export {
+        frames: u32,
+        next: u32,
+        fps: u32,
+        segments: Vec<Segment>,
+        seg_frames: Vec<u32>,
+        seg: usize,
+        seg_frame: u32,
+        switched: bool,
+        restore: PathBuf,
+        tx: Option<SyncSender<(u32, Vec<u8>)>>,
+        captured: Arc<Mutex<u32>>,
+        last_progress: Instant,
+        last_count: u32,
+    },
 }
 
 struct ActiveJob {
@@ -155,7 +180,8 @@ fn drive_jobs(
     mut commands: Commands,
     mut queue: ResMut<RenderQueue>,
     mut ph: ResMut<Playhead>,
-    src: Res<SceneSource>,
+    mut src: ResMut<SceneSource>,
+    mut out: MessageWriter<crate::source::SceneLoaded>,
     mut images: ResMut<Assets<Image>>,
     mut cams: Query<(&mut Transform, &mut Projection), Without<crate::MainCamera>>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
@@ -199,8 +225,9 @@ fn drive_jobs(
                 let n = times.len();
                 Stage::Sheet { reply, times, next: 0, columns, results: Arc::new(Mutex::new(vec![None; n])) }
             }
-            JobRequest::Export { output, width, height, fps, start, end, quality } => {
-                let frames = (((end - start) * fps as f32).round() as u32).max(1);
+            JobRequest::Export { output, width, height, fps, segments, quality } => {
+                let seg_frames: Vec<u32> = segments.iter().map(|s| ((s.duration * fps as f32).round() as u32).max(1)).collect();
+                let frames: u32 = seg_frames.iter().sum();
                 let (tx, rx) = std::sync::mpsc::sync_channel(8);
                 match video::start_writer(output, width, height, fps, frames, quality, rx) {
                     Ok(progress) => {
@@ -225,7 +252,12 @@ fn drive_jobs(
                     frames,
                     next: 0,
                     fps,
-                    start,
+                    segments,
+                    seg_frames,
+                    seg: 0,
+                    seg_frame: 0,
+                    switched: false,
+                    restore: src.path.clone(),
                     tx: Some(tx),
                     captured: Arc::new(Mutex::new(0)),
                     last_progress: Instant::now(),
@@ -239,7 +271,6 @@ fn drive_jobs(
 
     let cancel = std::mem::take(&mut queue.cancel);
     let mut job = queue.active.take().expect("aktiv");
-    let scene = &src.scene;
     let set_camera = |cams: &mut Query<(&mut Transform, &mut Projection), Without<crate::MainCamera>>, tf: Transform, fov: f32| {
         if let Ok((mut t, mut p)) = cams.get_mut(job.camera) {
             *t = tf;
@@ -255,8 +286,8 @@ fn drive_jobs(
             let t = time.unwrap_or(job.saved_time);
             ph.time = t;
             let (tf, fov) = match fixed {
-                Some((tf, fov)) => (*tf, fov.unwrap_or_else(|| scene_camera_at(scene, t).1)),
-                None => scene_camera_at(scene, t),
+                Some((tf, fov)) => (*tf, fov.unwrap_or_else(|| scene_camera_at(&src.scene, t).1)),
+                None => scene_camera_at(&src.scene, t),
             };
             set_camera(&mut cams, tf, fov);
             if job.warmup > 0 {
@@ -291,7 +322,7 @@ fn drive_jobs(
             if *next < times.len() {
                 let t = times[*next];
                 ph.time = t;
-                let (tf, fov) = scene_camera_at(scene, t);
+                let (tf, fov) = scene_camera_at(&src.scene, t);
                 set_camera(&mut cams, tf, fov);
                 if job.warmup > 0 {
                     job.warmup -= 1;
@@ -315,7 +346,7 @@ fn drive_jobs(
                 }
             }
         }
-        Stage::Export { frames, next, fps, start, tx, captured, last_progress, last_count } => {
+        Stage::Export { frames, next, fps, segments, seg_frames, seg, seg_frame, switched, restore, tx, captured, last_progress, last_count } => {
             let got = *captured.lock().expect("Zähler");
             if got != *last_count {
                 *last_count = got;
@@ -330,24 +361,70 @@ fn drive_jobs(
                 }
                 finished = true;
             } else if *next < *frames {
-                let t = *start + *next as f32 / *fps as f32;
-                ph.time = t;
-                let (tf, fov) = scene_camera_at(scene, t);
-                set_camera(&mut cams, tf, fov);
-                if job.warmup > 0 {
-                    job.warmup -= 1;
-                } else if let Some(sender) = tx.clone() {
-                    let idx = *next;
-                    let count = captured.clone();
-                    commands.spawn(Screenshot::image(job.image.clone())).observe(move |cap: On<ScreenshotCaptured>| {
-                        if let Some(data) = cap.image.data.clone() {
-                            let _ = sender.send((idx, data));
+                let segment = segments[*seg].clone();
+                // Szenenwechsel am Anfang eines Abschnitts
+                if !*switched {
+                    *switched = true;
+                    if let Some(path) = &segment.path {
+                        if *path != src.path {
+                            if let Err(e) = src.open_file(path.clone(), &mut out) {
+                                tx.take();
+                                if let Some(p) = &queue.export {
+                                    if let Ok(mut p) = p.lock() {
+                                        p.error = Some(format!("Szene {} konnte nicht geladen werden: {e}", path.display()));
+                                    }
+                                }
+                                finished = true;
+                            }
+                            // Neue Szene aufbauen und Shader laden lassen.
+                            job.warmup = warmup_frames() + 6;
                         }
-                        if let Ok(mut c) = count.lock() {
-                            *c += 1;
+                    }
+                }
+                if !finished {
+                    let t = segment.start + *seg_frame as f32 / *fps as f32;
+                    ph.time = t;
+                    let (tf, fov) = scene_camera_at(&src.scene, t);
+                    set_camera(&mut cams, tf, fov);
+                    if job.warmup > 0 {
+                        job.warmup -= 1;
+                    } else if let Some(sender) = tx.clone() {
+                        let idx = *next;
+                        let count = captured.clone();
+                        // Ab-/Aufblende: Helligkeit dieses Bildes
+                        let ff = ((0.4 * *fps as f32) as u32).max(1);
+                        let total = seg_frames[*seg];
+                        let k = *seg_frame;
+                        let mut factor: f32 = 1.0;
+                        if segment.fade_in && k < ff {
+                            factor = factor.min((k + 1) as f32 / ff as f32);
                         }
-                    });
-                    *next += 1;
+                        if segment.fade_out && k + ff >= total {
+                            factor = factor.min((total - k) as f32 / ff as f32);
+                        }
+                        commands.spawn(Screenshot::image(job.image.clone())).observe(move |cap: On<ScreenshotCaptured>| {
+                            if let Some(mut data) = cap.image.data.clone() {
+                                if factor < 0.999 {
+                                    for px in data.chunks_exact_mut(4) {
+                                        for c in &mut px[..3] {
+                                            *c = (*c as f32 * factor) as u8;
+                                        }
+                                    }
+                                }
+                                let _ = sender.send((idx, data));
+                            }
+                            if let Ok(mut c) = count.lock() {
+                                *c += 1;
+                            }
+                        });
+                        *next += 1;
+                        *seg_frame += 1;
+                        if *seg_frame >= seg_frames[*seg] && *seg + 1 < segments.len() {
+                            *seg += 1;
+                            *seg_frame = 0;
+                            *switched = false;
+                        }
+                    }
                 }
             } else if got >= *frames {
                 tx.take(); // alle Bilder unterwegs → Kanal schließen
@@ -360,6 +437,11 @@ fn drive_jobs(
                     }
                 }
                 finished = true;
+            }
+            // Nach einem Film wieder die ursprüngliche Szene öffnen.
+            if finished && *restore != src.path {
+                let r = restore.clone();
+                let _ = src.open_file(r, &mut out);
             }
         }
     }

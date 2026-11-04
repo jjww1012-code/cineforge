@@ -190,6 +190,21 @@ pub fn definitions() -> Value {
             }
         },
         {
+            "name": "export_film",
+            "description": "Rendert den ganzen Film: alle Shots des Storyboards in Reihenfolge (jeder Shot braucht scene = Name einer Szenen-Datei; Dauer = duration des Shots oder der Szene) als ein MP4. transition: cut (Standard) oder fade (Abblende über Schwarz zwischen Shots).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "width": {"type": "integer"},
+                    "height": {"type": "integer"},
+                    "fps": {"type": "integer"},
+                    "quality": {"type": "string", "enum": ["draft", "standard", "high"]},
+                    "transition": {"type": "string", "enum": ["cut", "fade"]}
+                }
+            }
+        },
+        {
             "name": "export_status",
             "description": "Fortschritt bzw. Ergebnis des Video-Exports.",
             "inputSchema": {"type": "object", "properties": {}}
@@ -573,6 +588,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             }
         }
         "export_video" => export_video(a, cx),
+        "export_film" => export_film(a, cx),
         "export_status" => ToolOutput::text(cx.jobs.export_summary().unwrap_or_else(|| "Es wurde noch kein Export gestartet.".into())),
         "cancel_export" => {
             if cx.jobs.export_running() {
@@ -686,13 +702,102 @@ fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
     let encoder = crate::video::find_ffmpeg()
         .map(|ff| crate::video::best_encoder(&ff))
         .unwrap_or_else(|| "keiner – ffmpeg nicht gefunden, es werden PNG-Bilder gespeichert".into());
-    cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, start, end, quality });
+    let segments = vec![crate::render::Segment { path: None, start, duration: end - start, fade_in: false, fade_out: false }];
+    cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, segments, quality });
     cx.project.log("claude", format!("Video-Export gestartet: {} ({width}×{height}, {fps} fps, {frames} Bilder)", output.display()));
     ToolOutput::text(format!(
         "Export gestartet: {frames} Bilder ({width}×{height}, {fps} fps, {:.1}–{:.1} s) → {}\nEncoder: {encoder}\nFortschritt mit export_status abfragen. Solange der Export läuft, ist die Szene gesperrt.",
         start,
         end,
         output.display()
+    ))
+}
+
+fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    if let Err(e) = cx.project.require() {
+        return ToolOutput::error(e);
+    }
+    if cx.jobs.export_running() {
+        return ToolOutput::error(format!("Es läuft schon ein Export.\n{}", cx.jobs.export_summary().unwrap_or_default()));
+    }
+    let shots = cx.project.data.storyboard.clone();
+    if shots.is_empty() {
+        return ToolOutput::error("Das Storyboard ist leer – erst mit update_plan Shots anlegen.");
+    }
+    let quality = match crate::video::Quality::parse(a.get("quality").and_then(Value::as_str)) {
+        Ok(q) => q,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let fade_all = match a.get("transition").and_then(Value::as_str).unwrap_or("cut") {
+        "cut" | "schnitt" => false,
+        "fade" | "blende" => true,
+        other => return ToolOutput::error(format!("Unbekannter Übergang \"{other}\" (cut oder fade)")),
+    };
+    let scenes_dir = match cx.project.scenes_dir() {
+        Ok(d) => d,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let mut segments = Vec::new();
+    let mut problems = Vec::new();
+    let mut first_fps = None;
+    for (i, shot) in shots.iter().enumerate() {
+        let Some(name) = &shot.scene else {
+            problems.push(format!("Shot {} „{}“ hat keine Szene (Feld scene im Storyboard)", shot.id, shot.title));
+            continue;
+        };
+        let path = scenes_dir.join(format!("{name}.json"));
+        let scene = match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| Scene::from_json(&t).map_err(|e| e.to_string())) {
+            Ok(s) => s,
+            Err(e) => {
+                problems.push(format!("Shot {}: Szene \"{name}\" nicht ladbar ({e})", shot.id));
+                continue;
+            }
+        };
+        if let Err(e) = cx.library.check(cx.project, &scene.objects) {
+            problems.push(format!("Shot {}: {e}", shot.id));
+            continue;
+        }
+        first_fps.get_or_insert(scene.fps);
+        let duration = if shot.duration > 0.0 { shot.duration } else { scene.duration };
+        let last = i + 1 == shots.len();
+        segments.push(crate::render::Segment {
+            path: Some(path),
+            start: 0.0,
+            duration,
+            fade_in: i == 0 || fade_all,
+            fade_out: last || fade_all,
+        });
+    }
+    if !problems.is_empty() {
+        return ToolOutput::error(format!("Film kann noch nicht exportiert werden:\n- {}", problems.join("\n- ")));
+    }
+    let even = |v: u64| ((v as u32).clamp(64, 3840) / 2) * 2;
+    let width = even(a.get("width").and_then(Value::as_u64).unwrap_or(1920));
+    let height = even(a.get("height").and_then(Value::as_u64).unwrap_or(1080).min(2160));
+    let fps = a.get("fps").and_then(Value::as_u64).map(|v| v as u32).unwrap_or(first_fps.unwrap_or(30)).clamp(1, 120);
+    let base_name = match a.get("name").and_then(Value::as_str).map(safe_name).unwrap_or_else(|| safe_name(&cx.project.data.name)) {
+        Ok(n) => n,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let dir = match cx.project.export_dir() {
+        Ok(d) => d,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    let mut output = dir.join(format!("{base_name}.mp4"));
+    let mut n = 2;
+    while output.exists() {
+        output = dir.join(format!("{base_name}_{n}.mp4"));
+        n += 1;
+    }
+    let total: f32 = segments.iter().map(|s| s.duration).sum();
+    let count = segments.len();
+    cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, segments, quality });
+    cx.project.log("claude", format!("Film-Export gestartet: {count} Shots, {total:.1} s → {}", output.display()));
+    ToolOutput::text(format!(
+        "Film-Export gestartet: {count} Shots, {total:.1} s, {width}×{height}, {fps} fps → {}\nÜbergänge: {}. Fortschritt mit export_status.",
+        output.display(),
+        if fade_all { "Abblenden über Schwarz" } else { "harte Schnitte (Ein-/Ausblende am Anfang und Ende)" }
     ))
 }
 

@@ -127,11 +127,14 @@ fn advance(time: Res<Time>, mut ph: ResMut<Playhead>, src: Res<SceneSource>, mut
 
 fn animate_objects(
     ph: Res<Playhead>,
-    mut objects: Query<(&Animated, &mut Transform, &mut Visibility)>,
+    mut objects: Query<(&Animated, &mut Transform, &mut Visibility, Option<&mut PointLight>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let t = ph.time;
-    for (a, mut tf, mut vis) in &mut objects {
+    for (a, mut tf, mut vis, light) in &mut objects {
+        if let (Some(mut light), Some(i)) = (light, a.anim.light_intensity_at(a.base_intensity, t)) {
+            light.intensity = i;
+        }
         let s = a.anim.state_at(a.base_pos, a.base_rot, a.base_scale, t, a.hidden);
         let [rx, ry, rz] = s.rotation.map(f32::to_radians);
         let local = Transform {

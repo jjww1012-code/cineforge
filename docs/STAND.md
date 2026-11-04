@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-04 · Zeit & Export fertig, als Nächstes Effekte
+**Zuletzt aktualisiert:** 2026-11-04 · Effekte + Film-Export fertig
 
 ## Fertig
 
@@ -34,11 +34,19 @@
   `cancel_export`; Szene während Export gesperrt. Kamera-Rücksprung-Fehler behoben.
   Ende-zu-Ende getestet (MP4 geprüft mit ffprobe).
 
+- **Effekte:** deterministische Partikel (`cf_scene::particles`, App `fx.rs`) mit 9
+  Voreinstellungen, Vorlaufen, Billboards zur rendernden Kamera; Licht-Animation
+  (`intensity`, `flicker`). Testszene `scenes/effekte.json`.
+- **Film-Export:** `export_film` setzt alle Storyboard-Shots (Szene + Dauer) zu einem MP4
+  zusammen, harte Schnitte oder Abblenden; Export intern als Abschnitte (`render::Segment`).
+  Ende-zu-Ende geprüft (Bildgenaue Übergänge).
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **Effekte:** deterministische Partikel (Feuer, Rauch, Funken, Schnee, Regen).
-2. **Film-Export:** Storyboard-Shots → zusammengesetztes Video.
-3. ffmpeg mitliefern (Mac/Windows-Build), damit Nutzer nichts installieren müssen.
+1. **ffmpeg mitliefern** (CI: Mac/Windows), damit Nutzer nichts installieren müssen
+   (Lizenz beachten: LGPL-Build bevorzugen).
+2. **Klicken & sagen:** Objekt im Fenster anklicken → hervorheben → Claude bekommt die id.
+3. **Ton:** lokale KI-Stimmen (Piper), Musik, Untertitel, Ton im Export.
 4. Danach laut Fahrplan: Klicken & sagen, Ton, Figuren-Animation, Produkt, Teams.
 
 ## Offene Punkte / Wissenswertes
@@ -46,4 +54,6 @@
 - GitHub: `jjww1012-code/cineforge` (privat). CI-Status noch nicht von hier aus prüfbar
   (gh-Token ungültig) – der Nutzer sieht ihn unter „Actions“.
 - Noch nie auf echter Mac-Hardware getestet.
-- Export braucht ffmpeg (noch nicht gebündelt).
+- Export braucht ffmpeg (noch nicht gebündelt) – ohne ffmpeg PNG-Folge.
+- Prüfen von Videos bildgenau: `ffmpeg -i x.mp4 -vf "select=eq(n\,19)" -vsync 0 -frames:v 1 out.png`
+  (`-ss` springt auf das nächste Bild *ab* dem Zeitpunkt).

@@ -148,9 +148,9 @@ Voreinstellungen (`preset`): `fire`, `smoke`, `sparks`, `snow`, `rain`, `explosi
 | `prewarm` | Dauerhafte Effekte laufen beim Start schon (Standard: an) |
 | `max`, `seed` | Obergrenze, Variante |
 
-Tipps: Explosion = `explosion` + `smoke` mit `burst` und etwas späterem `start`; dazu ein
-`point_light` mit animiertem `intensity`… (Lichtanimation folgt) – oder ein kurz aufleuchtendes
-Objekt (`emissive_strength` animieren). Lagerfeuer = `fire` + `smoke` darüber + `sparks` + warmes `point_light`.
+Tipps: Explosion = `explosion` + `smoke` mit `burst` und etwas späterem `start` + ein
+`point_light` mit Blitz (`animate.intensity`). Lagerfeuer = `fire` + `smoke` darüber + `sparks` +
+warmes `point_light` mit `"animate": {"flicker": 0.4}`.
 
 ## Animation
 
@@ -172,6 +172,8 @@ Vor dem ersten Keyframe gilt dessen Wert, nach dem letzten der letzte.
 | `emissive_strength` | Zahl | Aufleuchten |
 | `opacity` | 0–1 | Ein-/Ausblenden |
 | `visible` | true/false | Erscheinen/Verschwinden (springt) |
+| `intensity` | Lumen | Nur `point_light`: Lichtstärke über die Zeit (Blitz, Ein-/Ausschalten) |
+| `flicker` | 0–1 | Nur `point_light`: Flackern (0.3 Kerze/Feuer) |
 | `spin` | [Grad/s x,y,z] | Dauerdrehung, z. B. `[0, 90, 0]` |
 | `smooth_path` | true/false | Position als weiche Kurve durch alle Keyframes |
 
@@ -207,7 +209,9 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
 
 - `screenshot` mit `time` – ein Zeitpunkt
 - `contact_sheet` – mehrere Zeitpunkte in einem Bild (Bewegung, Timing, Kamerafahrt prüfen)
-- `export_video` – MP4 bis 4K in den Export-Ordner des Projekts (`export_status` für Fortschritt)
+- `export_video` – die geöffnete Szene als MP4 bis 4K (`export_status` für Fortschritt)
+- `export_film` – der ganze Film: alle Storyboard-Shots (je `scene` + `duration`) hintereinander,
+  mit harten Schnitten oder Abblenden (`transition: "fade"`)
 
 ## Detaillierte Objekte bauen – Tipps
 
