@@ -67,7 +67,9 @@ pub fn parse_scene(v: Value) -> Result<Scene, String> {
     Ok(scene)
 }
 
-const COMMON: &[&str] = &["id", "name", "hidden", "position", "rotation", "scale", "material", "repeat", "animate", "type"];
+const COMMON: &[&str] = &[
+    "id", "name", "hidden", "position", "rotation", "scale", "material", "repeat", "animate", "type", "subdivide", "rounded", "deform",
+];
 
 /// Felder in Objekten, die es nicht gibt (z. B. `"sise"` statt `"size"`).
 /// serde ignoriert diese bei manchen Objekt-Typen, daher prüfen wir selbst.

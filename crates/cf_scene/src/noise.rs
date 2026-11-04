@@ -76,6 +76,59 @@ impl Noise2 {
     }
 }
 
+/// Deterministisches 3D-Gradient-Rauschen (für Oberflächen-Details an Modellen).
+pub struct Noise3 {
+    perm: [u8; 512],
+}
+
+impl Noise3 {
+    pub fn new(seed: u32) -> Self {
+        let mut p: [u8; 256] = std::array::from_fn(|i| i as u8);
+        let mut rng = Rng::new(seed ^ 0x51ed_270b);
+        for i in (1..256).rev() {
+            let j = (rng.next_u32() % (i as u32 + 1)) as usize;
+            p.swap(i, j);
+        }
+        Self { perm: std::array::from_fn(|i| p[i & 255]) }
+    }
+
+    /// Wert ungefähr in -1..1.
+    pub fn get(&self, x: f32, y: f32, z: f32) -> f32 {
+        let (xi, yi, zi) = (x.floor(), y.floor(), z.floor());
+        let (xf, yf, zf) = (x - xi, y - yi, z - zi);
+        let (xi, yi, zi) = ((xi as i32 & 255) as usize, (yi as i32 & 255) as usize, (zi as i32 & 255) as usize);
+        let p = &self.perm;
+        let h = |i: usize, j: usize, k: usize| p[p[p[i] as usize + j] as usize + k];
+        let g = |hash: u8, x: f32, y: f32, z: f32| {
+            let hh = hash & 15;
+            let u = if hh < 8 { x } else { y };
+            let v = if hh < 4 { y } else if hh == 12 || hh == 14 { x } else { z };
+            (if hh & 1 == 0 { u } else { -u }) + (if hh & 2 == 0 { v } else { -v })
+        };
+        let fade = |t: f32| t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+        let (u, v, w) = (fade(xf), fade(yf), fade(zf));
+        let lerp = |t: f32, a: f32, b: f32| a + t * (b - a);
+        let x1 = lerp(u, g(h(xi, yi, zi), xf, yf, zf), g(h(xi + 1, yi, zi), xf - 1.0, yf, zf));
+        let x2 = lerp(u, g(h(xi, yi + 1, zi), xf, yf - 1.0, zf), g(h(xi + 1, yi + 1, zi), xf - 1.0, yf - 1.0, zf));
+        let x3 = lerp(u, g(h(xi, yi, zi + 1), xf, yf, zf - 1.0), g(h(xi + 1, yi, zi + 1), xf - 1.0, yf, zf - 1.0));
+        let x4 = lerp(u, g(h(xi, yi + 1, zi + 1), xf, yf - 1.0, zf - 1.0), g(h(xi + 1, yi + 1, zi + 1), xf - 1.0, yf - 1.0, zf - 1.0));
+        lerp(w, lerp(v, x1, x2), lerp(v, x3, x4)) * 0.95
+    }
+
+    /// Fraktales Rauschen (mehrere Oktaven), ungefähr in -1..1.
+    pub fn fbm(&self, x: f32, y: f32, z: f32, octaves: u32) -> f32 {
+        let (mut sum, mut amp, mut freq, mut norm) = (0.0, 1.0, 1.0, 0.0);
+        for o in 0..octaves.max(1) {
+            let off = o as f32 * 19.17;
+            sum += self.get(x * freq + off, y * freq - off, z * freq + off * 0.5) * amp;
+            norm += amp;
+            amp *= 0.5;
+            freq *= 2.0;
+        }
+        sum / norm
+    }
+}
+
 /// Kleiner, schneller, deterministischer Zufallsgenerator (PCG-artig).
 #[derive(Clone)]
 pub struct Rng(u64);

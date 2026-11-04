@@ -62,6 +62,30 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `hidden` | false | |
 | `material` | grau | siehe unten |
 | `repeat` | – | Wiederholung, siehe unten |
+| `subdivide` | 0 | Feiner unterteilen (1–5, jede Stufe ×4 Dreiecke) – nötig für Verformungen |
+| `rounded` | false | Beim Unterteilen abrunden (Loop-Glättung): Würfel → Kiesel, Kanten → weiche Rundungen. Ohne `subdivide` = 2 Stufen |
+| `deform` | – | Verformungen, siehe unten |
+
+### deform (Verformen – macht aus Grundformen detaillierte Modelle)
+
+Liste, wird der Reihe nach angewendet. Alles bezieht sich auf das Objekt selbst (vor `rotation`/`scale`).
+Damit eine Verformung weich aussieht, braucht die Form genug Punkte: `subdivide` 3–4 bei Boxen.
+
+| type | Felder (Standard) | Wirkung / Beispiel |
+|---|---|---|
+| `twist` | `angle` 90, `axis` y | Verdrehen: gedrehte Säule, Bohrer, Horn, Eistüte |
+| `bend` | `angle` 45, `axis` y | Biegen (unten fest, Richtung +X): Ast, Rüssel, Schwanz, gebogenes Rohr |
+| `taper` | `scale` 0.5, `axis` y | Verjüngen (oben `scale`, 0 = Spitze): Baumstamm, Karotte, Zahn, Kralle |
+| `wave` | `amplitude` 0.1, `wavelength` 1, `axis` x, `phase` 0 | Wellen: Fahne, Stoff, Wasser, Schlange |
+| `inflate` | `amount` 0.1 | Aufblähen (negativ = einziehen) |
+| `noise` | `amount` 0.1, `scale` 1, `octaves` 3, `seed` 0 | Unregelmäßige Oberfläche: Felsen, Erde, Rinde, Haut, Wolken |
+
+Rezepte:
+- **Felsen:** `sphere` + `"subdivide": 2` + `noise` (amount 0.3×Radius, scale 1.5, octaves 4) + `material.flat`
+- **Kiesel / weiche Formen:** `box` + `"rounded": true, "subdivide": 3`
+- **Figuren-Körper (Pixar-Stil):** `capsule`/`sphere`/`rounded_box` mit `rounded` + leichtem `noise` (amount 0.01) gegen das „Computer-Perfekte“
+- **Ast:** `cylinder` + `subdivide` 3 + `taper` 0.35 + `bend` 60
+- **Fahne:** `box` [2, 1.2, 0.02] + `subdivide` 4 + `wave` (axis x)
 
 ### repeat (Wiederholung – funktioniert mit jedem Objekt, auch Gruppen und Instanzen)
 
@@ -292,6 +316,8 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
   (`clearcoat`), Glas (`transmission`), Leuchtstreifen (`emissive`), Oberflächen (`pattern`).
 - **Wiederverwenden:** Fertige Objekte mit `save_asset` in die Bibliothek legen und per
   `instance` einsetzen – so bleiben Figuren und Fahrzeuge in allen Szenen gleich.
+- **Organisch statt eckig:** `rounded` + `subdivide` für alles Natürliche, `deform` für Biegungen,
+  Verdrehungen und unregelmäßige Oberflächen (siehe „deform“).
 - **Prüfen:** Nach dem Bauen `screenshot` mit `position`/`look_at` als Nahaufnahme.
 
 ## Beispiel

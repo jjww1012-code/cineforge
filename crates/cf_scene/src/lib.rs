@@ -15,6 +15,7 @@ pub mod noise;
 pub mod ops;
 pub mod particles;
 pub mod project;
+pub mod shaping;
 pub mod svg;
 pub mod textures;
 pub mod procedural;

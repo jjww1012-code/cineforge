@@ -94,9 +94,17 @@
   Auswahl steht auch in `list_objects` und `resume`. F12 speichert nur die Vorschau.
   CLI `--hud` zeigt die Oberfläche im Screenshot, `--select ID`. Getestet mit xdotool auf Xvfb.
 
+- **Detaillierte 3D-Formen (`cf_scene::shaping`):** `subdivide` (Loop, bitgenau
+  deterministisch), `rounded` (Glättung), `deform` (twist, bend, taper, wave, inflate, noise mit
+  3D-Perlin `noise::Noise3`); verschweißte Punkte ⇒ keine Risse, Normalen mit Knickwinkel
+  (Würfelkanten bleiben scharf). Dreiecks-Obergrenze 1,5 Mio. App: Mesh-Cache für gleiche Formen,
+  CPU-Mesh-Daten bleiben für Picking erhalten.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **Noch detailliertere 3D-Modelle:** Glätten/Unterteilen, Boolesche Operationen, Verformen.
+1. **2D in voller Qualität** (SVG als Bild über resvg: Verläufe, Unschärfe, Schatten, Text),
+   2D/3D mischen (Billboard, Cartoon-Umriss), Kino-Look (Tiefenschärfe, Bewegungsunschärfe,
+   SSAO, Lichtstrahlen, Farbkorrektur).
 2. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
 3. **Ton-Vorschau in der App** (synchron zur Zeitleiste, Wellenform in der Ton-Spur).
 4. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen

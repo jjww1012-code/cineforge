@@ -252,8 +252,22 @@ pub struct Object {
     /// Animation über die Zeit (Keyframes).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animate: Option<crate::animation::Animation>,
+    /// Feinere Unterteilung der Oberfläche (0–5, jede Stufe ×4 Dreiecke) – Grundlage für
+    /// Verformungen und glatte, organische Formen.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub subdivide: u32,
+    /// Beim Unterteilen abrunden: aus Würfeln werden Kiesel, aus Kanten Rundungen.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub rounded: bool,
+    /// Verformungen in dieser Reihenfolge (verdrehen, biegen, verjüngen, Welle, aufblähen, Rauschen).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deform: Vec<crate::shaping::Deform>,
     #[serde(flatten)]
     pub kind: Kind,
+}
+
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
 }
 
 /// Wiederholung: Kopie i bekommt i-mal den Schritt angewendet:
@@ -880,6 +894,21 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
     }
     if !(0.0..=1.0).contains(&o.material.opacity) {
         p.push(format!("\"{id}\": material.opacity muss zwischen 0 und 1 liegen"));
+    }
+    if o.subdivide > crate::shaping::MAX_SUBDIVIDE {
+        p.push(format!("\"{id}\": subdivide höchstens {} (jede Stufe vervierfacht die Dreiecke)", crate::shaping::MAX_SUBDIVIDE));
+    }
+    let shapes_mesh = !matches!(
+        o.kind,
+        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. }
+    );
+    if (o.subdivide > 0 || o.rounded || !o.deform.is_empty()) && !shapes_mesh {
+        p.push(format!("\"{id}\": subdivide/rounded/deform gehen nur bei Formen (box, sphere, extrude, lathe, tube, text …), nicht bei diesem Typ"));
+    }
+    for d in &o.deform {
+        if let Some(e) = d.validate() {
+            p.push(format!("\"{id}\": deform {e}"));
+        }
     }
     if !(0.0..=1.0).contains(&o.material.transmission) {
         p.push(format!("\"{id}\": material.transmission muss zwischen 0 und 1 liegen"));

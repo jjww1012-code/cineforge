@@ -221,6 +221,7 @@ fn rebuild_scene(
         asset_server: asset_server.clone(),
         material_cache: HashMap::new(),
         texture_cache: HashMap::new(),
+        mesh_cache: HashMap::new(),
         stats: SceneStats::default(),
     };
     let mut rebuilt = 0;
@@ -317,7 +318,37 @@ struct Builder<'a, 'w, 's> {
     /// Gleiche Materialien teilen sich ein GPU-Material ⇒ weniger Draw-Calls.
     material_cache: HashMap<String, Handle<StandardMaterial>>,
     texture_cache: HashMap<String, (Handle<Image>, Option<Handle<Image>>)>,
+    mesh_cache: HashMap<String, (Handle<Mesh>, usize)>,
     stats: SceneStats,
+}
+
+/// Verfeinern/Verformen eines Objekts (siehe `cf_scene::shaping`).
+struct Shaping<'a> {
+    subdivide: u32,
+    rounded: bool,
+    deform: &'a [cf_scene::shaping::Deform],
+}
+
+/// Bevy-Netz → einfache Netzdaten (für Unterteilen und Verformen).
+fn mesh_data(mesh: &Mesh) -> Option<MeshData> {
+    use bevy::mesh::VertexAttributeValues as V;
+    let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION)? {
+        V::Float32x3(v) => v.clone(),
+        _ => return None,
+    };
+    let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL) {
+        Some(V::Float32x3(v)) => v.clone(),
+        _ => vec![[0.0, 1.0, 0.0]; positions.len()],
+    };
+    let uvs = match mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
+        Some(V::Float32x2(v)) => v.clone(),
+        _ => vec![[0.0, 0.0]; positions.len()],
+    };
+    let indices: Vec<u32> = match mesh.indices() {
+        Some(i) => i.iter().map(|x| x as u32).collect(),
+        None => (0..positions.len() as u32).collect(),
+    };
+    Some(MeshData { positions, normals, uvs, indices })
 }
 
 pub fn object_transform(o: &Object) -> Transform {
@@ -545,7 +576,7 @@ impl Builder<'_, '_, '_> {
                 let world_pos = transform.translation.to_array();
                 let instances = procedural::scatter_instances(spec, world_pos, ground.as_ref());
                 let needs_tangents = material.pattern.as_ref().is_some_and(|p| p.bump > 0.0);
-                if let Some((mesh, tris)) = self.shape_mesh(&spec.shape.kind, material.flat, needs_tangents) {
+                if let Some((mesh, tris)) = self.shape_mesh(&spec.shape.kind, material.flat, needs_tangents, None) {
                     let mat = self.material(material);
                     for inst in &instances {
                         self.commands.spawn((
@@ -565,7 +596,12 @@ impl Builder<'_, '_, '_> {
             }
             kind => {
                 let needs_tangents = material.pattern.as_ref().is_some_and(|p| p.bump > 0.0);
-                if let Some((mesh, tris)) = self.shape_mesh(kind, material.flat, needs_tangents) {
+                let shaping = (o.subdivide > 0 || o.rounded || !o.deform.is_empty()).then_some(Shaping {
+                    subdivide: o.subdivide,
+                    rounded: o.rounded,
+                    deform: &o.deform,
+                });
+                if let Some((mesh, tris)) = self.shape_mesh(kind, material.flat, needs_tangents, shaping) {
                     let mat = if animated_material {
                         // Eigenes Material, damit nur dieses Objekt seine Farbe ändert.
                         let fades = o.animate.as_ref().is_some_and(|a| !a.opacity.is_empty());
@@ -611,7 +647,20 @@ impl Builder<'_, '_, '_> {
         ));
     }
 
-    fn shape_mesh(&mut self, kind: &Kind, flat: bool, tangents: bool) -> Option<(Handle<Mesh>, usize)> {
+    fn shape_mesh(&mut self, kind: &Kind, flat: bool, tangents: bool, shaping: Option<Shaping>) -> Option<(Handle<Mesh>, usize)> {
+        // Verfeinerte Formen sind teuer: gleiche Angaben (z. B. bei repeat) nur einmal berechnen.
+        let cache_key = shaping.as_ref().map(|s| {
+            format!(
+                "{}|{flat}|{tangents}|{}|{}|{}",
+                serde_json::to_string(kind).unwrap_or_default(),
+                s.subdivide,
+                s.rounded,
+                serde_json::to_string(s.deform).unwrap_or_default()
+            )
+        });
+        if let Some(hit) = cache_key.as_ref().and_then(|k| self.mesh_cache.get(k)) {
+            return Some(hit.clone());
+        }
         let generated = |d: MeshData| Some(to_bevy_mesh(d));
         let mut mesh: Mesh = match kind {
             // Eigener Generator statt Cuboid: UV in Metern (Muster gleich groß auf allen Größen).
@@ -661,7 +710,23 @@ impl Builder<'_, '_, '_> {
         if mesh.count_vertices() == 0 {
             return None;
         }
-        let already_flat = matches!(kind, Kind::Pyramid { .. } | Kind::Terrain(_) | Kind::Extrude(_) | Kind::Text(_) | Kind::Box { .. });
+        let mut reshaped = false;
+        if let Some(s) = &shaping {
+            if let Some(data) = mesh_data(&mesh) {
+                let wanted = if s.rounded && s.subdivide == 0 { 2 } else { s.subdivide };
+                let r = cf_scene::shaping::reshape(&data, s.subdivide, s.rounded, s.deform);
+                if r.levels < wanted {
+                    self.stats.warnings.push(format!(
+                        "subdivide auf {} Stufen begrenzt (sonst über {} Dreiecke)",
+                        r.levels,
+                        cf_scene::shaping::MAX_TRIANGLES
+                    ));
+                }
+                mesh = to_bevy_mesh(r.mesh);
+                reshaped = true;
+            }
+        }
+        let already_flat = !reshaped && matches!(kind, Kind::Pyramid { .. } | Kind::Terrain(_) | Kind::Extrude(_) | Kind::Text(_) | Kind::Box { .. });
         if flat && !already_flat {
             mesh.duplicate_vertices();
             mesh.compute_flat_normals();
@@ -672,7 +737,11 @@ impl Builder<'_, '_, '_> {
             }
         }
         let tris = mesh.indices().map(|i| i.len() / 3).unwrap_or_else(|| mesh.count_vertices() / 3);
-        Some((self.meshes.add(mesh), tris))
+        let out = (self.meshes.add(mesh), tris);
+        if let Some(k) = cache_key {
+            self.mesh_cache.insert(k, out.clone());
+        }
+        Some(out)
     }
 
     fn pattern_textures(&mut self, p: &Pattern, base: cf_scene::Rgb) -> (Handle<Image>, Option<Handle<Image>>) {
