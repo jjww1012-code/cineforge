@@ -41,6 +41,11 @@
   zusammen, harte Schnitte oder Abblenden; Export intern als Abschnitte (`render::Segment`).
   Ende-zu-Ende geprüft (Bildgenaue Übergänge).
 
+- **Erster Test auf echtem Mac (M2):** läuft mit 76 FPS, Claude-Desktop-Verbindung funktioniert.
+  Danach behoben: fehlende Schriftzeichen (❚ ⟲ → Text, Test prüft Zeichen), „1 Schritt“,
+  Horizont: Atmosphären-Bodenfarbe = Geländefarbe + automatischer 40-km-Horizont-Boden.
+  Hinweis: Nutzer müssen die App aus dem Programme-Ordner starten (sonst App Translocation).
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **ffmpeg mitliefern** (CI: Mac/Windows), damit Nutzer nichts installieren müssen

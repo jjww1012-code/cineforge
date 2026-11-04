@@ -113,6 +113,7 @@ fn rebuild_scene(
     for o in &src.scene.objects {
         b.spawn_object(o, root, None, 0, "");
     }
+    b.spawn_horizon_ground(root);
     let mut stats = b.stats;
     stats.build_ms = started.elapsed().as_secs_f32() * 1000.0;
     info!(
@@ -339,6 +340,32 @@ impl Builder<'_, '_, '_> {
                 }
             }
         }
+    }
+
+    /// Hinter jedem Gelände eine sehr große Bodenfläche in Geländefarbe, knapp darunter.
+    /// So bricht die Welt am Horizont nicht ab; der Dunst lässt sie weich auslaufen.
+    fn spawn_horizon_ground(&mut self, root: Entity) {
+        let mut found: Option<(f32, [f32; 3], Material)> = None;
+        for o in &self.scene.objects {
+            if let Kind::Terrain(t) = &o.kind {
+                let area = t.size[0] * t.size[1];
+                if found.as_ref().is_none_or(|(a, _, _)| area > *a) {
+                    found = Some((area, o.position, o.material.clone()));
+                }
+            }
+        }
+        let Some((_, pos, mut mat)) = found else { return };
+        mat.pattern = None;
+        let mesh = self.meshes.add(Plane3d::default().mesh().size(40_000.0, 40_000.0));
+        let material = self.material(&mat);
+        self.commands.spawn((
+            Name::new("Horizont-Boden"),
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            Transform::from_xyz(pos[0], pos[1] - 0.3, pos[2]),
+            bevy::light::NotShadowCaster,
+            ChildOf(root),
+        ));
     }
 
     fn shape_mesh(&mut self, kind: &Kind, flat: bool, tangents: bool) -> Option<(Handle<Mesh>, usize)> {

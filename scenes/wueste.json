@@ -5,7 +5,7 @@
   "environment": {
     "sky": { "type": "atmosphere" },
     "sun": { "azimuth": 258, "elevation": 3.5, "intensity": 1.0, "color": "#fff1dc", "shadows": true },
-    "fog": { "visibility": 900, "color": "#e8b98a" },
+    "fog": { "visibility": 1600, "color": "#e8b98a" },
     "ambient": 0.6,
     "exposure": 0.0,
     "bloom": 0.2
@@ -16,8 +16,8 @@
       "id": "ground",
       "name": "Dünen",
       "type": "terrain",
-      "size": [1200, 1200],
-      "resolution": 512,
+      "size": [5000, 5000],
+      "resolution": 900,
       "height": 14,
       "style": "dunes",
       "feature_size": 70,

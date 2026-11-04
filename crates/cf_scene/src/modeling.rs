@@ -758,3 +758,16 @@ mod tests {
         check(&text(font, &TextSpec { text: "A\nB".into(), depth: 0.0, ..spec }).unwrap());
     }
 }
+
+#[cfg(test)]
+mod glyph_check {
+    /// Alle Sonderzeichen, die die App-Oberfläche benutzt, müssen in der Schrift vorhanden sein
+    /// (sonst erscheinen leere Kästchen).
+    #[test]
+    fn ui_symbols_exist_in_font() {
+        let font = include_bytes!("../../../apps/studio/assets/fonts/Inter-Regular.ttf");
+        let face = ttf_parser::Face::parse(font, 0).unwrap();
+        let missing: Vec<char> = "●▶✓·–←→„“…ÄÖÜäöüß×".chars().filter(|c| face.glyph_index(*c).is_none()).collect();
+        assert!(missing.is_empty(), "Diese Zeichen fehlen in der Schrift: {missing:?}");
+    }
+}

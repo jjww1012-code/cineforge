@@ -315,7 +315,7 @@ fn update_ui(
     } else if ph.playing {
         "▶"
     } else {
-        "❚❚"
+        "Pause"
     };
     let export = jobs
         .as_ref()
@@ -327,7 +327,7 @@ fn update_ui(
         "{state}  {} / {}{}{}\nLeertaste: Abspielen · ←/→: springen · V: {}{export}",
         format_time(ph.time),
         format_time(dur),
-        if ph.looping { "  ⟲" } else { "" },
+        if ph.looping { "  ·  Schleife" } else { "" },
         if ph.camera_view { "  ·  Szenen-Kamera" } else { "" },
         if ph.camera_view { "freie Kamera" } else { "Szenen-Kamera" }
     );

@@ -111,7 +111,14 @@ fn apply_environment(
     ));
     if atmosphere {
         sun.insert(SunDisk::EARTH);
-        commands.spawn((EnvEntity, Name::new("Atmosphäre"), Atmosphere::earth(medium.0.clone())));
+        let mut atmo = Atmosphere::earth(medium.0.clone());
+        // Bodenfarbe der Himmels-Simulation = Farbe des Geländes, damit es am Horizont
+        // nahtlos weitergeht (sonst sieht man hinter dem Gelände einen grauen Streifen).
+        if let Some(c) = ground_color(scene) {
+            let lin = color(c).to_linear();
+            atmo.ground_albedo = Vec3::new(lin.red, lin.green, lin.blue);
+        }
+        commands.spawn((EnvEntity, Name::new("Atmosphäre"), atmo));
         commands.insert_resource(GlobalAmbientLight::NONE);
     } else {
         let Sky::Color { color: sky } = &env.sky else { unreachable!() };
@@ -126,6 +133,23 @@ fn apply_environment(
     for view in &views {
         configure_view(&mut commands.entity(view), scene);
     }
+}
+
+/// Farbe des größten Bodens der Szene (Terrain, sonst große flache Ebene/Box).
+fn ground_color(scene: &cf_scene::Scene) -> Option<Rgb> {
+    let mut best: Option<(f32, Rgb)> = None;
+    scene.walk(&mut |o| {
+        let area = match &o.kind {
+            cf_scene::Kind::Terrain(t) => t.size[0] * t.size[1] * 10.0, // Gelände bevorzugen
+            cf_scene::Kind::Plane { size } => size[0] * size[1],
+            cf_scene::Kind::Box { size } if size[1] < 1.0 => size[0] * size[2],
+            _ => 0.0,
+        };
+        if area > 1000.0 && best.is_none_or(|(a, _)| area > a) {
+            best = Some((area, o.material.color));
+        }
+    });
+    best.map(|(_, c)| c)
 }
 
 /// Setzt alle kamerabezogenen Einstellungen (Belichtung, Himmel, Nebel, Bloom, Bildwinkel).

@@ -187,7 +187,11 @@ fn update_status(
         _ => "Claude-Verbindung: aus".to_string(),
     };
     let desktop = setup.map(|s| format!("  ·  {}", s.message)).unwrap_or_default();
-    let line = format!("{line}\n{claude}{desktop}  ·  Rückgängig: {} Schritte", src.history_len());
+    let undo = match src.history_len() {
+        1 => "1 Schritt".to_string(),
+        n => format!("{n} Schritte"),
+    };
+    let line = format!("{line}\n{claude}{desktop}  ·  Rückgängig: {undo}");
     for mut t in &mut q {
         t.0 = line.clone();
     }
