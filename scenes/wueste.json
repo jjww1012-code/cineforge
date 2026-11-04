@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "name": "Wüste bei Sonnenuntergang",
+  "description": "Drei Pyramiden in einer Dünenlandschaft, tief stehende Sonne, leichter Dunst. Ein Obelisk und eine schwebende, türkis leuchtende Kugel markieren das Zentrum.",
+  "environment": {
+    "sky": { "type": "atmosphere" },
+    "sun": { "azimuth": 258, "elevation": 3.5, "intensity": 1.0, "color": "#fff1dc", "shadows": true },
+    "fog": { "visibility": 900, "color": "#e8b98a" },
+    "ambient": 0.6,
+    "exposure": 0.0,
+    "bloom": 0.2
+  },
+  "camera": { "position": [165, 9, 25], "look_at": [0, 17, 10], "fov": 42 },
+  "objects": [
+    {
+      "id": "ground",
+      "name": "Dünen",
+      "type": "terrain",
+      "size": [1200, 1200],
+      "resolution": 512,
+      "height": 14,
+      "style": "dunes",
+      "feature_size": 70,
+      "seed": 7,
+      "flat_center_radius": 120,
+      "material": { "color": "#d8a46a", "roughness": 0.95 }
+    },
+    {
+      "id": "pyramid_great",
+      "name": "Große Pyramide",
+      "type": "pyramid",
+      "position": [0, -0.5, 0],
+      "rotation": [0, 8, 0],
+      "size": [70, 46, 70],
+      "material": { "color": "#cfa776", "roughness": 0.9, "flat": true }
+    },
+    {
+      "id": "pyramid_second",
+      "name": "Zweite Pyramide",
+      "type": "pyramid",
+      "position": [75, -0.5, -60],
+      "rotation": [0, 8, 0],
+      "size": [55, 36, 55],
+      "material": { "color": "#c99f6c", "roughness": 0.9, "flat": true }
+    },
+    {
+      "id": "pyramid_small",
+      "name": "Kleine Pyramide",
+      "type": "pyramid",
+      "position": [-55, -0.3, -70],
+      "rotation": [0, 8, 0],
+      "size": [26, 17, 26],
+      "material": { "color": "#c49a68", "roughness": 0.9, "flat": true }
+    },
+    {
+      "id": "obelisk",
+      "name": "Obelisk",
+      "type": "group",
+      "position": [-18, 0, 52],
+      "children": [
+        { "id": "obelisk_shaft", "type": "box", "position": [0, 7, 0], "size": [2.4, 14, 2.4],
+          "material": { "color": "#3b2f2a", "roughness": 0.35, "metallic": 0.2 } },
+        { "id": "obelisk_tip", "type": "pyramid", "position": [0, 14, 0], "size": [2.4, 2.2, 2.4],
+          "material": { "color": "#e8c15a", "roughness": 0.2, "metallic": 1.0 } }
+      ]
+    },
+    {
+      "id": "orb",
+      "name": "Leuchtende Kugel",
+      "type": "sphere",
+      "position": [0, 58, 0],
+      "radius": 2.2,
+      "material": { "color": "#ffffff", "emissive": "#4fe3ff", "emissive_strength": 60 }
+    },
+    {
+      "id": "orb_light",
+      "type": "point_light",
+      "position": [0, 58, 0],
+      "color": "#4fe3ff",
+      "intensity": 4000000,
+      "range": 160
+    },
+    {
+      "id": "rocks",
+      "name": "Felsbrocken",
+      "type": "scatter",
+      "shape": { "type": "sphere", "radius": 1 },
+      "count": 400,
+      "area": [500, 500],
+      "seed": 3,
+      "scale_range": [0.3, 2.2],
+      "on_terrain": "ground",
+      "sink": 0.35,
+      "keep_clear_radius": 60,
+      "scale": [1, 1, 1],
+      "material": { "color": "#9c7a55", "roughness": 0.85, "flat": true }
+    }
+  ]
+}

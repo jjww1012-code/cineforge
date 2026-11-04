@@ -1,0 +1,14 @@
+[package]
+name = "cineforge-studio"
+description = "CineForge Studio – native App: 3D-Vorschau, Flug-Kamera, Szenen-Live-Reload."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "cineforge"
+path = "src/main.rs"
+
+[dependencies]
+cf_scene = { path = "../../crates/cf_scene" }
+bevy = { version = "0.20.1", features = ["free_camera"] }

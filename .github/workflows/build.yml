@@ -1,0 +1,74 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Systempakete
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  macos:
+    name: macOS (Apple Silicon)
+    runs-on: macos-15
+    env:
+      # Job-Ebene, damit die Bedingung unten darauf zugreifen kann.
+      APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p cineforge-studio
+      - name: App-Paket bauen
+        run: packaging/macos/make_app.sh target/release/cineforge dist/CineForge.app
+      - name: Signieren & notarisieren (nur wenn Apple-Zugangsdaten hinterlegt sind)
+        if: ${{ env.APPLE_CERT_P12 != '' }}
+        env:
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: packaging/macos/sign_and_notarize.sh dist/CineForge.app
+      - name: Zippen
+        run: |
+          cp -R scenes dist/Szenen
+          cd dist && ditto -c -k --keepParent CineForge.app CineForge-macOS.zip && zip -r CineForge-macOS.zip Szenen
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CineForge-macOS
+          path: dist/CineForge-macOS.zip
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p cineforge-studio
+      - name: Zippen
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/CineForge | Out-Null
+          Copy-Item target/release/cineforge.exe dist/CineForge/CineForge.exe
+          Copy-Item -Recurse scenes dist/CineForge/Szenen
+          Compress-Archive -Path dist/CineForge -DestinationPath dist/CineForge-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CineForge-Windows
+          path: dist/CineForge-Windows.zip
