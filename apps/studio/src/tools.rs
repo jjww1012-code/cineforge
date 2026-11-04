@@ -90,6 +90,21 @@ pub fn definitions() -> Value {
     let obj = json!({"type": "object"});
     json!([
         {
+            "name": "batch",
+            "description": "Mehrere Änderungen in EINEM Schritt (schneller, alles oder nichts): operations = [{\"op\":\"add\",\"objects\":[…],\"parent\":…}, {\"op\":\"update\",\"id\":…,\"changes\":{…}}, {\"op\":\"remove\",\"ids\":[…]}, {\"op\":\"settings\",\"changes\":{…}}, {\"op\":\"duplicate\",\"id\":…,\"new_id\":…,\"count\":3,\"offset\":[2,0,0]}]. Optional scene: andere Szene des Projekts bearbeiten, ohne sie zu öffnen.",
+            "inputSchema": {"type": "object", "properties": {"operations": {"type": "array", "items": obj}, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["operations"]}
+        },
+        {
+            "name": "duplicate_object",
+            "description": "Kopiert ein Objekt (inkl. Kinder) count-mal, jeweils um offset versetzt. Neue ids: new_id, new_id_2 … (Kinder bekommen dieselbe Endung).",
+            "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "new_id": {"type": "string"}, "count": {"type": "integer"}, "offset": {"type": "array", "items": {"type": "number"}}, "scene": {"type": "string"}}, "required": ["id"]}
+        },
+        {
+            "name": "claim_task",
+            "description": "Für mehrere Agenten gleichzeitig: übernimmt die nächste freie Aufgabe (status open, ohne Besitzer) für agent und setzt sie auf in_progress. So arbeiten nie zwei Agenten an derselben Aufgabe.",
+            "inputSchema": {"type": "object", "properties": {"agent": {"type": "string"}}, "required": ["agent"]}
+        },
+        {
             "name": "get_guide",
             "description": "Liefert die vollständige Beschreibung des Szenen-Formats (alle Objekt-Typen, Felder, Standardwerte) und Tipps. Vor dem ersten Bauen lesen.",
             "inputSchema": {"type": "object", "properties": {}}
@@ -97,24 +112,24 @@ pub fn definitions() -> Value {
         {
             "name": "get_scene",
             "description": "Liefert die aktuelle Szene als vollständiges JSON-Dokument.",
-            "inputSchema": {"type": "object", "properties": {}}
+            "inputSchema": {"type": "object", "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}}}
         },
         {
             "name": "list_objects",
             "description": "Kurze Übersicht der Szene: Kamera, Sonne und alle Objekte als Baum mit id, Typ und Position.",
-            "inputSchema": {"type": "object", "properties": {}}
+            "inputSchema": {"type": "object", "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}}}
         },
         {
             "name": "set_scene",
             "description": "Ersetzt die komplette Szene. Für neue Szenen oder große Umbauten. Für kleine Änderungen besser update_object.",
-            "inputSchema": {"type": "object", "properties": {"scene": obj}, "required": ["scene"]}
+            "inputSchema": {"type": "object", "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}, "scene": obj}, "required": ["scene"]}
         },
         {
             "name": "add_objects",
             "description": "Fügt Objekte hinzu (vollständige Objekt-Definitionen mit id und type). Existiert eine id schon, wird das Objekt ersetzt. Mit parent werden sie Kinder einer Gruppe.",
             "inputSchema": {
                 "type": "object",
-                "properties": {
+                "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}, 
                     "objects": {"type": "array", "items": obj},
                     "parent": {"type": "string", "description": "id einer Gruppe (optional)"}
                 },
@@ -126,7 +141,7 @@ pub fn definitions() -> Value {
             "description": "Ändert einzelne Eigenschaften eines Objekts per Merge-Patch. Beispiel: {\"id\":\"tower\",\"changes\":{\"position\":[0,5,0],\"material\":{\"color\":\"#ff0000\"}}}. null entfernt ein Feld (zurück auf Standard).",
             "inputSchema": {
                 "type": "object",
-                "properties": {"id": {"type": "string"}, "changes": obj},
+                "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}, "id": {"type": "string"}, "changes": obj},
                 "required": ["id", "changes"]
             }
         },
@@ -135,14 +150,14 @@ pub fn definitions() -> Value {
             "description": "Entfernt Objekte (inkl. Kinder) anhand ihrer ids.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"ids": {"type": "array", "items": {"type": "string"}}},
+                "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}, "ids": {"type": "array", "items": {"type": "string"}}},
                 "required": ["ids"]
             }
         },
         {
             "name": "update_scene_settings",
             "description": "Ändert name, description, environment (Himmel, Sonne, Nebel, Belichtung, Bloom) oder camera per Merge-Patch. Beispiel: {\"changes\":{\"environment\":{\"sun\":{\"elevation\":5}}}}",
-            "inputSchema": {"type": "object", "properties": {"changes": obj}, "required": ["changes"]}
+            "inputSchema": {"type": "object", "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}, "changes": obj}, "required": ["changes"]}
         },
         {
             "name": "screenshot",
@@ -391,6 +406,8 @@ fn describe(name: &str, a: &Value) -> String {
             a.get("changes").and_then(Value::as_object).map(|m| m.keys().cloned().collect::<Vec<_>>().join(", ")).unwrap_or_default()
         ),
         "set_scene" => "Szene komplett neu gesetzt".into(),
+        "batch" => format!("{} Änderungen in einem Schritt", a.get("operations").and_then(Value::as_array).map(|l| l.len()).unwrap_or(0)),
+        "duplicate_object" => format!("Objekt dupliziert: {}", a.get("id").and_then(Value::as_str).unwrap_or("?")),
         other => other.into(),
     }
 }
@@ -401,10 +418,14 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     let str_arg = |k: &str| a.get(k).and_then(Value::as_str);
     let scene_file = cx.src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
 
+    // Agent-Name fürs Protokoll (mehrere Claude-Sitzungen gleichzeitig).
+    let actor = str_arg("agent").map(|a| format!("claude/{a}")).unwrap_or_else(|| "claude".into());
+
     // Während eines Exports darf sich die Szene nicht ändern.
     let is_mutation = matches!(
         call.name.as_str(),
-        "set_scene" | "add_objects" | "update_object" | "remove_objects" | "update_scene_settings" | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project"
+        "set_scene" | "add_objects" | "update_object" | "remove_objects" | "update_scene_settings" | "batch" | "duplicate_object"
+            | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project"
     );
     if is_mutation && cx.jobs.export_running() {
         let _ = call.reply.send(ToolOutput::error(format!(
@@ -414,33 +435,88 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         return;
     }
 
+    // Ziel-Szene: die geöffnete, oder per "scene" eine andere Szene des Projekts
+    // (so arbeiten mehrere Agenten parallel, ohne sich die Ansicht wegzunehmen).
+    let target: Option<std::path::PathBuf> = match str_arg("scene").filter(|_| {
+        matches!(call.name.as_str(), "set_scene" | "add_objects" | "update_object" | "remove_objects" | "update_scene_settings" | "batch" | "duplicate_object" | "list_objects" | "get_scene")
+    }) {
+        Some(name) if a.get("scene").is_some_and(Value::is_string) => match scene_path(cx.project, name) {
+            Ok(p) if p == cx.src.path => None,
+            Ok(p) if p.is_file() => Some(p),
+            Ok(p) => {
+                let _ = call.reply.send(ToolOutput::error(format!("Szene {} gibt es nicht (list_scenes)", p.display())));
+                return;
+            }
+            Err(e) => {
+                let _ = call.reply.send(ToolOutput::error(e));
+                return;
+            }
+        },
+        _ => None,
+    };
+    let base_scene: Scene = match &target {
+        Some(p) => match std::fs::read_to_string(p).map_err(|e| e.to_string()).and_then(|t| Scene::from_json(&t).map_err(|e| e.to_string())) {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = call.reply.send(ToolOutput::error(format!("Szene nicht lesbar: {e}")));
+                return;
+            }
+        },
+        None => cx.src.scene.clone(),
+    };
+    let target_name = target
+        .as_ref()
+        .and_then(|p| p.file_stem())
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| scene_file.clone());
+
+    if target.is_some() {
+        match call.name.as_str() {
+            "list_objects" => {
+                let _ = call.reply.send(ToolOutput::text(ops::outline(&base_scene)));
+                return;
+            }
+            "get_scene" => {
+                let _ = call.reply.send(ToolOutput::text(base_scene.to_json_pretty()));
+                return;
+            }
+            _ => {}
+        }
+    }
+
     let mutation: Option<Result<Scene, String>> = match call.name.as_str() {
         "set_scene" => Some(
-            serde_json::from_value::<Scene>(a.get("scene").cloned().unwrap_or(Value::Null))
-                .map_err(|e| format!("Ungültige Szene: {e}"))
-                .and_then(|s| {
-                    let p = s.validate();
-                    if p.is_empty() { Ok(s) } else { Err(format!("Szene ist ungültig:\n- {}", p.join("\n- "))) }
-                }),
+            serde_json::to_string(&a.get("scene").cloned().unwrap_or(Value::Null))
+                .map_err(|e| e.to_string())
+                .and_then(|t| Scene::from_json(&t).map_err(|e| format!("Ungültige Szene: {e}"))),
         ),
+        "batch" => Some(run_batch(&base_scene, a)),
+        "duplicate_object" => Some(match str_arg("id") {
+            Some(id) => ops::duplicate(
+                &base_scene,
+                id,
+                str_arg("new_id"),
+                a.get("count").and_then(Value::as_u64).unwrap_or(1) as u32,
+                vec3_arg(a, "offset").map(|v| v.to_array()).unwrap_or([0.0; 3]),
+            ),
+            None => Err("id fehlt".into()),
+        }),
         "add_objects" => Some(match a.get("objects").and_then(Value::as_array) {
-            Some(list) => ops::upsert_objects(&cx.src.scene, list, str_arg("parent")),
+            Some(list) => ops::upsert_objects(&base_scene, list, str_arg("parent")),
             None => Err("objects muss eine Liste sein".into()),
         }),
         "update_object" => Some(match str_arg("id") {
-            Some(id) => ops::update_object(&cx.src.scene, id, a.get("changes").unwrap_or(&Value::Null)),
+            Some(id) => ops::update_object(&base_scene, id, a.get("changes").unwrap_or(&Value::Null)),
             None => Err("id fehlt".into()),
         }),
         "remove_objects" => Some(match a.get("ids").and_then(Value::as_array) {
             Some(ids) => {
                 let ids: Vec<String> = ids.iter().filter_map(|v| v.as_str().map(String::from)).collect();
-                ops::remove_objects(&cx.src.scene, &ids)
+                ops::remove_objects(&base_scene, &ids)
             }
             None => Err("ids muss eine Liste sein".into()),
         }),
-        "update_scene_settings" => {
-            Some(ops::update_settings(&cx.src.scene, a.get("changes").unwrap_or(&Value::Null)))
-        }
+        "update_scene_settings" => Some(ops::update_settings(&base_scene, a.get("changes").unwrap_or(&Value::Null))),
         _ => None,
     };
 
@@ -450,13 +526,27 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             cx.library.check(cx.project, &scene.objects)?;
             Ok(scene)
         });
-        let reply = match result.and_then(|scene| cx.src.commit(scene, cx.out)) {
-            Ok(()) => {
-                cx.project.log("claude", format!("[{scene_file}] {}", describe(&call.name, a)));
+        let saved = result.and_then(|scene| match &target {
+            Some(p) => {
+                let tmp = p.with_extension("json.tmp");
+                std::fs::write(&tmp, scene.to_json_pretty())
+                    .and_then(|_| std::fs::rename(&tmp, p))
+                    .map_err(|e| format!("Speichern fehlgeschlagen: {e}"))?;
+                Ok(scene)
+            }
+            None => cx.src.commit(scene, cx.out).map(|_| cx.src.scene.clone()),
+        });
+        let reply = match saved {
+            Ok(scene) => {
+                cx.project.log(&actor, format!("[{target_name}] {}", describe(&call.name, a)));
+                let where_ = if target.is_some() {
+                    format!("in Szene „{target_name}“ gespeichert (nicht geöffnet – Ansicht der App bleibt unverändert)")
+                } else {
+                    "übernommen und gespeichert. Die App zeigt die Änderung jetzt an".into()
+                };
                 ToolOutput::text(format!(
-                    "✓ Übernommen und gespeichert. Die App zeigt die Änderung jetzt an.\n\
-                     Tipp: Mit screenshot das Ergebnis prüfen.\n\n{}",
-                    ops::outline(&cx.src.scene)
+                    "✓ {where_}.\nTipp: Mit screenshot das Ergebnis prüfen.\n\n{}",
+                    ops::outline(&scene)
                 ))
             }
             Err(e) => ToolOutput::error(format!("Nicht übernommen – die Szene bleibt unverändert.\n{e}")),
@@ -480,6 +570,25 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         "resume" => ToolOutput::text(resume_text(cx)),
         "update_plan" => update_plan(a, cx.project),
         "update_tasks" => update_tasks(a, cx.project),
+        "claim_task" => match cx.project.require() {
+            Err(e) => ToolOutput::error(e),
+            Ok(()) => {
+                let agent = str_arg("agent").unwrap_or("claude").to_string();
+                let now = crate::project::now();
+                match cx.project.data.claim_task(&agent, &now) {
+                    Some(t) => {
+                        cx.project.log(&actor, format!("Aufgabe #{} übernommen", t.id));
+                        ToolOutput::text(format!(
+                            "Aufgabe #{} gehört jetzt dir ({agent}): {}{}\nWenn fertig: update_tasks mit status done. Szenen anderer Shots mit dem Parameter scene bearbeiten, damit sich Agenten nicht stören.",
+                            t.id,
+                            t.text,
+                            if t.notes.is_empty() { String::new() } else { format!("\nNotizen: {}", t.notes) }
+                        ))
+                    }
+                    None => ToolOutput::text("Keine freie Aufgabe mehr. resume zeigt den Stand."),
+                }
+            }
+        },
         "add_note" => match str_arg("text").filter(|t| !t.trim().is_empty()) {
             Some(t) => match cx.project.require() {
                 Ok(()) => {
@@ -739,6 +848,52 @@ fn save_asset(a: &Value, cx: &mut Ctx) -> ToolOutput {
         "\nVerwenden: {{\"id\":\"…\",\"type\":\"instance\",\"asset\":\"{name}\",\"position\":[x,y,z]}}"
     ));
     ToolOutput::text(msg)
+}
+
+/// Mehrere Änderungen in einem Schritt – alle oder keine.
+fn run_batch(scene: &Scene, a: &Value) -> Result<Scene, String> {
+    let ops_list = a.get("operations").and_then(Value::as_array).ok_or("operations muss eine Liste sein")?;
+    if ops_list.is_empty() {
+        return Err("operations ist leer".into());
+    }
+    let mut cur = scene.clone();
+    for (i, op) in ops_list.iter().enumerate() {
+        let s = |k: &str| op.get(k).and_then(Value::as_str);
+        let kind = s("op").ok_or_else(|| format!("operations[{i}]: \"op\" fehlt (add, update, remove, settings, duplicate)"))?;
+        let r = match kind {
+            "add" => match op.get("objects").and_then(Value::as_array) {
+                Some(list) => ops::upsert_objects(&cur, list, s("parent")),
+                None => Err("objects muss eine Liste sein".into()),
+            },
+            "update" => match s("id") {
+                Some(id) => ops::update_object(&cur, id, op.get("changes").unwrap_or(&Value::Null)),
+                None => Err("id fehlt".into()),
+            },
+            "remove" => match op.get("ids").and_then(Value::as_array) {
+                Some(ids) => ops::remove_objects(&cur, &ids.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<_>>()),
+                None => Err("ids muss eine Liste sein".into()),
+            },
+            "settings" => ops::update_settings(&cur, op.get("changes").unwrap_or(&Value::Null)),
+            "duplicate" => match s("id") {
+                Some(id) => ops::duplicate(
+                    &cur,
+                    id,
+                    s("new_id"),
+                    op.get("count").and_then(Value::as_u64).unwrap_or(1) as u32,
+                    vec3_arg(op, "offset").map(|v| v.to_array()).unwrap_or([0.0; 3]),
+                ),
+                None => Err("id fehlt".into()),
+            },
+            other => {
+                let hint = cf_scene::diagnose::suggest(other, ["add", "update", "remove", "settings", "duplicate"])
+                    .map(|x| format!(" → Meintest du „{x}“?"))
+                    .unwrap_or_default();
+                Err(format!("unbekannte Operation „{other}“{hint}"))
+            }
+        };
+        cur = r.map_err(|e| format!("operations[{i}] ({kind}): {e}\nKeine der Änderungen wurde übernommen."))?;
+    }
+    Ok(cur)
 }
 
 fn vec3_arg(a: &Value, k: &str) -> Option<Vec3> {
@@ -1069,6 +1224,11 @@ fn update_tasks(a: &Value, project: &mut ActiveProject) -> ToolOutput {
             &now,
         ) {
             return ToolOutput::error(e);
+        }
+        if let Some(owner) = u.get("owner").and_then(Value::as_str) {
+            if let Some(t) = data.tasks.iter_mut().find(|t| t.id == id as u32) {
+                t.owner = owner.to_string();
+            }
         }
         report.push(format!("#{id} geändert"));
     }

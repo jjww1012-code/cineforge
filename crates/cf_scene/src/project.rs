@@ -136,6 +136,9 @@ pub struct Task {
     pub status: Status,
     pub notes: String,
     pub updated: String,
+    /// Welcher Agent die Aufgabe bearbeitet (bei mehreren Claude-Sitzungen).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub owner: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -223,7 +226,7 @@ impl Project {
 
     pub fn add_task(&mut self, text: &str, time: &str) -> u32 {
         let id = self.tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
-        self.tasks.push(Task { id, text: text.into(), status: Status::Open, notes: String::new(), updated: time.into() });
+        self.tasks.push(Task { id, text: text.into(), status: Status::Open, notes: String::new(), updated: time.into(), owner: String::new() });
         id
     }
 
@@ -247,6 +250,15 @@ impl Project {
         }
         t.updated = time.into();
         Ok(())
+    }
+
+    /// Nächste freie Aufgabe für einen Agenten übernehmen (offen und ohne Besitzer).
+    pub fn claim_task(&mut self, agent: &str, time: &str) -> Option<Task> {
+        let t = self.tasks.iter_mut().find(|t| t.status == Status::Open && t.owner.is_empty())?;
+        t.status = Status::InProgress;
+        t.owner = agent.to_string();
+        t.updated = time.into();
+        Some(t.clone())
     }
 
     /// Zusammenfassung zum Weitermachen – das Erste, was Claude in einer neuen
@@ -310,6 +322,9 @@ impl Project {
         }
         for t in &open {
             s += &format!("{} #{} {}", t.status.symbol(), t.id, t.text);
+            if !t.owner.is_empty() {
+                s += &format!(" [{}]", t.owner);
+            }
             if !t.notes.is_empty() {
                 s += &format!(" — {}", t.notes);
             }
@@ -467,6 +482,18 @@ mod tests {
         assert_eq!(p.storyboard[100].clip.as_ref().unwrap().file, "intro.mp4");
         assert_eq!(p.storyboard[100].audio[0].volume, 1.0);
         assert_eq!(format_duration(3725.0), "1:02:05");
+    }
+
+    #[test]
+    fn agents_claim_distinct_tasks() {
+        let mut p = Project::new("x", "y");
+        p.add_task("a", "t");
+        p.add_task("b", "t");
+        let t1 = p.claim_task("agent-1", "t").unwrap();
+        let t2 = p.claim_task("agent-2", "t").unwrap();
+        assert_ne!(t1.id, t2.id);
+        assert!(p.claim_task("agent-3", "t").is_none());
+        assert!(p.digest(None).contains("[agent-1]"));
     }
 
     #[test]

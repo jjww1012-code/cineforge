@@ -132,3 +132,27 @@ fn scatter_respects_count_clear_radius_and_ground() {
         assert!((y - (g + (1.0 - 0.35 * 2.0) * i.scale)).abs() < 1e-3);
     }
 }
+
+#[test]
+fn all_example_scenes_are_valid() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scenes");
+    let mut files = vec![];
+    let mut stack = vec![dir];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(d).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x == "json") {
+                files.push(p);
+            }
+        }
+    }
+    assert!(files.len() >= 8, "Beispielszenen gefunden: {}", files.len());
+    for f in files {
+        let text = std::fs::read_to_string(&f).unwrap();
+        if let Err(e) = Scene::from_json(&text) {
+            panic!("{}: {e}", f.display());
+        }
+    }
+}

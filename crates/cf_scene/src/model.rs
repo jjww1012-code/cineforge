@@ -741,8 +741,8 @@ impl std::error::Error for SceneError {}
 
 impl Scene {
     pub fn from_json(text: &str) -> Result<Scene, SceneError> {
-        let scene: Scene =
-            serde_json::from_str(text).map_err(|e| SceneError::Parse(e.to_string()))?;
+        let value: serde_json::Value = serde_json::from_str(text).map_err(|e| SceneError::Parse(format!("Kein gültiges JSON: {e}")))?;
+        let scene = crate::diagnose::parse_scene(value).map_err(SceneError::Parse)?;
         let problems = scene.validate();
         if problems.is_empty() {
             Ok(scene)

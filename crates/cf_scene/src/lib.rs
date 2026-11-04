@@ -7,6 +7,7 @@
 
 pub mod animation;
 pub mod color;
+pub mod diagnose;
 pub mod library;
 pub mod model;
 pub mod modeling;

@@ -224,6 +224,12 @@ fn prompts_list() -> Value {
             "description": "Setzt die Arbeit am aktuellen CineForge-Projekt genau dort fort, wo zuletzt aufgehört wurde."
         },
         {
+            "name": "mitarbeiten",
+            "title": "Als weiterer Agent mitarbeiten",
+            "description": "Für ein zusätzliches Claude-Fenster: übernimmt freie Aufgaben des Projekts und baut parallel, ohne die anderen zu stören.",
+            "arguments": [{"name": "name", "description": "Name dieses Agenten, z. B. agent-2", "required": true}]
+        },
+        {
             "name": "neuer_film",
             "title": "Neuer Film",
             "description": "Startet ein neues Film-Projekt aus einer Idee: Logbuch, Storyboard, Aufgaben, dann Szene für Szene bauen.",
@@ -237,6 +243,16 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
     let text = match name {
         "weitermachen" => "Mach in CineForge weiter, wo du zuletzt aufgehört hast: Rufe zuerst `resume` auf,              lies den Stand (nächster Schritt, offene Aufgaben, letzte Aktionen) und arbeite dann selbstständig weiter.              Halte dabei Aufgaben und next_step aktuell, damit es nach einer Unterbrechung wieder nahtlos weitergeht."
             .to_string(),
+        "mitarbeiten" => {
+            let name = params.pointer("/arguments/name").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).unwrap_or("agent-2");
+            format!(
+                "Du arbeitest als Agent „{name}“ zusammen mit anderen Claude-Agenten im selben CineForge-Projekt. Regeln: \
+                 1) resume lesen. 2) claim_task mit agent=\"{name}\" – nur an übernommenen Aufgaben arbeiten. \
+                 3) Szenen immer mit dem Parameter scene bearbeiten (add_objects, update_object, batch …) und agent=\"{name}\" mitschicken – \
+                 so bleibt die Ansicht der anderen unberührt. 4) screenshot mit scene prüfen. \
+                 5) Aufgabe mit update_tasks auf done setzen, dann die nächste mit claim_task holen, bis keine mehr frei ist."
+            )
+        }
         "neuer_film" => {
             let idee = params
                 .pointer("/arguments/idee")

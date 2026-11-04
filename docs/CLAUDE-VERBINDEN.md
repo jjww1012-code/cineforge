@@ -55,6 +55,14 @@ So geht es weiter:
 
 Für einen neuen Film: **„+“ → cineforge → „Neuer Film“** und die Idee eingeben.
 
+## Mehrere Claude-Agenten gleichzeitig
+
+Du kannst mehrere Claude-Desktop-Fenster gleichzeitig mit CineForge arbeiten lassen.
+Im zweiten Fenster: **„+“ → cineforge → „Als weiterer Agent mitarbeiten“** und einen Namen
+eingeben (z. B. agent-2). Jeder Agent holt sich mit `claim_task` eine freie Aufgabe und
+bearbeitet „seine“ Szene über den Parameter `scene` – die Ansicht der App bleibt dabei
+unberührt. Im Logbuch steht, welcher Agent was getan hat.
+
 ## Lange Filme (bis über 1 Stunde)
 
 - Jeder **Shot** im Storyboard ist entweder eine Szene (`scene`) oder ein fertiger Video-Clip
@@ -96,6 +104,9 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `resume` | Kompletter Projekt-Stand zum Weitermachen |
 | `update_plan` | Ziel, Stil, Storyboard, nächster Schritt |
 | `update_tasks`, `add_note` | Aufgaben abhaken, Entscheidungen festhalten |
+| `batch` | Viele Änderungen in einem Schritt (alles oder nichts) |
+| `duplicate_object` | Objekte mehrfach kopieren und versetzen |
+| `claim_task` | Nächste freie Aufgabe für einen Agenten übernehmen |
 | `list_projects`, `open_project`, `new_project` | Projekte verwalten |
 
 Jede Änderung wird geprüft, bevor sie übernommen wird. Fehlerhafte Befehle werden mit

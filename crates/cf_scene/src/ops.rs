@@ -37,7 +37,7 @@ fn to_value(scene: &Scene) -> Value {
 }
 
 fn from_value(v: Value) -> OpResult {
-    let scene: Scene = serde_json::from_value(v).map_err(|e| format!("Ungültige Angaben: {e}"))?;
+    let scene: Scene = crate::diagnose::parse_scene(v).map_err(|e| format!("Ungültige Angaben: {e}"))?;
     let problems = scene.validate();
     if problems.is_empty() {
         Ok(scene)
@@ -156,6 +156,57 @@ pub fn update_settings(scene: &Scene, changes: &Value) -> OpResult {
     }
     let mut v = to_value(scene);
     merge_patch(&mut v, changes);
+    from_value(v)
+}
+
+/// Dupliziert ein Objekt `count`-mal (inkl. Kinder), jeweils um `offset` weiter versetzt.
+/// Neue ids: `<new_id>` bzw. `<new_id>_2`, `_3` …; Kinder bekommen dieselbe Endung.
+pub fn duplicate(scene: &Scene, id: &str, new_id: Option<&str>, count: u32, offset: [f32; 3]) -> OpResult {
+    if count == 0 || count > 1000 {
+        return Err("count muss zwischen 1 und 1000 liegen".into());
+    }
+    let mut v = to_value(scene);
+    fn find_list<'a>(list: &'a mut Value, id: &str) -> Option<(&'a mut Vec<Value>, usize)> {
+        let arr = list.as_array_mut()?;
+        if let Some(i) = arr.iter().position(|o| o.get("id").and_then(Value::as_str) == Some(id)) {
+            return Some((arr, i));
+        }
+        for o in arr.iter_mut() {
+            if let Some(ch) = o.get_mut("children") {
+                if let Some(found) = find_list(ch, id) {
+                    return Some(found);
+                }
+            }
+        }
+        None
+    }
+    fn rename(o: &mut Value, suffix: &str, root_id: &str) {
+        if let Some(m) = o.as_object_mut() {
+            if let Some(Value::String(cur)) = m.get("id").cloned() {
+                let new = if root_id.is_empty() { format!("{cur}{suffix}") } else { root_id.to_string() };
+                m.insert("id".into(), Value::String(new));
+            }
+            if let Some(Value::Array(children)) = m.get_mut("children") {
+                for c in children {
+                    rename(c, suffix, "");
+                }
+            }
+        }
+    }
+    let base = new_id.unwrap_or(id).to_string();
+    let (list, idx) = find_list(&mut v["objects"], id).ok_or_else(|| unknown_id(scene, id))?;
+    let original = list[idx].clone();
+    let pos: [f32; 3] = serde_json::from_value(original.get("position").cloned().unwrap_or(Value::Null)).unwrap_or([0.0; 3]);
+    for n in 1..=count {
+        let mut copy = original.clone();
+        let root = if new_id.is_some() && n == 1 { base.clone() } else { format!("{base}_{}", n + if new_id.is_some() { 0 } else { 1 }) };
+        let suffix = format!("_{}", root.trim_start_matches(&*base).trim_start_matches('_'));
+        let suffix = if suffix == "_" { "_kopie".to_string() } else { suffix };
+        rename(&mut copy, &suffix, &root);
+        let f = n as f32;
+        copy["position"] = serde_json::json!([pos[0] + offset[0] * f, pos[1] + offset[1] * f, pos[2] + offset[2] * f]);
+        list.insert(idx + n as usize, copy);
+    }
     from_value(v)
 }
 
@@ -319,6 +370,17 @@ mod tests {
         assert_eq!(s.environment.sun.azimuth, 135.0);
         assert_eq!(s.objects.len(), 3);
         assert!(update_settings(&base(), &json!({"objects": []})).is_err());
+    }
+
+    #[test]
+    fn duplicate_with_children_and_offsets() {
+        let s = duplicate(&base(), "g", Some("g2"), 2, [5.0, 0.0, 0.0]).unwrap();
+        assert!(s.find("g2").is_some() && s.find("g2_2").is_some(), "{}", outline(&s));
+        assert!(s.find("cube_2").is_some(), "Kinder umbenannt: {}", outline(&s));
+        assert_eq!(s.find("g2_2").unwrap().position, [10.0, 0.0, 0.0]);
+        let s2 = duplicate(&base(), "cube", None, 1, [0.0, 1.0, 0.0]).unwrap();
+        assert!(s2.find("cube_2").is_some(), "{}", outline(&s2));
+        assert!(duplicate(&base(), "nope", None, 1, [0.0; 3]).is_err());
     }
 
     #[test]
