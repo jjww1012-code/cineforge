@@ -11,6 +11,8 @@ use bevy::{
 pub struct AutoCapturePlugin {
     pub path: PathBuf,
     pub frames: u32,
+    /// Zeitpunkt der Szene (Kamera folgt der Szenen-Kamera).
+    pub time: f32,
 }
 
 #[derive(Resource)]
@@ -28,6 +30,12 @@ impl Plugin for AutoCapturePlugin {
             requested: false,
         })
         .add_systems(Update, auto_capture);
+        let t = self.time;
+        app.add_systems(Startup, move |mut ph: ResMut<crate::timeline::Playhead>| {
+            ph.time = t;
+            ph.camera_view = true;
+            ph.locked_by_job = true;
+        });
     }
 }
 

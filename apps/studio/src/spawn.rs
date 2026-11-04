@@ -44,6 +44,26 @@ pub struct SceneRoot;
 #[derive(Component, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SceneObjectId(pub String);
 
+/// Animiertes Objekt: Grundwerte + Animation; die Zeitleiste berechnet daraus
+/// in jedem Frame Transform, Sichtbarkeit und ggf. Material.
+#[derive(Component)]
+pub struct Animated {
+    pub anim: cf_scene::animation::Animation,
+    pub base_pos: [f32; 3],
+    pub base_rot: [f32; 3],
+    pub base_scale: [f32; 3],
+    pub hidden: bool,
+    /// Versatz durch `repeat` (Kopie i).
+    pub repeat_op: Transform,
+    /// Eigenes Material, falls Farbe/Leuchten/Deckkraft animiert werden.
+    pub material: Option<Handle<StandardMaterial>>,
+    pub base_color: cf_scene::Rgb,
+    pub base_emissive: cf_scene::Rgb,
+    pub base_emissive_strength: f32,
+    pub base_opacity: f32,
+    pub has_pattern: bool,
+}
+
 /// Statistik und Warnungen für die Anzeige.
 #[derive(Resource, Default, Debug)]
 pub struct SceneStats {
@@ -147,26 +167,28 @@ impl Builder<'_, '_, '_> {
         match &o.repeat {
             Some(r) => {
                 let step = repeat_step(r, &base);
-                let mut t = base;
+                let mut op = Transform::IDENTITY;
                 for _ in 0..r.count {
-                    self.spawn_single(o, parent, t, mat_override, depth, prefix);
-                    t = step.mul_transform(t);
+                    self.spawn_single(o, parent, op, mat_override, depth, prefix);
+                    op = step.mul_transform(op);
                 }
             }
-            None => self.spawn_single(o, parent, base, mat_override, depth, prefix),
+            None => self.spawn_single(o, parent, Transform::IDENTITY, mat_override, depth, prefix),
         }
     }
 
+    /// `op` = Versatz durch Wiederholung (Kopie i), wird vor die Objekt-Transformation gesetzt.
     fn spawn_single(
         &mut self,
         o: &Object,
         parent: Entity,
-        mut transform: Transform,
+        op: Transform,
         mat_override: Option<&Material>,
         depth: u32,
         prefix: &str,
     ) {
         self.stats.objects += 1;
+        let mut transform = op.mul_transform(object_transform(o));
         let visibility = if o.hidden { Visibility::Hidden } else { Visibility::Inherited };
         // Scatter auf Gelände: Rotation/Skalierung würden die Bodenhaftung zerstören.
         if let Kind::Scatter(s) = &o.kind {
@@ -187,6 +209,29 @@ impl Builder<'_, '_, '_> {
             ))
             .id();
         let material = mat_override.unwrap_or(&o.material);
+        let animated_material = o.animate.as_ref().is_some_and(|a| a.affects_material());
+        if let Some(anim) = &o.animate {
+            self.commands.entity(entity).insert(Animated {
+                anim: anim.clone(),
+                base_pos: o.position,
+                base_rot: o.rotation,
+                base_scale: o.scale.to_array(),
+                hidden: o.hidden,
+                repeat_op: op,
+                material: None,
+                base_color: material.color,
+                base_emissive: if material.emissive.is_black() && anim.emissive_strength.is_empty() {
+                    material.emissive
+                } else if material.emissive.is_black() {
+                    material.color
+                } else {
+                    material.emissive
+                },
+                base_emissive_strength: material.emissive_strength,
+                base_opacity: material.opacity,
+                has_pattern: material.pattern.is_some(),
+            });
+        }
 
         match &o.kind {
             Kind::Group { children } => {
@@ -258,7 +303,22 @@ impl Builder<'_, '_, '_> {
             kind => {
                 let needs_tangents = material.pattern.as_ref().is_some_and(|p| p.bump > 0.0);
                 if let Some((mesh, tris)) = self.shape_mesh(kind, material.flat, needs_tangents) {
-                    let mat = self.material(material);
+                    let mat = if animated_material {
+                        // Eigenes Material, damit nur dieses Objekt seine Farbe ändert.
+                        let fades = o.animate.as_ref().is_some_and(|a| !a.opacity.is_empty());
+                        let h = self.material_unique(material, fades);
+                        self.commands.queue({
+                            let h = h.clone();
+                            move |world: &mut World| {
+                                if let Some(mut a) = world.get_mut::<Animated>(entity) {
+                                    a.material = Some(h);
+                                }
+                            }
+                        });
+                        h
+                    } else {
+                        self.material(material)
+                    };
                     self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat)));
                     self.stats.triangles += tris;
                 }
@@ -326,6 +386,16 @@ impl Builder<'_, '_, '_> {
         let normal = imgs.normal.map(|n| self.images.add(make_texture(imgs.size, n, false)));
         self.texture_cache.insert(key, (color.clone(), normal.clone()));
         (color, normal)
+    }
+
+    /// Nicht geteiltes Material (für animierte Farben); `fades` erzwingt Transparenz.
+    fn material_unique(&mut self, m: &Material, fades: bool) -> Handle<StandardMaterial> {
+        let shared = self.material(m);
+        let mut copy = self.materials.get(&shared).cloned().unwrap_or_default();
+        if fades {
+            copy.alpha_mode = AlphaMode::Blend;
+        }
+        self.materials.add(copy)
     }
 
     fn material(&mut self, m: &Material) -> Handle<StandardMaterial> {

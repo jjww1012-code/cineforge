@@ -48,7 +48,22 @@ speichere – die Welt ändert sich sofort.**
 | F12 | Screenshot (landet in `Dokumente/CineForge/Screenshots`) |
 | Cmd/Strg + Z | Rückgängig (auch Änderungen von Claude) |
 | F2 | Mit Claude Desktop verbinden |
+| Leertaste | Animation abspielen / pausieren |
+| ← / → (mit Shift feiner) | 1 s (0,1 s) springen |
+| Pos1 / Ende | Anfang / Ende |
+| L | Schleife an/aus |
+| V | Durch die Szenen-Kamera schauen (Kamerafahrt) |
 | JSON-Datei ins Fenster ziehen | Andere Szene öffnen |
+
+## Video-Export
+
+Claude exportiert mit `export_video` (bis 4K) in `Dokumente/CineForge/Projekte/<Projekt>/Export/`.
+Dafür wird **ffmpeg** benötigt (kostenlos):
+- Mac: Homebrew installieren (brew.sh), dann im Terminal `brew install ffmpeg`
+- Windows: `winget install ffmpeg`
+
+Die App findet ffmpeg automatisch und nutzt den Hardware-Encoder (Mac: VideoToolbox,
+Windows: NVIDIA/Intel/AMD). Ohne ffmpeg werden die Einzelbilder als PNG gespeichert.
 
 ## Für Entwickler
 

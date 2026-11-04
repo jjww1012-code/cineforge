@@ -15,9 +15,12 @@ mod environment;
 mod hud;
 mod library;
 mod project;
+mod render;
 mod source;
 mod spawn;
+mod timeline;
 mod tools;
+mod video;
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
@@ -80,6 +83,8 @@ fn main() -> AppExit {
         spawn::SpawnPlugin,
         source::SourcePlugin,
         project::ProjectPlugin,
+        timeline::TimelinePlugin { interactive: args.screenshot.is_none() || args.hud },
+        render::RenderPlugin,
     ))
     // Auch im Hintergrund weiterrechnen, damit Claude arbeiten kann,
     // während das Fenster nicht im Vordergrund ist.
@@ -87,7 +92,7 @@ fn main() -> AppExit {
     .add_systems(Startup, setup_camera);
 
     if let Some(path) = args.screenshot.clone() {
-        app.add_plugins(capture::AutoCapturePlugin { path, frames: args.frames });
+        app.add_plugins(capture::AutoCapturePlugin { path, frames: args.frames, time: args.time });
         if args.hud {
             app.add_plugins(hud::HudPlugin);
         }

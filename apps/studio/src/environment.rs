@@ -2,6 +2,7 @@
 
 use bevy::{
     camera::Exposure,
+    camera_controller::free_camera::FreeCameraState,
     core_pipeline::tonemapping::Tonemapping,
     light::{
         atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
@@ -31,6 +32,10 @@ impl Plugin for EnvironmentPlugin {
 #[derive(Component)]
 struct EnvEntity;
 
+/// Die Sonne (für die Animation des Sonnenstands).
+#[derive(Component)]
+pub struct SunLight;
+
 #[derive(Resource)]
 struct EarthMedium(Handle<ScatteringMedium>);
 
@@ -59,7 +64,7 @@ fn apply_environment(
     src: Res<SceneSource>,
     medium: Res<EarthMedium>,
     old: Query<Entity, With<EnvEntity>>,
-    mut main_cam: Query<&mut Transform, With<MainCamera>>,
+    mut main_cam: Query<(&mut Transform, Option<&mut FreeCameraState>), With<MainCamera>>,
     views: Query<Entity, With<SceneView>>,
 ) {
     let Some(new_file) = loaded.read().fold(None, |acc: Option<bool>, m| Some(acc.unwrap_or(false) | m.new_file))
@@ -76,8 +81,8 @@ fn apply_environment(
     // Kamera-Position nur beim Öffnen einer Datei setzen, damit man beim
     // Live-Editieren nicht ständig zurückgeworfen wird.
     if new_file {
-        if let Ok(mut tf) = main_cam.single_mut() {
-            *tf = scene_camera_transform(&scene.camera);
+        if let Ok((mut tf, state)) = main_cam.single_mut() {
+            crate::timeline::set_view(&mut tf, scene_camera_transform(&scene.camera), state.map(|s| s.into_inner()));
         }
     }
 
@@ -87,6 +92,7 @@ fn apply_environment(
     let base_lux = if atmosphere { lux::RAW_SUNLIGHT } else { lux::DIRECT_SUNLIGHT };
     let mut sun = commands.spawn((
         EnvEntity,
+        SunLight,
         Name::new("Sonne"),
         DirectionalLight {
             color: color(env.sun.color),
@@ -179,11 +185,14 @@ pub fn scene_camera_transform(c: &cf_scene::CameraSpec) -> Transform {
 fn reset_camera_key(
     keys: Res<ButtonInput<KeyCode>>,
     src: Res<SceneSource>,
-    mut cam: Query<&mut Transform, With<MainCamera>>,
+    ph: Option<Res<crate::timeline::Playhead>>,
+    mut cam: Query<(&mut Transform, Option<&mut FreeCameraState>), With<MainCamera>>,
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
-        if let Ok(mut tf) = cam.single_mut() {
-            *tf = scene_camera_transform(&src.scene.camera);
+        if let Ok((mut tf, state)) = cam.single_mut() {
+            let t = ph.map(|p| p.time).unwrap_or(0.0);
+            let (new, _) = crate::timeline::scene_camera_at(&src.scene, t);
+            crate::timeline::set_view(&mut tf, new, state.map(|s| s.into_inner()));
         }
     }
 }

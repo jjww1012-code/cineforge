@@ -14,6 +14,8 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
   "version": 1,
   "name": "Meine Szene",
   "description": "Klartext: was passiert hier?",
+  "duration": 5,
+  "fps": 30,
   "environment": { ... },
   "camera": { "position": [0, 5, 20], "look_at": [0, 0, 0], "fov": 50 },
   "objects": [ ... ]
@@ -122,6 +124,63 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `tube` | `path` [[x,y,z],…], `radius` 0.1, `radius_end` (optional, spitz zulaufend), `segments` 16, `smooth` true, `closed` false |
 | `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2, `align` center/left/right, `letter_spacing` 0 – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
+
+## Animation
+
+Szene: `duration` (Sekunden, Standard 5) und `fps` (Standard 30).
+
+Jede animierbare Eigenschaft ist eine Liste von **Keyframes** `{"t": Sekunde, "v": Wert, "ease": Kurve}`.
+`ease` beschreibt den Weg **zum** Keyframe: `linear`, `in`, `out`, `in_out` (Standard, filmisch),
+`out_back` (überschwingen), `out_bounce` (abprallen), `step` (springen).
+Vor dem ersten Keyframe gilt dessen Wert, nach dem letzten der letzte.
+
+### Objekte: `animate`
+
+| Feld | Wert | Beispiel |
+|---|---|---|
+| `position` | [x,y,z] | `[{"t":0,"v":[0,0,0]},{"t":2,"v":[0,5,0]}]` |
+| `rotation` | [Grad x,y,z] | 0 → 360 = eine Umdrehung |
+| `scale` | Zahl oder [x,y,z] | Aufploppen: `[{"t":0,"v":0.01},{"t":0.8,"v":1,"ease":"out_back"}]` |
+| `color` | Farbe | Farbwechsel |
+| `emissive_strength` | Zahl | Aufleuchten |
+| `opacity` | 0–1 | Ein-/Ausblenden |
+| `visible` | true/false | Erscheinen/Verschwinden (springt) |
+| `spin` | [Grad/s x,y,z] | Dauerdrehung, z. B. `[0, 90, 0]` |
+| `smooth_path` | true/false | Position als weiche Kurve durch alle Keyframes |
+
+Hinweise: Skalierung wirkt um den Ursprung des Objekts (Kugel/Box/Zylinder: Mitte; Pyramide,
+Extrusion, Drehkörper: Boden). Zum „Hochwachsen“ vom Boden aus eignen sich `extrude`/`lathe`
+oder ein Objekt in einer Gruppe, deren Ursprung am Boden liegt. Animationen funktionieren auch
+in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
+
+### Kamerafahrt: `camera.animate`
+
+```json
+"camera": {
+  "position": [0, 4, 14], "look_at": [0, 1, 0], "fov": 45,
+  "animate": {
+    "smooth_path": true,
+    "position": [{"t":0,"v":[-10,3,12]}, {"t":3,"v":[0,5,13],"ease":"linear"}, {"t":6,"v":[10,2,9],"ease":"out"}],
+    "look_at": [{"t":0,"v":[0,1,0]}],
+    "fov": [{"t":0,"v":45}, {"t":6,"v":30}],
+    "shake": 0.3
+  }
+}
+```
+
+`smooth_path` führt die Kamera als weiche Kurve durch alle Punkte (ideal für Flüge).
+`shake` = Handkamera-Wackeln (0.2–0.5 dezent). Zoom über `fov`.
+
+### Umgebung: `environment.animate`
+
+`sun_elevation`, `sun_azimuth`, `sun_intensity`, `exposure` – z. B. Sonnenuntergang im Zeitraffer:
+`"sun_elevation": [{"t":0,"v":35},{"t":10,"v":-2,"ease":"linear"}]`
+
+### Prüfen und exportieren
+
+- `screenshot` mit `time` – ein Zeitpunkt
+- `contact_sheet` – mehrere Zeitpunkte in einem Bild (Bewegung, Timing, Kamerafahrt prüfen)
+- `export_video` – MP4 bis 4K in den Export-Ordner des Projekts (`export_status` für Fortschritt)
 
 ## Detaillierte Objekte bauen – Tipps
 

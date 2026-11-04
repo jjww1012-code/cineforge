@@ -9,9 +9,9 @@ Jede Etappe endet mit etwas, das man ausprobieren kann.
 | 2b | Chat in der App | Eingebautes Chat-Fenster (Claude-API, später über eigenen Abo-Server) | später (Etappe 7) |
 | 2c | Detaillierte Objekte | Extrusion, Drehkörper, Röhren, 3D-Text, abgerundete Kanten, Wiederholung, Muster mit Struktur, Glas/Klarlack, Objekt-Bibliothek | ✅ (glTF-Import folgt) |
 | 2d | Fortsetzungs-System | Projekte mit Logbuch, `resume`, „Weitermachen“ nach Nutzungslimit | ✅ |
-| 3 | Zeit & Export | Zeitleiste, Keyframes, Kamerafahrten, Export als MP4 bis 4K mit Hardware-Encoder | ⏳ als Nächstes |
+| 3 | Zeit & Export | Zeitleiste, Keyframes, Kamerafahrten, Export als MP4 bis 4K mit Hardware-Encoder | ✅ |
 | 4 | Klicken & sagen | Objekt anklicken → hervorgehoben → Claude ändert genau dieses; Klartext-Ablauf über der Zeitleiste | |
-| 5 | Effekte | Partikel (Feuer, Rauch, Funken), Explosionen, Wetter, Übergänge, Text-Animationen, Kamerawackeln | |
+| 5 | Effekte | Partikel (Feuer, Rauch, Funken), Explosionen, Wetter, Übergänge, Text-Animationen, Kamerawackeln | ⏳ als Nächstes |
 | 6 | Ton | Kostenlose lokale KI-Stimmen (Piper), Musik, Beat-Sync, automatische Untertitel | |
 | 7 | Produkt | Konten, Abo, Credits, Claude über eigenen Server, Auto-Update, signierte Installer | |
 | 8 | Teams | Gemeinsames Arbeiten in Echtzeit, Vorlagen-Bibliothek / Marktplatz | |

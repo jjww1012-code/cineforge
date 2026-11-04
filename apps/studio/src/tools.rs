@@ -6,15 +6,7 @@
 
 use std::sync::mpsc::Sender;
 
-use base64::Engine as _;
-use bevy::{
-    camera::RenderTarget,
-    prelude::*,
-    render::{
-        render_resource::TextureFormat,
-        view::screenshot::{Screenshot, ScreenshotCaptured},
-    },
-};
+use bevy::prelude::*;
 use cf_scene::{
     ops,
     project::{parse_status, safe_name},
@@ -23,7 +15,6 @@ use cf_scene::{
 use serde_json::{json, Value};
 
 use crate::{
-    environment::{configure_view, scene_camera_transform, SceneView},
     project::{list_projects, ActiveProject},
     source::{SceneLoaded, SceneSource},
     MainCamera,
@@ -155,7 +146,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "screenshot",
-            "description": "Rendert ein Bild der Szene und gibt es zurück, damit du das Ergebnis prüfen kannst. Standard: aus Sicht der Szenen-Kamera, 1280×720. view=\"user_view\" zeigt, was der Mensch gerade im Fenster sieht. Mit position/look_at kannst du von einem beliebigen Punkt aus schauen (z. B. Nahaufnahme eines Objekts).",
+            "description": "Rendert ein Bild der Szene und gibt es zurück, damit du das Ergebnis prüfen kannst. Standard: aus Sicht der Szenen-Kamera zur aktuellen Zeit, 1280×720. Mit time einen bestimmten Zeitpunkt der Animation ansehen. view=\"user_view\" zeigt, was der Mensch gerade im Fenster sieht. Mit position/look_at kannst du von einem beliebigen Punkt aus schauen (z. B. Nahaufnahme eines Objekts).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -164,9 +155,49 @@ pub fn definitions() -> Value {
                     "view": {"type": "string", "enum": ["scene_camera", "user_view"]},
                     "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
                     "look_at": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
-                    "fov": {"type": "number"}
+                    "fov": {"type": "number"},
+                    "time": {"type": "number", "description": "Zeitpunkt in Sekunden (Standard: aktuelle Zeit der App)"}
                 }
             }
+        },
+        {
+            "name": "contact_sheet",
+            "description": "Kontaktabzug: mehrere Zeitpunkte der Animation als Raster in EINEM Bild (aus Sicht der Szenen-Kamera). Ideal, um Bewegungen, Kamerafahrten und Timing zu prüfen. Standard: 6 gleichmäßig verteilte Zeitpunkte.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "times": {"type": "array", "items": {"type": "number"}, "description": "Zeitpunkte in Sekunden (max. 24)"},
+                    "count": {"type": "integer", "minimum": 2, "maximum": 24},
+                    "columns": {"type": "integer", "minimum": 1, "maximum": 6},
+                    "width": {"type": "integer", "description": "Breite eines Einzelbilds (160–960, Standard 480)"}
+                }
+            }
+        },
+        {
+            "name": "export_video",
+            "description": "Rendert die Szene als MP4-Video (bis 4K) in den Export-Ordner des Projekts. Läuft im Hintergrund; Fortschritt mit export_status. Nutzt automatisch den Hardware-Encoder des Rechners.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Dateiname ohne Endung (Standard: Szenenname)"},
+                    "width": {"type": "integer", "description": "Standard 1920 (4K: 3840)"},
+                    "height": {"type": "integer", "description": "Standard 1080 (4K: 2160); für Hochformat z. B. 1080×1920"},
+                    "fps": {"type": "integer"},
+                    "start": {"type": "number"},
+                    "end": {"type": "number"},
+                    "quality": {"type": "string", "enum": ["draft", "standard", "high"]}
+                }
+            }
+        },
+        {
+            "name": "export_status",
+            "description": "Fortschritt bzw. Ergebnis des Video-Exports.",
+            "inputSchema": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "cancel_export",
+            "description": "Bricht den laufenden Video-Export ab.",
+            "inputSchema": {"type": "object", "properties": {}}
         },
         {
             "name": "undo",
@@ -279,22 +310,13 @@ pub fn definitions() -> Value {
 // Ausführung
 // ---------------------------------------------------------------------------
 
-pub struct ToolsPlugin;
-
-impl Plugin for ToolsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, capture_tick);
-    }
-}
-
 /// Alles, was ein Werkzeug zum Arbeiten braucht.
-pub struct Ctx<'a, 'm, 'w, 's> {
+pub struct Ctx<'a, 'm> {
     pub src: &'a mut SceneSource,
     pub project: &'a mut ActiveProject,
     pub library: &'a mut crate::library::Library,
+    pub jobs: &'a mut crate::render::RenderQueue,
     pub out: &'a mut MessageWriter<'m, SceneLoaded>,
-    pub commands: &'a mut Commands<'w, 's>,
-    pub images: &'a mut Assets<Image>,
     pub user_view: Option<Transform>,
 }
 
@@ -333,6 +355,19 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     let a = &call.args;
     let str_arg = |k: &str| a.get(k).and_then(Value::as_str);
     let scene_file = cx.src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+
+    // Während eines Exports darf sich die Szene nicht ändern.
+    let is_mutation = matches!(
+        call.name.as_str(),
+        "set_scene" | "add_objects" | "update_object" | "remove_objects" | "update_scene_settings" | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project"
+    );
+    if is_mutation && cx.jobs.export_running() {
+        let _ = call.reply.send(ToolOutput::error(format!(
+            "Gerade läuft ein Video-Export – Änderungen sind erst danach möglich.\n{}",
+            cx.jobs.export_summary().unwrap_or_default()
+        )));
+        return;
+    }
 
     let mutation: Option<Result<Scene, String>> = match call.name.as_str() {
         "set_scene" => Some(
@@ -493,9 +528,59 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             Some(Err(e)) => ToolOutput::error(e),
             None => ToolOutput::error("name fehlt"),
         },
+        "screenshot" | "contact_sheet" if cx.jobs.export_running() => ToolOutput::error(format!(
+            "Gerade läuft ein Video-Export.\n{}",
+            cx.jobs.export_summary().unwrap_or_default()
+        )),
         "screenshot" => {
-            start_capture(call, cx);
+            let dim = |k: &str, d: u32, max: u32| a.get(k).and_then(Value::as_u64).map(|v| v as u32).unwrap_or(d).clamp(64, max);
+            let view = crate::render::ViewSpec {
+                user_view: (str_arg("view") == Some("user_view")).then_some(cx.user_view).flatten(),
+                position: vec3_arg(a, "position"),
+                look_at: vec3_arg(a, "look_at"),
+                fov: a.get("fov").and_then(Value::as_f64).map(|v| v as f32),
+            };
+            cx.jobs.push(crate::render::JobRequest::Still {
+                reply: call.reply,
+                time: a.get("time").and_then(Value::as_f64).map(|t| (t as f32).clamp(0.0, cx.src.scene.duration)),
+                view,
+                width: dim("width", 1280, 3840),
+                height: dim("height", 720, 2160),
+            });
             return;
+        }
+        "contact_sheet" => {
+            let dur = cx.src.scene.duration;
+            let times: Vec<f32> = match a.get("times").and_then(Value::as_array) {
+                Some(list) => list.iter().filter_map(Value::as_f64).map(|t| (t as f32).clamp(0.0, dur)).take(24).collect(),
+                None => {
+                    let n = a.get("count").and_then(Value::as_u64).unwrap_or(6).clamp(2, 24) as usize;
+                    (0..n).map(|i| dur * i as f32 / (n - 1) as f32).collect()
+                }
+            };
+            if times.is_empty() {
+                ToolOutput::error("times ist leer")
+            } else {
+                let w = a.get("width").and_then(Value::as_u64).unwrap_or(480).clamp(160, 960) as u32;
+                cx.jobs.push(crate::render::JobRequest::Sheet {
+                    reply: call.reply,
+                    columns: a.get("columns").and_then(Value::as_u64).unwrap_or(3).clamp(1, 6) as u32,
+                    width: w,
+                    height: (w as f32 * 9.0 / 16.0) as u32,
+                    times,
+                });
+                return;
+            }
+        }
+        "export_video" => export_video(a, cx),
+        "export_status" => ToolOutput::text(cx.jobs.export_summary().unwrap_or_else(|| "Es wurde noch kein Export gestartet.".into())),
+        "cancel_export" => {
+            if cx.jobs.export_running() {
+                cx.jobs.cancel_export();
+                ToolOutput::text("Export wird abgebrochen.")
+            } else {
+                ToolOutput::text("Es läuft kein Export.")
+            }
         }
         other => ToolOutput::error(format!("Unbekanntes Werkzeug: {other}")),
     };
@@ -548,6 +633,67 @@ fn save_asset(a: &Value, cx: &mut Ctx) -> ToolOutput {
         "\nVerwenden: {{\"id\":\"…\",\"type\":\"instance\",\"asset\":\"{name}\",\"position\":[x,y,z]}}"
     ));
     ToolOutput::text(msg)
+}
+
+fn vec3_arg(a: &Value, k: &str) -> Option<Vec3> {
+    let arr = a.get(k)?.as_array()?;
+    if arr.len() != 3 {
+        return None;
+    }
+    Some(Vec3::new(arr[0].as_f64()? as f32, arr[1].as_f64()? as f32, arr[2].as_f64()? as f32))
+}
+
+fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    if cx.jobs.export_running() {
+        return ToolOutput::error(format!("Es läuft schon ein Export.\n{}", cx.jobs.export_summary().unwrap_or_default()));
+    }
+    let quality = match crate::video::Quality::parse(a.get("quality").and_then(Value::as_str)) {
+        Ok(q) => q,
+        Err(e) => return ToolOutput::error(e),
+    };
+    // Gerade Maße (nötig für H.264), Standard Full HD.
+    let even = |v: u64| ((v as u32).clamp(64, 3840) / 2) * 2;
+    let width = even(a.get("width").and_then(Value::as_u64).unwrap_or(1920));
+    let height = even(a.get("height").and_then(Value::as_u64).unwrap_or(1080).min(2160));
+    let scene = &cx.src.scene;
+    let fps = a.get("fps").and_then(Value::as_u64).map(|v| v as u32).unwrap_or(scene.fps).clamp(1, 120);
+    let start = a.get("start").and_then(Value::as_f64).map(|v| v as f32).unwrap_or(0.0).clamp(0.0, scene.duration);
+    let end = a.get("end").and_then(Value::as_f64).map(|v| v as f32).unwrap_or(scene.duration).clamp(start, scene.duration);
+    if end - start < 1.0 / fps as f32 {
+        return ToolOutput::error("Der Zeitbereich ist zu kurz");
+    }
+    let base_name = match a.get("name").and_then(Value::as_str) {
+        Some(n) => match safe_name(n) {
+            Ok(n) => n,
+            Err(e) => return ToolOutput::error(e),
+        },
+        None => cx.src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "video".into()),
+    };
+    let dir = match cx.project.export_dir() {
+        Ok(d) => d,
+        Err(e) => return ToolOutput::error(e),
+    };
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        return ToolOutput::error(format!("{}: {e}", dir.display()));
+    }
+    let mut output = dir.join(format!("{base_name}.mp4"));
+    let mut n = 2;
+    while output.exists() {
+        output = dir.join(format!("{base_name}_{n}.mp4"));
+        n += 1;
+    }
+    let frames = ((end - start) * fps as f32).round() as u32;
+    let encoder = crate::video::find_ffmpeg()
+        .map(|ff| crate::video::best_encoder(&ff))
+        .unwrap_or_else(|| "keiner – ffmpeg nicht gefunden, es werden PNG-Bilder gespeichert".into());
+    cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, start, end, quality });
+    cx.project.log("claude", format!("Video-Export gestartet: {} ({width}×{height}, {fps} fps, {frames} Bilder)", output.display()));
+    ToolOutput::text(format!(
+        "Export gestartet: {frames} Bilder ({width}×{height}, {fps} fps, {:.1}–{:.1} s) → {}\nEncoder: {encoder}\nFortschritt mit export_status abfragen. Solange der Export läuft, ist die Szene gesperrt.",
+        start,
+        end,
+        output.display()
+    ))
 }
 
 fn resume_text(cx: &Ctx) -> String {
@@ -695,117 +841,6 @@ fn new_scene(a: &Value, cx: &mut Ctx) -> ToolOutput {
         }
         Err(e) => ToolOutput::error(e),
     }
-}
-
-// ---------------------------------------------------------------------------
-// Screenshots über eine unsichtbare Kamera
-// ---------------------------------------------------------------------------
-
-/// Unsichtbare Kamera, die in ein Bild rendert. Das Fenster des Menschen
-/// bleibt dabei unverändert. (Gleiche Technik wird später für den Export genutzt.)
-#[derive(Component)]
-struct CaptureJob {
-    reply: Sender<ToolOutput>,
-    frames_left: u32,
-    image: Handle<Image>,
-    requested: bool,
-}
-
-fn capture_frames() -> u32 {
-    std::env::var("CINEFORGE_CAPTURE_FRAMES").ok().and_then(|v| v.parse().ok()).unwrap_or(8)
-}
-
-fn vec3_arg(a: &Value, k: &str) -> Option<Vec3> {
-    let arr = a.get(k)?.as_array()?;
-    if arr.len() != 3 {
-        return None;
-    }
-    Some(Vec3::new(arr[0].as_f64()? as f32, arr[1].as_f64()? as f32, arr[2].as_f64()? as f32))
-}
-
-fn start_capture(call: ToolCall, cx: &mut Ctx) {
-    let (src, commands, images, user_view) = (&*cx.src, &mut *cx.commands, &mut *cx.images, cx.user_view);
-    let a = &call.args;
-    let dim = |k: &str, d: u32, max: u32| a.get(k).and_then(Value::as_u64).map(|v| v as u32).unwrap_or(d).clamp(64, max);
-    let (w, h) = (dim("width", 1280, 3840), dim("height", 720, 2160));
-
-    let mut transform = match a.get("view").and_then(Value::as_str) {
-        Some("user_view") => user_view.unwrap_or_else(|| scene_camera_transform(&src.scene.camera)),
-        _ => scene_camera_transform(&src.scene.camera),
-    };
-    if let Some(p) = vec3_arg(a, "position") {
-        transform.translation = p;
-    }
-    if let Some(t) = vec3_arg(a, "look_at") {
-        if (t - transform.translation).length_squared() > 1e-6 {
-            transform.look_at(t, Vec3::Y);
-        }
-    }
-
-    let image = images.add(Image::new_target_texture(w, h, TextureFormat::Rgba8Unorm, Some(TextureFormat::Rgba8UnormSrgb)));
-    let mut cam = commands.spawn((
-        Name::new("Aufnahme-Kamera"),
-        SceneView,
-        Camera3d::default(),
-        Camera { order: -1, ..default() },
-        RenderTarget::Image(image.clone().into()),
-        Msaa::Sample4,
-        transform,
-        CaptureJob { reply: call.reply, frames_left: capture_frames(), image, requested: false },
-    ));
-    configure_view(&mut cam, &src.scene);
-    if let Some(fov) = a.get("fov").and_then(Value::as_f64) {
-        cam.insert(Projection::Perspective(PerspectiveProjection {
-            fov: (fov as f32).clamp(5.0, 150.0).to_radians(),
-            near: 0.1,
-            far: 20_000.0,
-            ..default()
-        }));
-    }
-}
-
-fn capture_tick(mut commands: Commands, mut jobs: Query<(Entity, &mut CaptureJob)>) {
-    for (entity, mut job) in &mut jobs {
-        if job.requested {
-            continue;
-        }
-        if job.frames_left > 0 {
-            job.frames_left -= 1;
-            continue;
-        }
-        job.requested = true;
-        let reply = job.reply.clone();
-        commands.spawn(Screenshot::image(job.image.clone())).observe(
-            move |captured: On<ScreenshotCaptured>, mut commands: Commands, mut images: ResMut<Assets<Image>>, jobs: Query<&CaptureJob>| {
-                let out = match encode_jpeg(&captured.image) {
-                    Ok((b64, w, h)) => ToolOutput {
-                        content: vec![
-                            Content::Image { base64: b64, mime: "image/jpeg" },
-                            Content::Text(format!("Aufnahme {w}×{h}")),
-                        ],
-                        is_error: false,
-                    },
-                    Err(e) => ToolOutput::error(format!("Bild konnte nicht erstellt werden: {e}")),
-                };
-                let _ = reply.send(out);
-                if let Ok(job) = jobs.get(entity) {
-                    images.remove(&job.image);
-                }
-                commands.entity(entity).despawn();
-            },
-        );
-    }
-}
-
-pub fn encode_jpeg(img: &Image) -> Result<(String, u32, u32), String> {
-    let dynamic = img.clone().try_into_dynamic().map_err(|e| e.to_string())?;
-    let rgb = dynamic.to_rgb8();
-    let (w, h) = rgb.dimensions();
-    let mut bytes = Vec::new();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 88)
-        .encode_image(&rgb)
-        .map_err(|e| e.to_string())?;
-    Ok((base64::engine::general_purpose::STANDARD.encode(bytes), w, h))
 }
 
 /// Hilfs-Query für die aktuelle Fenster-Kamera.

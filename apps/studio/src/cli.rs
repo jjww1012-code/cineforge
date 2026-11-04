@@ -15,6 +15,7 @@ Optionen:
   --size BREITExHÖHE       Fenster-/Bildgröße (Standard 1600x900)
   --frames N               Frames warten vor dem Screenshot (Standard 60)
   --hud                    Einblendungen auch im Screenshot zeigen
+  --time SEKUNDEN          Zeitpunkt für den Screenshot (Standard 0)
   --port N                 Port für die Claude-Verbindung (Standard 47800)
   -h, --help               Diese Hilfe
 
@@ -30,6 +31,11 @@ Steuerung im Fenster:
   F12                              Screenshot speichern
   Cmd/Strg + Z                     Rückgängig
   F2                               Mit Claude Desktop verbinden
+  Leertaste                        Abspielen / Pause
+  ← / →  (mit Shift feiner)        1 s (0,1 s) springen
+  Pos1 / Ende                      Anfang / Ende
+  L                                Schleife an/aus
+  V                                Durch die Szenen-Kamera schauen (Kamerafahrt)
 
 Claude verbinden:
   Claude Code:    claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
@@ -43,6 +49,7 @@ pub struct Args {
     pub size: (u32, u32),
     pub frames: u32,
     pub hud: bool,
+    pub time: f32,
     pub port: u16,
     /// `cineforge mcp`: stdio-Brücke statt Fenster.
     pub mcp_bridge: bool,
@@ -52,7 +59,7 @@ pub struct Args {
 impl Args {
     pub fn parse(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
         let mut a = Args {
-            scene: None, screenshot: None, size: (1600, 900), frames: 60, hud: false,
+            scene: None, screenshot: None, size: (1600, 900), frames: 60, hud: false, time: 0.0,
             port: crate::control::DEFAULT_PORT, mcp_bridge: false, help: false,
         };
         let mut first = true;
@@ -63,6 +70,7 @@ impl Args {
                 "--port" => a.port = it.next().and_then(|v| v.parse().ok()).ok_or("--port braucht eine Zahl")?,
                 "-h" | "--help" => a.help = true,
                 "--hud" => a.hud = true,
+                "--time" => a.time = it.next().and_then(|v| v.parse().ok()).ok_or("--time braucht Sekunden")?,
                 "--screenshot" => {
                     a.screenshot = Some(it.next().ok_or("--screenshot braucht einen Dateinamen")?.into())
                 }

@@ -22,12 +22,25 @@ pub struct Scene {
     /// Klartext: Was passiert in dieser Szene? Wird in der UI angezeigt.
     #[serde(default)]
     pub description: String,
+    /// Länge der Szene in Sekunden.
+    #[serde(default = "default_duration")]
+    pub duration: f32,
+    /// Bilder pro Sekunde beim Export.
+    #[serde(default = "default_fps")]
+    pub fps: u32,
     #[serde(default)]
     pub environment: Environment,
     #[serde(default)]
     pub camera: CameraSpec,
     #[serde(default)]
     pub objects: Vec<Object>,
+}
+
+fn default_duration() -> f32 {
+    5.0
+}
+fn default_fps() -> u32 {
+    30
 }
 
 fn default_version() -> u32 {
@@ -50,6 +63,9 @@ pub struct Environment {
     pub exposure: f32,
     /// Glühen heller Stellen (0 = aus, ~0.15 = natürlich, 0.5 = stark).
     pub bloom: f32,
+    /// Änderungen über die Zeit (Sonnenstand, Belichtung).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub animate: Option<crate::animation::EnvironmentAnimation>,
 }
 
 impl Default for Environment {
@@ -61,6 +77,7 @@ impl Default for Environment {
             ambient: 1.0,
             exposure: 0.0,
             bloom: 0.15,
+            animate: None,
         }
     }
 }
@@ -124,6 +141,9 @@ pub struct CameraSpec {
     pub look_at: [f32; 3],
     /// Vertikaler Bildwinkel in Grad.
     pub fov: f32,
+    /// Kamerafahrt über die Zeit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub animate: Option<crate::animation::CameraAnimation>,
 }
 
 impl Default for CameraSpec {
@@ -132,6 +152,7 @@ impl Default for CameraSpec {
             position: [0.0, 5.0, 20.0],
             look_at: [0.0, 0.0, 0.0],
             fov: 50.0,
+            animate: None,
         }
     }
 }
@@ -161,6 +182,9 @@ pub struct Object {
     /// Wiederholt das Objekt (Reihen, Kreise, Treppen, Spiralen).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repeat: Option<Repeat>,
+    /// Animation über die Zeit (Keyframes).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animate: Option<crate::animation::Animation>,
     #[serde(flatten)]
     pub kind: Kind,
 }
@@ -663,6 +687,18 @@ impl Scene {
                 self.version
             ));
         }
+        if !(self.duration > 0.0 && self.duration <= 3.0 * 3600.0) {
+            problems.push(format!("duration muss zwischen 0 und 10800 Sekunden liegen (ist {})", self.duration));
+        }
+        if !(1..=120).contains(&self.fps) {
+            problems.push(format!("fps muss zwischen 1 und 120 liegen (ist {})", self.fps));
+        }
+        if let Some(a) = &self.camera.animate {
+            a.validate(&mut problems);
+        }
+        if let Some(a) = &self.environment.animate {
+            a.validate(&mut problems);
+        }
         let mut ids = std::collections::HashSet::new();
         let mut terrains = std::collections::HashSet::new();
         self.walk(&mut |o| {
@@ -725,6 +761,9 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
         if !(pt.scale > 0.0 && pt.scale <= 1000.0) {
             p.push(format!("\"{id}\": pattern.scale muss zwischen 0 und 1000 liegen"));
         }
+    }
+    if let Some(a) = &o.animate {
+        a.validate(id, p);
     }
     if let Some(r) = &o.repeat {
         if r.count == 0 || r.count > 10_000 {

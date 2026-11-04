@@ -64,7 +64,6 @@ impl Plugin for ControlPlugin {
         }
         app.insert_resource(status)
             .insert_resource(Inbox(Mutex::new(rx)))
-            .add_plugins(tools::ToolsPlugin)
             .add_systems(Update, process_calls);
     }
 }
@@ -75,9 +74,8 @@ fn process_calls(
     mut src: ResMut<SceneSource>,
     mut project: ResMut<ActiveProject>,
     mut library: ResMut<crate::library::Library>,
+    mut jobs: ResMut<crate::render::RenderQueue>,
     mut out: MessageWriter<SceneLoaded>,
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
     user_view: UserViewQuery,
 ) {
     let Ok(rx) = inbox.0.lock() else { return };
@@ -92,9 +90,8 @@ fn process_calls(
             src: &mut src,
             project: &mut project,
             library: &mut library,
+            jobs: &mut jobs,
             out: &mut out,
-            commands: &mut commands,
-            images: &mut images,
             user_view: user_view.single().ok().copied(),
         };
         tools::execute(call, &mut cx);

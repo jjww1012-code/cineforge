@@ -72,7 +72,10 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `add_objects`, `update_object`, `remove_objects` | Objekte bauen und ändern |
 | `update_scene_settings` | Himmel, Sonne, Nebel, Kamera, Name |
 | `set_scene` | Komplett neue Szene |
-| `screenshot` | Ergebnis ansehen, auch aus beliebigem Blickwinkel |
+| `screenshot` | Ergebnis ansehen, auch aus beliebigem Blickwinkel und zu jedem Zeitpunkt |
+| `contact_sheet` | Mehrere Zeitpunkte der Animation als Raster in einem Bild |
+| `export_video`, `export_status`, `cancel_export` | Video (MP4, bis 4K) rendern |
+| `save_asset`, `list_assets`, `get_asset` | Objekt-Bibliothek |
 | `undo` | Letzte Änderung zurücknehmen |
 | `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien im Projekt verwalten |
 | `resume` | Kompletter Projekt-Stand zum Weitermachen |

@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "name": "Animations-Test",
+  "description": "Titel ploppt auf, Ball hüpft, Ringe drehen sich, Kugel wechselt die Farbe, die Kamera fährt eine Kurve und die Sonne geht unter.",
+  "duration": 6,
+  "fps": 30,
+  "environment": {
+    "sky": { "type": "atmosphere" },
+    "sun": { "azimuth": 240, "elevation": 35 },
+    "ambient": 0.8,
+    "bloom": 0.25,
+    "animate": {
+      "sun_elevation": [{ "t": 0, "v": 35 }, { "t": 6, "v": 3, "ease": "linear" }]
+    }
+  },
+  "camera": {
+    "position": [0, 4, 14], "look_at": [0, 1.5, 0], "fov": 45,
+    "animate": {
+      "smooth_path": true,
+      "position": [
+        { "t": 0, "v": [-10, 3, 12] },
+        { "t": 3, "v": [0, 5, 13], "ease": "linear" },
+        { "t": 6, "v": [10, 2.5, 9], "ease": "out" }
+      ],
+      "look_at": [{ "t": 0, "v": [0, 1.5, 0] }]
+    }
+  },
+  "objects": [
+    { "id": "boden", "type": "box", "size": [300, 0.2, 300], "position": [0, -0.1, 0],
+      "material": { "color": "#cfd6dc", "pattern": { "type": "grid", "color2": "#8fa0ad", "scale": 0.5 } } },
+    {
+      "id": "titel", "type": "text", "text": "Animation", "size": 1.4, "depth": 0.3, "position": [0, 4, -2],
+      "material": { "color": "#ff7a3d", "roughness": 0.3, "clearcoat": 1 },
+      "animate": {
+        "scale": [{ "t": 0, "v": 0.01 }, { "t": 1.2, "v": 1, "ease": "out_back" }],
+        "rotation": [{ "t": 0, "v": [0, -90, 0] }, { "t": 1.2, "v": [0, 0, 0], "ease": "out" }]
+      }
+    },
+    {
+      "id": "ball", "type": "sphere", "radius": 0.5, "position": [-3, 0.5, 1],
+      "material": { "color": "#2f80ed", "roughness": 0.2, "clearcoat": 1 },
+      "animate": {
+        "position": [
+          { "t": 0, "v": [-3, 4, 1] }, { "t": 1.5, "v": [-3, 0.5, 1], "ease": "out_bounce" },
+          { "t": 3, "v": [-3, 0.5, 1] }, { "t": 3.6, "v": [-3, 3, 1], "ease": "out" }, { "t": 4.2, "v": [-3, 0.5, 1], "ease": "in" }
+        ]
+      }
+    },
+    {
+      "id": "ringe", "type": "group", "position": [3, 1.6, 1],
+      "children": [
+        { "id": "ring1", "type": "torus", "radius": 1.2, "thickness": 0.07, "material": { "color": "#ffd166", "metallic": 1, "roughness": 0.25 },
+          "animate": { "spin": [90, 40, 0] } },
+        { "id": "ring2", "type": "torus", "radius": 0.9, "thickness": 0.07, "material": { "color": "#ef476f", "metallic": 1, "roughness": 0.25 },
+          "animate": { "spin": [0, -120, 60] } },
+        { "id": "kern", "type": "sphere", "radius": 0.35,
+          "material": { "color": "#ffffff", "emissive": "#06d6a0", "emissive_strength": 2 },
+          "animate": {
+            "color": [{ "t": 0, "v": "#06d6a0" }, { "t": 3, "v": "#ef476f" }, { "t": 6, "v": "#118ab2" }],
+            "emissive_strength": [{ "t": 0, "v": 2 }, { "t": 3, "v": 25 }, { "t": 6, "v": 4 }]
+          } }
+      ]
+    },
+    { "id": "saeulen", "type": "cylinder", "radius": 0.3, "height": 2, "position": [-6, 1, -4],
+      "repeat": { "count": 7, "offset": [2, 0, 0] },
+      "material": { "color": "#e9e4da" },
+      "animate": { "scale": [{ "t": 0, "v": [1, 0.01, 1] }, { "t": 2, "v": [1, 1, 1], "ease": "out" }] } }
+  ]
+}

@@ -5,6 +5,7 @@
 //! damit es von der App, dem Claude-Agenten, dem Server und Tests
 //! gleichermaßen genutzt werden kann.
 
+pub mod animation;
 pub mod color;
 pub mod library;
 pub mod model;
