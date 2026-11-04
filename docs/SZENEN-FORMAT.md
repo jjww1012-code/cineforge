@@ -47,6 +47,25 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `scale` | 1 | Zahl oder [x,y,z] |
 | `hidden` | false | |
 | `material` | grau | siehe unten |
+| `repeat` | – | Wiederholung, siehe unten |
+
+### repeat (Wiederholung – funktioniert mit jedem Objekt, auch Gruppen und Instanzen)
+
+Kopie *i* bekommt *i*-mal den Schritt: um `pivot` drehen, skalieren, um `offset` verschieben.
+
+| Feld | Standard | Bedeutung |
+|---|---|---|
+| `count` | – | Anzahl Kopien (inkl. Original) |
+| `offset` | [0,0,0] | Verschiebung pro Schritt |
+| `rotation` | [0,0,0] | Drehung pro Schritt (Grad) |
+| `scale` | 1 | Größenfaktor pro Schritt |
+| `pivot` | [0,0,0] | Drehpunkt relativ zum Objekt |
+
+Beispiele:
+- Säulenreihe: `{"count": 8, "offset": [4, 0, 0]}`
+- Säulenkreis, Radius 10: `{"count": 12, "rotation": [0, 30, 0], "pivot": [-10, 0, 0]}`
+- Wendeltreppe: `{"count": 20, "offset": [0, 0.2, 0], "rotation": [0, 18, 0], "pivot": [-1.5, 0, 0]}`
+- Fensterraster: Fenster mit `repeat` in X in eine Gruppe, die Gruppe mit `repeat` in Y
 
 ## material
 
@@ -59,6 +78,27 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `emissive_strength` | 1 | Leuchtstärke (10–100 für deutliches Glühen) |
 | `opacity` | 1 | 1 = deckend, <1 = durchsichtig |
 | `flat` | false | Facetten-Look (Low-Poly) |
+| `transmission` | 0 | Glas/Wasser: 0.9 = klares Glas (mit `roughness` ≈ 0.05) |
+| `ior` | 1.5 | Brechung: Wasser 1.33, Glas 1.5, Diamant 2.4 |
+| `clearcoat` | 0 | Klarlack (Autolack, lackiertes Holz), 0–1 |
+| `unlit` | false | Ohne Licht/Schatten (Grafiken, Hologramme, Bildschirme) |
+| `double_sided` | false | Beide Seiten sichtbar (Blätter, Stoff, Glas) |
+| `pattern` | – | Oberflächen-Muster, siehe unten |
+
+### pattern (Oberflächen-Muster)
+
+`{"type": "bricks", "color2": "#cfc6b8", "scale": 0.5, "bump": 0.8, "seed": 1}`
+
+| Feld | Standard | Bedeutung |
+|---|---|---|
+| `type` | noise | `noise`, `checker`, `stripes`, `bricks`, `grid`, `dots`, `marble`, `wood` |
+| `color2` | dunkelgrau | Zweite Farbe (erste = `material.color`) |
+| `scale` | 1 | Wiederholungen pro Meter (Ziegel: 0.5 ≈ normale Ziegelgröße) |
+| `bump` | 0 | Plastische Struktur (0 = glatt, 0.3 = leicht, 1 = stark) |
+| `seed` | 0 | Variante |
+
+Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text` und
+`terrain` in Metern, bei `sphere`, `cylinder`, `cone`, `capsule`, `torus` pro Umfang.
 
 ## Objekt-Typen
 
@@ -76,7 +116,32 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `scatter` | `shape` (eine Form), `count`, `area` [50,50], `seed`, `scale_range` [0.7,1.3], `random_rotation` true, `on_terrain` (id), `sink` 0, `keep_clear_radius` 0 |
 | `group` | `children` [Objekte] – Kinder bewegen sich mit |
 | `point_light` | `color`, `intensity` (Lumen, 10000), `range` 30, `shadows` false |
+| `rounded_box` | `size` [1,1,1], `radius` 0.1, `segments` 4 |
+| `extrude` | `profile` [[x,z],…] Umriss von oben, `holes` [[[x,z],…]], `height` 1, `taper` 1 (Oberseite relativ, 0 = Spitze) – Basis bei y = 0 |
+| `lathe` | `profile` [[Radius, Höhe],…] von unten nach oben, `segments` 48, `angle` 360 |
+| `tube` | `path` [[x,y,z],…], `radius` 0.1, `radius_end` (optional, spitz zulaufend), `segments` 16, `smooth` true, `closed` false |
+| `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2, `align` center/left/right, `letter_spacing` 0 – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
+| `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
+
+## Detaillierte Objekte bauen – Tipps
+
+- **Aus Teilen zusammensetzen:** Ein Objekt ist meist eine `group` aus vielen Teilen
+  (Raumschiff = Rumpf `lathe` + Flügel `extrude` + Triebwerke `lathe` + Leitungen `tube` …).
+- **Drehkörper (`lathe`)** für alles Runde: Vasen, Flaschen, Säulen, Kuppeln, Triebwerke,
+  Raketen, Lampen, Räder (um 90° kippen), Becher, Türme.
+- **Extrusion (`extrude`)** für alles mit Grundriss: Gebäude, Wände mit Tür-/Fenster-Löchern,
+  Zahnräder, Sterne, Logos, Flügel, Treppenstufen; `taper` < 1 für Dächer und Türme.
+- **Röhren (`tube`)** für Kabel, Rohre, Äste, Geländer, Tentakel, Haare, Schienen.
+- **`rounded_box`** statt `box` für alles Gefertigte (Möbel, Geräte, Fahrzeugteile) –
+  abgerundete Kanten fangen Licht und wirken sofort realistischer.
+- **Details durch Wiederholung:** Fenster, Nieten, Rippen, Zaunlatten, Stufen mit `repeat`.
+- **Material macht viel aus:** Metall (`metallic` 1, `roughness` 0.2–0.4), Kunststoff
+  (`clearcoat`), Glas (`transmission`), Leuchtstreifen (`emissive`), Oberflächen (`pattern`).
+- **Wiederverwenden:** Fertige Objekte mit `save_asset` in die Bibliothek legen und per
+  `instance` einsetzen – so bleiben Figuren und Fahrzeuge in allen Szenen gleich.
+- **Prüfen:** Nach dem Bauen `screenshot` mit `position`/`look_at` als Nahaufnahme.
 
 ## Beispiel
 
-Siehe [`scenes/wueste.json`](../scenes/wueste.json).
+- [`scenes/wueste.json`](../scenes/wueste.json) – Landschaft mit Gelände und Scatter
+- [`scenes/werkstatt.json`](../scenes/werkstatt.json) – alle Modellier-Werkzeuge und Muster

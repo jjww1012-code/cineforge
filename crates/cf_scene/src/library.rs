@@ -90,6 +90,30 @@ pub fn approx_extent(o: &Object) -> Option<([f32; 3], [f32; 3])> {
                 let (y0, y1) = l.profile.iter().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p[1]), b.max(p[1])));
                 Some(([-r, y0, -r], [r, y1, r]))
             }
+            Kind::Tube(t) => {
+                let r = t.radius.max(t.radius_end.unwrap_or(0.0));
+                let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+                for p in &t.path {
+                    for i in 0..3 {
+                        lo[i] = lo[i].min(p[i] - r);
+                        hi[i] = hi[i].max(p[i] + r);
+                    }
+                }
+                Some((lo, hi))
+            }
+            Kind::Capsule { radius, length } => {
+                Some(([-radius, -length / 2.0 - radius, -radius], [*radius, length / 2.0 + radius, *radius]))
+            }
+            Kind::Torus { radius, thickness } => {
+                let o = radius + thickness;
+                Some(([-o, -thickness, -o], [o, *thickness, o]))
+            }
+            Kind::Plane { size } => Some(([-size[0] / 2.0, 0.0, -size[1] / 2.0], [size[0] / 2.0, 0.0, size[1] / 2.0])),
+            Kind::Text(t) => {
+                let lines = t.text.lines().count().max(1) as f32;
+                let w = t.text.lines().map(|l| l.chars().count()).max().unwrap_or(0) as f32 * t.size * 0.6;
+                Some(([-w / 2.0, -(lines - 1.0) * t.size * 1.2, -t.depth / 2.0], [w / 2.0, t.size * 0.75, t.depth / 2.0]))
+            }
             Kind::Group { children } => {
                 for c in children {
                     rec(c, pos, sc, acc);
@@ -122,12 +146,13 @@ mod tests {
         let a = AssetFile::from_json(
             r#"{"name":"baum","description":"Laubbaum","object":{"id":"baum","type":"group","children":[
                 {"id":"stamm","type":"cylinder","radius":0.2,"height":3,"position":[0,1.5,0]},
+                {"id":"ast","type":"tube","path":[[0,2,0],[1.5,6,0]],"radius":0.1},
                 {"id":"krone","type":"sphere","radius":1.5,"position":[0,4,0]}]}}"#,
         )
         .unwrap();
         assert_eq!(AssetFile::from_json(&a.to_json_pretty()).unwrap(), a);
         let (lo, hi) = approx_extent(&a.object).unwrap();
-        assert!((lo[1] - 0.0).abs() < 1e-4 && (hi[1] - 5.5).abs() < 1e-4, "{lo:?} {hi:?}");
+        assert!((lo[1] - 0.0).abs() < 1e-4 && (hi[1] - 6.1).abs() < 1e-4, "Röhre zählt mit: {lo:?} {hi:?}");
         assert!(AssetFile::from_json(r#"{"name":"x","object":{"id":"x","type":"sphere","radius":-1}}"#).is_err());
 
         let s = Scene::from_json(

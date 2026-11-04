@@ -7,8 +7,9 @@ Jede Etappe endet mit etwas, das man ausprobieren kann.
 | 1 | Fundament | App öffnet eine 3D-Welt aus einer Szenen-Datei, Flug-Kamera, Live-Reload, Screenshots, Mac/Windows-Builds | ✅ |
 | 2 | Claude verbunden | Claude Desktop / Claude Code steuern die App über MCP: Szene bauen, Objekte ändern, Kontrollbilder aus beliebigem Blickwinkel, Rückgängig, Ein-Tasten-Einrichtung (F2) | ✅ |
 | 2b | Chat in der App | Eingebautes Chat-Fenster (Claude-API, später über eigenen Abo-Server) | später (Etappe 7) |
-| 2c | Detaillierte Objekte | Mehr Formen (Extrusion, Drehkörper, Röhren, Text), Objekt-Bausteine, Texturen, Modelle importieren (glTF) | ⏳ als Nächstes |
-| 3 | Zeit & Export | Zeitleiste, Keyframes, Kamerafahrten, Export als MP4 bis 4K mit Hardware-Encoder | |
+| 2c | Detaillierte Objekte | Extrusion, Drehkörper, Röhren, 3D-Text, abgerundete Kanten, Wiederholung, Muster mit Struktur, Glas/Klarlack, Objekt-Bibliothek | ✅ (glTF-Import folgt) |
+| 2d | Fortsetzungs-System | Projekte mit Logbuch, `resume`, „Weitermachen“ nach Nutzungslimit | ✅ |
+| 3 | Zeit & Export | Zeitleiste, Keyframes, Kamerafahrten, Export als MP4 bis 4K mit Hardware-Encoder | ⏳ als Nächstes |
 | 4 | Klicken & sagen | Objekt anklicken → hervorgehoben → Claude ändert genau dieses; Klartext-Ablauf über der Zeitleiste | |
 | 5 | Effekte | Partikel (Feuer, Rauch, Funken), Explosionen, Wetter, Übergänge, Text-Animationen, Kamerawackeln | |
 | 6 | Ton | Kostenlose lokale KI-Stimmen (Piper), Musik, Beat-Sync, automatische Untertitel | |

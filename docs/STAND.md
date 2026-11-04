@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-04 · Etappe 2 + Fortsetzungs-System fertig
+**Zuletzt aktualisiert:** 2026-11-04 · Detaillierte Objekte fertig, als Nächstes Zeit & Export
 
 ## Fertig
 
@@ -18,16 +18,20 @@
   App öffnet beim Start die zuletzt geöffnete Szene. Ende-zu-Ende getestet
   (Sitzung → harter Abbruch → neue Sitzung → `resume`).
 
+- **Detaillierte Objekte:** `rounded_box`, `extrude` (Löcher, Verjüngung), `lathe`, `tube`,
+  `text` (3D-Schrift, Inter), `repeat` mit Drehpunkt, Material: Glas, Klarlack, unbeleuchtet,
+  beidseitig, 8 kachelbare Muster mit Struktur (Normal-Map) und Mipmaps, UVs in Metern.
+  Objekt-Bibliothek (Projekt `Objekte/`, global `Bibliothek/`, Typ `instance`,
+  `material_override`), MCP `save_asset`/`list_assets`/`get_asset`. Vorführ-Szene
+  `scenes/werkstatt.json`. Ende-zu-Ende getestet.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **Detaillierte Objekte:** prozedurales Modellieren (extrude, lathe, tube, Array/Spiegeln,
-   abgerundete Kanten), mehr Material-Optionen (Glas, Klarlack, unbeleuchtet),
-   Objekt-Bibliothek (Projekt `Objekte/` + global `Bibliothek/`, Typ `instance`).
-2. **Zeit & Export:** `duration`, Keyframes (Objekte, Kamera, Sonne), Wiedergabe in der App,
+1. **Zeit & Export:** `duration`, Keyframes (Objekte, Kamera, Sonne), Wiedergabe in der App,
    `screenshot` mit `time`, `contact_sheet`, `export_video` (ffmpeg, Hardware-Encoder).
-3. **Effekte:** deterministische Partikel (Feuer, Rauch, Funken, Schnee, Regen).
-4. **Film-Export:** Storyboard-Shots → zusammengesetztes Video.
-5. Danach laut Fahrplan: Klicken & sagen, Ton, Figuren-Animation, Produkt, Teams.
+2. **Effekte:** deterministische Partikel (Feuer, Rauch, Funken, Schnee, Regen).
+3. **Film-Export:** Storyboard-Shots → zusammengesetztes Video.
+4. Danach laut Fahrplan: Klicken & sagen, Ton, Figuren-Animation, Produkt, Teams.
 
 ## Offene Punkte / Wissenswertes
 
