@@ -2192,6 +2192,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
 
 [[package]]
+name = "cf_audio"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cf_scene"
 version = "0.1.0"
 dependencies = [
@@ -2226,6 +2234,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "bevy",
+ "cf_audio",
  "cf_scene",
  "image",
  "serde",

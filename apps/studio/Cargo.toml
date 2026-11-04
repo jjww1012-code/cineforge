@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 cf_scene = { path = "../../crates/cf_scene" }
+cf_audio = { path = "../../crates/cf_audio" }
 bevy = { version = "0.20.1", features = ["free_camera"] }
 tiny_http = "0.12"
 base64 = "0.22"

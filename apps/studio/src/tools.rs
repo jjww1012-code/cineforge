@@ -249,6 +249,38 @@ pub fn definitions() -> Value {
             }
         },
         {
+            "name": "create_sound",
+            "description": "Erzeugt einen Klang durch echte Synthese (kein KI-Sound) und speichert ihn als WAV in Audio/. Entweder preset (click, tap, pop, whoosh, swoosh, impact, boom, riser, notification, confirm, error, haptic, heartbeat, footstep, wind, rain, fire, typing, shutter, glass, success, coin, swipe, rope, crowd_cheer, drone) mit pitch/length/intensity/brightness/reverb/seed – oder ein eigenes recipe: {\"layers\":[{\"wave\":\"sine|triangle|saw|square|noise|pink|brown\",\"start\":0,\"length\":0.2,\"freq\":[800,120],\"attack\":0.003,\"decay\":0.2,\"sustain\":0,\"release\":0.05,\"gain\":1,\"filter\":{\"type\":\"lowpass|highpass|bandpass\",\"cutoff\":[4000,300],\"q\":0.7},\"drive\":0,\"pan\":0,\"detune\":0,\"fm\":{\"ratio\":3.5,\"index\":[2,0]},\"vibrato\":[5,0.3],\"repeat\":{\"count\":3,\"interval\":0.1,\"decay\":0.7,\"pitch\":1,\"jitter\":0}}],\"reverb\":{\"size\":0.5,\"mix\":0.2},\"echo\":{\"time\":0.2,\"feedback\":0.3,\"mix\":0.2}}. Ohne preset/recipe: Liste der Klänge.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Dateiname ohne Endung"},
+                    "preset": {"type": "string"},
+                    "recipe": obj,
+                    "pitch": {"type": "number"}, "length": {"type": "number"}, "intensity": {"type": "number"},
+                    "brightness": {"type": "number"}, "reverb": {"type": "number"}, "seed": {"type": "integer"},
+                    "list": {"type": "boolean"}
+                }
+            }
+        },
+        {
+            "name": "create_music",
+            "description": "Erzeugt einen Musik-Track (WAV in Audio/) aus Akkorden und Abschnitten – der Track kann über die Abschnitte wachsen. style: synthwave, edm, lofi, cinematic, ambient, hiphop. sections: [{\"bars\":4,\"parts\":[\"pulse\"],\"intensity\":0.5},{\"bars\":8,\"parts\":[\"pad\",\"bass\",\"drums\",\"arp\"]}] mit Instrumenten pulse, pad, bass, kick, snare, hats, drums, arp. Länge = Takte × 4 Schläge × 60/bpm.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "bpm": {"type": "number"},
+                    "style": {"type": "string", "enum": ["synthwave", "edm", "lofi", "cinematic", "ambient", "hiphop"]},
+                    "chords": {"type": "array", "items": {"type": "string"}},
+                    "beats_per_chord": {"type": "integer"},
+                    "sections": {"type": "array", "items": obj},
+                    "seed": {"type": "integer"}
+                },
+                "required": ["sections"]
+            }
+        },
+        {
             "name": "export_status",
             "description": "Fortschritt bzw. Ergebnis des Video-Exports.",
             "inputSchema": {"type": "object", "properties": {}}
@@ -788,6 +820,8 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             ToolOutput::text(out)
         }
         "generate_voice" => generate_voice(a, cx),
+        "create_sound" => create_sound(a, cx),
+        "create_music" => create_music(a, cx),
         "export_status" => ToolOutput::text(cx.jobs.export_summary().unwrap_or_else(|| "Es wurde noch kein Export gestartet.".into())),
         "cancel_export" => {
             if cx.jobs.export_running() {
@@ -955,6 +989,90 @@ fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
         start,
         end,
         output.display()
+    ))
+}
+
+fn audio_out(cx: &Ctx, name: &str) -> Result<std::path::PathBuf, String> {
+    let name = safe_name(name)?;
+    let dir = cx.project.dir.as_ref().map(|d| d.join(crate::media::AUDIO)).ok_or("Kein Projekt geöffnet")?;
+    Ok(dir.join(format!("{}.wav", name.trim_end_matches(".wav"))))
+}
+
+fn create_sound(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    if a.get("list").and_then(Value::as_bool) == Some(true) || (a.get("preset").is_none() && a.get("recipe").is_none()) {
+        let list: Vec<String> = cf_audio::presets::NAMES.iter().map(|(n, d)| format!("- {n}: {d}")).collect();
+        return ToolOutput::text(format!(
+            "Fertige Klänge (preset), anpassbar mit pitch, length, intensity (0..1), brightness, reverb (0..1), seed:\n{}\n\nOder eigenes Rezept (recipe) aus Schichten – siehe Beschreibung von create_sound.",
+            list.join("\n")
+        ));
+    }
+    let out = match audio_out(cx, a.get("name").and_then(Value::as_str).unwrap_or("klang")) {
+        Ok(p) => p,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let recipe = match (a.get("recipe"), a.get("preset").and_then(Value::as_str)) {
+        (Some(r), _) => match serde_json::from_value::<cf_audio::synth::Recipe>(r.clone()) {
+            Ok(r) => r,
+            Err(e) => return ToolOutput::error(format!("Ungültiges Rezept: {}", cf_scene::diagnose::explain(&e.to_string()))),
+        },
+        (None, Some(name)) => {
+            let tweak = cf_audio::presets::Tweak {
+                pitch: a.get("pitch").and_then(Value::as_f64).unwrap_or(1.0) as f32,
+                length: a.get("length").and_then(Value::as_f64).unwrap_or(1.0) as f32,
+                intensity: a.get("intensity").and_then(Value::as_f64).unwrap_or(0.5) as f32,
+                brightness: a.get("brightness").and_then(Value::as_f64).unwrap_or(1.0) as f32,
+                reverb: a.get("reverb").and_then(Value::as_f64).map(|v| v as f32),
+                seed: a.get("seed").and_then(Value::as_u64).unwrap_or(0) as u32,
+            };
+            match cf_audio::presets::preset(name, &tweak) {
+                Ok(r) => r,
+                Err(e) => return ToolOutput::error(e),
+            }
+        }
+        _ => unreachable!(),
+    };
+    if let Err(e) = recipe.validate() {
+        return ToolOutput::error(e);
+    }
+    let sound = recipe.render();
+    if let Err(e) = cf_audio::write_wav(&out, &sound) {
+        return ToolOutput::error(format!("Speichern fehlgeschlagen: {e}"));
+    }
+    let file = out.file_name().unwrap_or_default().to_string_lossy().to_string();
+    cx.project.log("claude", format!("Klang erzeugt: {file}"));
+    ToolOutput::text(format!(
+        "✓ Audio/{file} – {}\nIm Film verwenden: im Shot \"audio\": [{{\"file\": \"{file}\", \"start\": 1.2}}]",
+        cf_audio::describe(&sound)
+    ))
+}
+
+fn create_music(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    let out = match audio_out(cx, a.get("name").and_then(Value::as_str).unwrap_or("musik")) {
+        Ok(p) => p,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let mut spec_json = a.clone();
+    if let Some(m) = spec_json.as_object_mut() {
+        m.remove("name");
+        m.remove("agent");
+    }
+    let spec: cf_audio::music::MusicSpec = match serde_json::from_value(spec_json) {
+        Ok(s) => s,
+        Err(e) => return ToolOutput::error(format!("Ungültige Angaben: {}", cf_scene::diagnose::explain(&e.to_string()))),
+    };
+    if let Err(e) = spec.validate() {
+        return ToolOutput::error(e);
+    }
+    let track = spec.render();
+    if let Err(e) = cf_audio::write_wav(&out, &track) {
+        return ToolOutput::error(format!("Speichern fehlgeschlagen: {e}"));
+    }
+    let file = out.file_name().unwrap_or_default().to_string_lossy().to_string();
+    cx.project.log("claude", format!("Musik erzeugt: {file}"));
+    ToolOutput::text(format!(
+        "✓ Audio/{file} – {} (Musik {:.1} s + Nachhall)\nAls Film-Musik: update_plan mit \"soundtrack\": [{{\"file\": \"{file}\", \"volume\": 0.6, \"fade_out\": 3}}]",
+        cf_audio::describe(&track),
+        spec.duration()
     ))
 }
 

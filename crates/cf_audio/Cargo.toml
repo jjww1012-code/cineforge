@@ -1,0 +1,10 @@
+[package]
+name = "cf_audio"
+description = "CineForge Klangsynthese: Effekte und Musik aus Rezepten (engine-unabhängig)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

@@ -1,4 +1,5 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+#![recursion_limit = "512"]
 //! CineForge Studio
 //!
 //! - lädt ein Szenen-Dokument (JSON) und baut daraus die 3D-Welt
