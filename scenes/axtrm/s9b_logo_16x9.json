@@ -1,0 +1,365 @@
+{
+ "version": 1,
+ "name": "AXTRM – Endkarte",
+ "description": "Logo zeichnet sich in Mint, füllt sich weiß, Wortmarke, Claim, Store-Hinweis.",
+ "duration": 10,
+ "fps": 30,
+ "environment": {
+  "sky": {
+   "type": "color",
+   "color": "#000000"
+  },
+  "sun": {
+   "intensity": 0.0,
+   "shadows": false
+  },
+  "ambient": 0.0,
+  "bloom": 0.45
+ },
+ "camera": {
+  "position": [
+   0,
+   -0.25,
+   7.5
+  ],
+  "look_at": [
+   0,
+   -0.25,
+   0
+  ],
+  "fov": 35
+ },
+ "objects": [
+  {
+   "id": "a_flaeche",
+   "type": "extrude",
+   "profile": [
+    [
+     -0.62,
+     0.72
+    ],
+    [
+     -0.36,
+     0.72
+    ],
+    [
+     -0.25,
+     0.4
+    ],
+    [
+     0.25,
+     0.4
+    ],
+    [
+     0.36,
+     0.72
+    ],
+    [
+     0.62,
+     0.72
+    ],
+    [
+     0.11,
+     -0.8
+    ],
+    [
+     -0.11,
+     -0.8
+    ]
+   ],
+   "holes": [
+    [
+     [
+      -0.15,
+      0.2
+     ],
+     [
+      0.15,
+      0.2
+     ],
+     [
+      0.0,
+      -0.26
+     ]
+    ]
+   ],
+   "height": 0.02,
+   "position": [
+    0,
+    0.75,
+    -0.01
+   ],
+   "rotation": [
+    90,
+    0,
+    0
+   ],
+   "material": {
+    "color": "#ffffff",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 2.2,
+      "v": 0.0
+     },
+     {
+      "t": 3.0,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "a_linie",
+   "type": "tube",
+   "path": [
+    [
+     -0.49,
+     0.030000000000000027,
+     0.02
+    ],
+    [
+     0.0,
+     1.55,
+     0.02
+    ],
+    [
+     0.49,
+     0.030000000000000027,
+     0.02
+    ]
+   ],
+   "radius": 0.022,
+   "segments": 12,
+   "smooth": false,
+   "material": {
+    "color": "#00D9A3",
+    "emissive": "#00D9A3",
+    "emissive_strength": 10,
+    "roughness": 0.4
+   },
+   "animate": {
+    "draw": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 0.3,
+      "v": 0.0
+     },
+     {
+      "t": 1.8,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ],
+    "opacity": [
+     {
+      "t": 0,
+      "v": 1.0
+     },
+     {
+      "t": 2.6,
+      "v": 1.0
+     },
+     {
+      "t": 3.4,
+      "v": 0.0,
+      "ease": "in_out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "schwung",
+   "type": "tube",
+   "path": [
+    [
+     -0.95,
+     0.39,
+     0.04
+    ],
+    [
+     -0.35,
+     0.45,
+     0.04
+    ],
+    [
+     0.3,
+     0.59,
+     0.04
+    ],
+    [
+     0.98,
+     0.89,
+     0.04
+    ]
+   ],
+   "radius": 0.028,
+   "radius_end": 0.006,
+   "segments": 12,
+   "smooth": true,
+   "material": {
+    "color": "#00D9A3",
+    "emissive": "#00D9A3",
+    "emissive_strength": 10,
+    "roughness": 0.4
+   },
+   "animate": {
+    "draw": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 1.4,
+      "v": 0.0
+     },
+     {
+      "t": 2.3,
+      "v": 1.0,
+      "ease": "out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "wortmarke",
+   "type": "text",
+   "text": "AXTRM",
+   "size": 0.46,
+   "depth": 0.0,
+   "align": "center",
+   "weight": "black",
+   "italic": true,
+   "letter_spacing": 0.12,
+   "position": [
+    0,
+    -0.62,
+    0
+   ],
+   "material": {
+    "color": "#ffffff",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 3.3,
+      "v": 0.0
+     },
+     {
+      "t": 4.1,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ],
+    "position": [
+     {
+      "t": 3.3,
+      "v": [
+       0,
+       -0.6799999999999999,
+       0
+      ]
+     },
+     {
+      "t": 4.1,
+      "v": [
+       0,
+       -0.62,
+       0
+      ],
+      "ease": "out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "claim",
+   "type": "text",
+   "text": "Dein Tag. Deine Zahl.",
+   "size": 0.17,
+   "depth": 0.0,
+   "align": "center",
+   "weight": "regular",
+   "italic": true,
+   "letter_spacing": 0.0,
+   "position": [
+    0,
+    -1.05,
+    0
+   ],
+   "material": {
+    "color": "#d9dbe6",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 4.9,
+      "v": 0.0
+     },
+     {
+      "t": 5.7,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "store",
+   "type": "text",
+   "text": "Jetzt im App Store  ·  Mit AXTRM Pro",
+   "size": 0.075,
+   "depth": 0.0,
+   "align": "center",
+   "weight": "regular",
+   "italic": false,
+   "letter_spacing": 0.0,
+   "position": [
+    0,
+    -1.62,
+    0
+   ],
+   "material": {
+    "color": "#8b8d9c",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 6.4,
+      "v": 0.0
+     },
+     {
+      "t": 7.1,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ]
+   }
+  }
+ ]
+}

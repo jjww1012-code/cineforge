@@ -516,6 +516,21 @@ pub struct TextSpec {
     /// Zusätzlicher Buchstabenabstand (Anteil der Schriftgröße).
     #[serde(default)]
     pub letter_spacing: f32,
+    /// Schriftstärke: regular, bold, black.
+    #[serde(default)]
+    pub weight: TextWeight,
+    /// Kursiv (schräg gestellt).
+    #[serde(default)]
+    pub italic: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TextWeight {
+    #[default]
+    Regular,
+    Bold,
+    Black,
 }
 
 fn default_text_depth() -> f32 {

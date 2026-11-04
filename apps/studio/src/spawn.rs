@@ -27,6 +27,16 @@ use crate::{
 };
 
 pub const FONT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
+pub const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/Inter-Bold.ttf");
+pub const FONT_BLACK: &[u8] = include_bytes!("../assets/fonts/Inter-Black.ttf");
+
+/// Röhre, deren gezeichneter Anteil animiert wird.
+#[derive(Component)]
+pub struct DrawTube {
+    pub spec: cf_scene::TubeSpec,
+    pub mesh: Handle<Mesh>,
+    pub last: f32,
+}
 
 pub struct SpawnPlugin;
 
@@ -335,6 +345,11 @@ impl Builder<'_, '_, '_> {
                     } else {
                         self.material(material)
                     };
+                    if let (Kind::Tube(spec), Some(anim)) = (kind, &o.animate) {
+                        if !anim.draw.is_empty() {
+                            self.commands.entity(entity).insert(DrawTube { spec: spec.clone(), mesh: mesh.clone(), last: -1.0 });
+                        }
+                    }
                     self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat)));
                     self.stats.triangles += tris;
                 }
@@ -392,7 +407,14 @@ impl Builder<'_, '_, '_> {
             Kind::Extrude(e) => generated(modeling::extrude(e))?,
             Kind::Lathe(l) => generated(modeling::lathe(l))?,
             Kind::Tube(t) => generated(modeling::tube(t))?,
-            Kind::Text(t) => match modeling::text(FONT, t) {
+            Kind::Text(t) => match modeling::text(
+                match t.weight {
+                    cf_scene::TextWeight::Regular => FONT,
+                    cf_scene::TextWeight::Bold => FONT_BOLD,
+                    cf_scene::TextWeight::Black => FONT_BLACK,
+                },
+                t,
+            ) {
                 Ok(d) => generated(d)?,
                 Err(e) => {
                     self.stats.warnings.push(e);
@@ -550,7 +572,7 @@ mod tests {
     }
 }
 
-fn to_bevy_mesh(d: MeshData) -> Mesh {
+pub fn to_bevy_mesh(d: MeshData) -> Mesh {
     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, d.positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, d.normals)

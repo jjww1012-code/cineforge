@@ -42,7 +42,7 @@ impl Plugin for TimelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Playhead>().add_systems(
             Update,
-            (advance, animate_objects, animate_environment, follow_scene_camera)
+            (advance, animate_objects, draw_tubes, animate_environment, follow_scene_camera)
                 .chain()
                 .in_set(TimelineSet),
         );
@@ -167,6 +167,34 @@ fn animate_objects(
                 };
             }
         }
+    }
+}
+
+/// „Linie zeichnet sich“: Mesh der Röhre passend zum gezeichneten Anteil neu erzeugen.
+fn draw_tubes(
+    ph: Res<Playhead>,
+    mut tubes: Query<(&mut crate::spawn::DrawTube, &Animated)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    for (mut d, a) in &mut tubes {
+        let f = cf_scene::animation::sample(&a.anim.draw, ph.time).unwrap_or(1.0).clamp(0.0, 1.0);
+        if (f - d.last).abs() < 1e-4 {
+            continue;
+        }
+        d.last = f;
+        let data = cf_scene::modeling::tube_partial(&d.spec, f);
+        let mesh = if data.indices.is_empty() {
+            // Nichts gezeichnet: winziges unsichtbares Dreieck statt leerem Mesh
+            crate::spawn::to_bevy_mesh(cf_scene::procedural::MeshData {
+                positions: vec![[0.0; 3]; 3],
+                normals: vec![[0.0, 1.0, 0.0]; 3],
+                uvs: vec![[0.0; 2]; 3],
+                indices: vec![0, 1, 2],
+            })
+        } else {
+            crate::spawn::to_bevy_mesh(data)
+        };
+        let _ = meshes.insert(&d.mesh, mesh);
     }
 }
 

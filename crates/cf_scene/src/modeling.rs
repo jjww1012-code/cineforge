@@ -210,6 +210,10 @@ fn prism(
             push_tri(m, pts.map(|p| map(p[0] * top_scale, p[1] * top_scale, w1)), uvs, up);
         }
     }
+    // Flache Form (z. B. flache Schrift): keine Seitenwände.
+    if (w1 - w0).abs() < 1e-7 {
+        return;
+    }
     // Seitenwände
     let mut rings: Vec<(&[[f32; 2]], bool)> = vec![(&outer, false)];
     rings.extend(holes.iter().map(|h| (h.as_slice(), true)));
@@ -367,6 +371,34 @@ fn catmull_rom(points: &[V3], closed: bool, per_segment: usize) -> Vec<V3> {
 }
 
 pub fn tube(spec: &TubeSpec) -> MeshData {
+    tube_partial(spec, 1.0)
+}
+
+/// Schneidet einen Pfad nach `fraction` (0..1) seiner Länge ab.
+fn cut_path(path: &[V3], closed: bool, fraction: f32) -> Vec<V3> {
+    let mut pts: Vec<V3> = path.to_vec();
+    if closed {
+        pts.push(path[0]);
+    }
+    let total: f32 = pts.windows(2).map(|w| len(sub(w[1], w[0]))).sum();
+    let target = total * fraction.clamp(0.0, 1.0);
+    let mut out = vec![pts[0]];
+    let mut acc = 0.0;
+    for w in pts.windows(2) {
+        let l = len(sub(w[1], w[0]));
+        if acc + l >= target {
+            let t = if l > 1e-9 { (target - acc) / l } else { 0.0 };
+            out.push(add(w[0], mul(sub(w[1], w[0]), t)));
+            return out;
+        }
+        out.push(w[1]);
+        acc += l;
+    }
+    out
+}
+
+/// Röhre, die nur bis `fraction` ihrer Länge gezeichnet ist (für „Linie zeichnet sich“).
+pub fn tube_partial(spec: &TubeSpec, fraction: f32) -> MeshData {
     let mut m = MeshData::default();
     let mut pts: Vec<V3> = spec.path.clone();
     pts.dedup_by(|a, b| len(sub(*a, *b)) < 1e-6);
@@ -375,6 +407,12 @@ pub fn tube(spec: &TubeSpec) -> MeshData {
     }
     let closed = spec.closed && pts.len() >= 3;
     let path = if spec.smooth && pts.len() >= 3 { catmull_rom(&pts, closed, 10) } else { pts.clone() };
+    let (path, closed) = if fraction < 0.999 { (cut_path(&path, closed, fraction), false) } else { (path, closed) };
+    let mut path = path;
+    path.dedup_by(|a, b| len(sub(*a, *b)) < 1e-6);
+    if path.len() < 2 || fraction <= 0.0 {
+        return m;
+    }
     let count = path.len();
     let tangent = |i: usize| -> V3 {
         let (a, b) = if closed {
@@ -468,11 +506,14 @@ struct Outline {
     current: Vec<[f32; 2]>,
     scale: f32,
     offset: [f32; 2],
+    /// Schrägstellung für Kursivschrift (x += y · shear).
+    shear: f32,
 }
 
 impl Outline {
     fn pt(&self, x: f32, y: f32) -> [f32; 2] {
-        [x * self.scale + self.offset[0], y * self.scale + self.offset[1]]
+        let (lx, ly) = (x * self.scale, y * self.scale);
+        [lx + ly * self.shear + self.offset[0], ly + self.offset[1]]
     }
 }
 
@@ -559,7 +600,8 @@ pub fn text(font_data: &[u8], spec: &TextSpec) -> Result<MeshData, String> {
         let y = -(li as f32) * line_height;
         for (g, adv) in glyphs.iter().zip(&advances) {
             if let Some(g) = g {
-                let mut o = Outline { contours: vec![], current: vec![], scale, offset: [x, y] };
+                let shear = if spec.italic { 0.21 } else { 0.0 };
+                let mut o = Outline { contours: vec![], current: vec![], scale, offset: [x, y], shear };
                 if face.outline_glyph(*g, &mut o).is_some() {
                     use ttf_parser::OutlineBuilder;
                     o.close();
@@ -720,6 +762,23 @@ mod tests {
     }
 
     #[test]
+    fn tube_partial_grows_with_fraction() {
+        let spec = TubeSpec {
+            path: vec![[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]],
+            radius: 0.1,
+            radius_end: None,
+            segments: 8,
+            smooth: false,
+            closed: false,
+        };
+        assert!(tube_partial(&spec, 0.0).indices.is_empty());
+        let half = tube_partial(&spec, 0.5);
+        check(&half);
+        let maxx = half.positions.iter().map(|p| p[0]).fold(f32::MIN, f32::max);
+        assert!((maxx - 2.0).abs() < 1e-3, "halbe Länge: {maxx}");
+    }
+
+    #[test]
     fn tube_follows_path_and_tapers() {
         let spec = TubeSpec {
             path: vec![[0.0, 0.0, 0.0], [0.0, 2.0, 0.0], [2.0, 3.0, 0.0], [4.0, 3.0, 1.0]],
@@ -741,7 +800,15 @@ mod tests {
     #[test]
     fn text_with_holes_and_alignment() {
         let font = include_bytes!("../../../apps/studio/assets/fonts/Inter-Regular.ttf");
-        let spec = TextSpec { text: "Hallo O".into(), size: 1.0, depth: 0.2, align: TextAlign::Center, letter_spacing: 0.0 };
+        let spec = TextSpec {
+            text: "Hallo O".into(),
+            size: 1.0,
+            depth: 0.2,
+            align: TextAlign::Center,
+            letter_spacing: 0.0,
+            weight: Default::default(),
+            italic: false,
+        };
         let m = text(font, &spec).unwrap();
         check(&m);
         let (minx, maxx) = m.positions.iter().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p[0]), b.max(p[0])));
@@ -754,8 +821,19 @@ mod tests {
             m.normals[t[0] as usize][2] > 0.99 && point_in_ring([o_center_x, 0.36], &ps)
         });
         assert!(!covered, "Loch im O fehlt");
-        // Mehrzeilig + flach
-        check(&text(font, &TextSpec { text: "A\nB".into(), depth: 0.0, ..spec }).unwrap());
+        // Mehrzeilig + flach + kursiv
+        check(&text(font, &TextSpec { text: "A\nB".into(), depth: 0.0, italic: true, ..spec.clone() }).unwrap());
+        // Kursiv: Oberkanten sind nach rechts verschoben
+        let upright = text(font, &TextSpec { text: "I".into(), ..spec.clone() }).unwrap();
+        let slanted = text(font, &TextSpec { text: "I".into(), italic: true, ..spec }).unwrap();
+        let top_x = |m: &MeshData| m.positions.iter().filter(|p| p[1] > 0.6).map(|p| p[0]).fold(f32::MIN, f32::max);
+        assert!(top_x(&slanted) > top_x(&upright) + 0.1, "kursiv");
+        // Flache Schrift: nur Vorderseiten (Normalen ±Z), keine Dreiecke zum Ursprung
+        let flat = text(font, &TextSpec { text: "1246".into(), depth: 0.0, size: 1.0, align: TextAlign::Left, letter_spacing: 0.0, weight: Default::default(), italic: false }).unwrap();
+        check(&flat);
+        assert!(flat.normals.iter().all(|n| n[2].abs() > 0.99), "flache Schrift hat Seitenwände");
+        let minx = flat.positions.iter().map(|p| p[0]).fold(f32::MAX, f32::min);
+        assert!(minx > 0.0, "nichts links vom Textanfang (keine Fächer zum Ursprung): {minx}");
     }
 }
 

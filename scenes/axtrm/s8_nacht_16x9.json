@@ -1,0 +1,796 @@
+{
+ "version": 1,
+ "name": "AXTRM – Nacht (Szene 8)",
+ "description": "23:02, das Handy liegt auf dem Nachttisch. Sperrbildschirm mit Zielen, Event-Countdown und Streak 48; dann geht das Display aus.",
+ "duration": 10,
+ "fps": 30,
+ "environment": {
+  "sky": {
+   "type": "color",
+   "color": "#000000"
+  },
+  "sun": {
+   "intensity": 0.0,
+   "shadows": false
+  },
+  "ambient": 0.01,
+  "exposure": 8.5,
+  "bloom": 0.25
+ },
+ "camera": {
+  "position": [
+   0.17,
+   0.17,
+   0.15
+  ],
+  "look_at": [
+   0.0,
+   0.0,
+   -0.006
+  ],
+  "fov": 30,
+  "animate": {
+   "position": [
+    {
+     "t": 0,
+     "v": [
+      0.17,
+      0.17,
+      0.15
+     ]
+    },
+    {
+     "t": 10,
+     "v": [
+      0.12,
+      0.13,
+      0.11
+     ],
+     "ease": "in_out"
+    }
+   ],
+   "look_at": [
+    {
+     "t": 0,
+     "v": [
+      0.0,
+      0.0,
+      -0.006
+     ]
+    }
+   ]
+  }
+ },
+ "objects": [
+  {
+   "id": "nachttisch",
+   "type": "rounded_box",
+   "size": [
+    0.9,
+    0.04,
+    0.6
+   ],
+   "radius": 0.006,
+   "position": [
+    0,
+    -0.02,
+    0
+   ],
+   "material": {
+    "color": "#e9cf9f",
+    "roughness": 0.55,
+    "clearcoat": 0.3,
+    "pattern": {
+     "type": "wood",
+     "color2": "#c79b62",
+     "scale": 5,
+     "bump": 0.25,
+     "seed": 3
+    }
+   }
+  },
+  {
+   "id": "kaffeering_1",
+   "type": "torus",
+   "radius": 0.034,
+   "thickness": 0.0018,
+   "position": [
+    -0.13,
+    0.0003,
+    0.06
+   ],
+   "material": {
+    "color": "#7a5534",
+    "opacity": 0.55,
+    "roughness": 0.8
+   }
+  },
+  {
+   "id": "kaffeering_2",
+   "type": "torus",
+   "radius": 0.033,
+   "thickness": 0.0015,
+   "position": [
+    -0.105,
+    0.0003,
+    0.09
+   ],
+   "material": {
+    "color": "#7a5534",
+    "opacity": 0.35,
+    "roughness": 0.8
+   }
+  },
+  {
+   "id": "handy",
+   "type": "group",
+   "rotation": [
+    0,
+    -8,
+    0
+   ],
+   "children": [
+    {
+     "id": "gehaeuse",
+     "type": "rounded_box",
+     "size": [
+      0.0752,
+      0.0083,
+      0.1604
+     ],
+     "radius": 0.0035,
+     "position": [
+      0,
+      0.00415,
+      0
+     ],
+     "material": {
+      "color": "#26262c",
+      "metallic": 0.9,
+      "roughness": 0.3
+     }
+    },
+    {
+     "id": "display",
+     "type": "box",
+     "size": [
+      0.0705,
+      0.0004,
+      0.1555
+     ],
+     "position": [
+      0,
+      0.0084,
+      0
+     ],
+     "material": {
+      "color": "#060812",
+      "unlit": true
+     }
+    },
+    {
+     "id": "bildschirm",
+     "type": "group",
+     "position": [
+      0,
+      0.0088,
+      0
+     ],
+     "rotation": [
+      -90,
+      0,
+      0
+     ],
+     "children": [
+      {
+       "id": "datum",
+       "type": "text",
+       "text": "Dienstag, 14. Oktober",
+       "size": 0.0042,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "regular",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0,
+        0.06,
+        0
+       ],
+       "material": {
+        "color": "#dfe6ff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "uhrzeit",
+       "type": "text",
+       "text": "23:02",
+       "size": 0.026,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0,
+        0.036,
+        0
+       ],
+       "material": {
+        "color": "#ffffff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "ring_0",
+       "type": "torus",
+       "radius": 0.0068,
+       "thickness": 0.0011,
+       "position": [
+        -0.016,
+        0.018,
+        0
+       ],
+       "rotation": [
+        90,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#00D9A3",
+        "emissive": "#00D9A3",
+        "emissive_strength": 2.5
+       }
+      },
+      {
+       "id": "ring_label_0",
+       "type": "text",
+       "text": "Ziel erreicht",
+       "size": 0.0026,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "regular",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        -0.016,
+        0.0075,
+        0
+       ],
+       "material": {
+        "color": "#e8ecf5",
+        "unlit": true
+       }
+      },
+      {
+       "id": "ring_1",
+       "type": "torus",
+       "radius": 0.0068,
+       "thickness": 0.0011,
+       "position": [
+        0.016,
+        0.018,
+        0
+       ],
+       "rotation": [
+        90,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#3BA7FF",
+        "emissive": "#3BA7FF",
+        "emissive_strength": 2.5
+       }
+      },
+      {
+       "id": "ring_label_1",
+       "type": "text",
+       "text": "8 / 8",
+       "size": 0.0026,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "regular",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.016,
+        0.0075,
+        0
+       ],
+       "material": {
+        "color": "#e8ecf5",
+        "unlit": true
+       }
+      },
+      {
+       "id": "ring_icon_0",
+       "type": "text",
+       "text": "13.920",
+       "size": 0.0024,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        -0.016,
+        0.017,
+        0
+       ],
+       "material": {
+        "color": "#ffffff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "ring_icon_1",
+       "type": "text",
+       "text": "Wasser",
+       "size": 0.0021,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.016,
+        0.017,
+        0
+       ],
+       "material": {
+        "color": "#ffffff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte",
+       "type": "rounded_box",
+       "size": [
+        0.064,
+        0.036,
+        0.0006
+       ],
+       "radius": 0.0003,
+       "position": [
+        0,
+        -0.022,
+        -0.0004
+       ],
+       "material": {
+        "color": "#17171d",
+        "unlit": true,
+        "opacity": 0.92
+       }
+      },
+      {
+       "id": "karte_verein",
+       "type": "text",
+       "text": "BOXCLUB EISENHALLE  ·  ✓ Du bist dabei",
+       "size": 0.0024,
+       "depth": 0.0,
+       "align": "left",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        -0.029,
+        -0.0085,
+        0
+       ],
+       "material": {
+        "color": "#F5C542",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_titel",
+       "type": "text",
+       "text": "Vereinsmeisterschaft",
+       "size": 0.0043,
+       "depth": 0.0,
+       "align": "left",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        -0.029,
+        -0.0165,
+        0
+       ],
+       "material": {
+        "color": "#ffffff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_ort",
+       "type": "text",
+       "text": "Sa 10:00  ·  Eisenhalle",
+       "size": 0.0027,
+       "depth": 0.0,
+       "align": "left",
+       "weight": "regular",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        -0.029,
+        -0.0225,
+        0
+       ],
+       "material": {
+        "color": "#a6a6b4",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_beginnt",
+       "type": "text",
+       "text": "Beginnt in",
+       "size": 0.0024,
+       "depth": 0.0,
+       "align": "right",
+       "weight": "regular",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.029,
+        -0.015,
+        0
+       ],
+       "material": {
+        "color": "#a6a6b4",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_countdown",
+       "type": "text",
+       "text": "2 T 10 h",
+       "size": 0.0062,
+       "depth": 0.0,
+       "align": "right",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.029,
+        -0.0235,
+        0
+       ],
+       "material": {
+        "color": "#ffffff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_dabei",
+       "type": "text",
+       "text": "14 dabei",
+       "size": 0.0026,
+       "depth": 0.0,
+       "align": "left",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        -0.029,
+        -0.0335,
+        0
+       ],
+       "material": {
+        "color": "#00D9A3",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_route",
+       "type": "rounded_box",
+       "size": [
+        0.014,
+        0.0055,
+        0.0006
+       ],
+       "radius": 0.0003,
+       "position": [
+        0.022,
+        -0.0325,
+        0
+       ],
+       "material": {
+        "color": "#8C7BFF",
+        "unlit": true
+       }
+      },
+      {
+       "id": "karte_route_text",
+       "type": "text",
+       "text": "Route",
+       "size": 0.0026,
+       "depth": 0.0,
+       "align": "center",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.022,
+        -0.0334,
+        0.0004
+       ],
+       "material": {
+        "color": "#ffffff",
+        "unlit": true
+       }
+      },
+      {
+       "id": "flamme",
+       "type": "group",
+       "position": [
+        0.022,
+        0.068,
+        0
+       ],
+       "children": [
+        {
+         "id": "flamme_kern",
+         "type": "sphere",
+         "radius": 0.0022,
+         "material": {
+          "color": "#FF8A2B",
+          "emissive": "#FF8A2B",
+          "emissive_strength": 6
+         }
+        },
+        {
+         "id": "flamme_spitze",
+         "type": "cone",
+         "radius": 0.0021,
+         "height": 0.0045,
+         "position": [
+          0,
+          0.0028,
+          0
+         ],
+         "material": {
+          "color": "#FF8A2B",
+          "emissive": "#FF8A2B",
+          "emissive_strength": 6
+         }
+        }
+       ],
+       "animate": {
+        "scale": [
+         {
+          "t": 0,
+          "v": 1.0
+         },
+         {
+          "t": 2.0,
+          "v": 1.12,
+          "ease": "in_out"
+         },
+         {
+          "t": 4.0,
+          "v": 1.0,
+          "ease": "in_out"
+         },
+         {
+          "t": 6.0,
+          "v": 1.12,
+          "ease": "in_out"
+         },
+         {
+          "t": 8.0,
+          "v": 1.0,
+          "ease": "in_out"
+         }
+        ]
+       }
+      },
+      {
+       "id": "streak_47",
+       "type": "text",
+       "text": "47",
+       "size": 0.0042,
+       "depth": 0.0,
+       "align": "left",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.0275,
+        0.0665,
+        0
+       ],
+       "material": {
+        "color": "#FF8A2B",
+        "unlit": true
+       },
+       "animate": {
+        "visible": [
+         {
+          "t": 0,
+          "v": true
+         },
+         {
+          "t": 3.6,
+          "v": false,
+          "ease": "step"
+         }
+        ]
+       }
+      },
+      {
+       "id": "streak_48",
+       "type": "text",
+       "text": "48",
+       "size": 0.0042,
+       "depth": 0.0,
+       "align": "left",
+       "weight": "bold",
+       "italic": false,
+       "letter_spacing": 0.0,
+       "position": [
+        0.0275,
+        0.0665,
+        0
+       ],
+       "material": {
+        "color": "#FF8A2B",
+        "unlit": true
+       },
+       "animate": {
+        "visible": [
+         {
+          "t": 0,
+          "v": false
+         },
+         {
+          "t": 3.6,
+          "v": true,
+          "ease": "step"
+         }
+        ],
+        "scale": [
+         {
+          "t": 3.6,
+          "v": 0.3
+         },
+         {
+          "t": 4.1,
+          "v": 1.0,
+          "ease": "out_back"
+         }
+        ]
+       }
+      },
+      {
+       "id": "home_balken",
+       "type": "rounded_box",
+       "size": [
+        0.024,
+        0.0011,
+        0.0004
+       ],
+       "radius": 0.0002,
+       "position": [
+        0,
+        -0.072,
+        0
+       ],
+       "material": {
+        "color": "#d0d4de",
+        "unlit": true
+       }
+      }
+     ]
+    },
+    {
+     "id": "glas_aus",
+     "type": "box",
+     "size": [
+      0.0705,
+      0.0003,
+      0.1555
+     ],
+     "position": [
+      0,
+      0.0094,
+      0
+     ],
+     "material": {
+      "color": "#000000",
+      "roughness": 0.06,
+      "clearcoat": 1.0,
+      "opacity": 0.0
+     },
+     "animate": {
+      "opacity": [
+       {
+        "t": 0,
+        "v": 0.0
+       },
+       {
+        "t": 6.4,
+        "v": 0.0
+       },
+       {
+        "t": 7.3,
+        "v": 0.55,
+        "ease": "in_out"
+       },
+       {
+        "t": 7.6,
+        "v": 0.55
+       },
+       {
+        "t": 8.1,
+        "v": 1.0,
+        "ease": "in"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "display_licht",
+   "type": "point_light",
+   "position": [
+    0,
+    0.06,
+    0.0
+   ],
+   "color": "#9db9ff",
+   "intensity": 2.5,
+   "range": 1.0,
+   "animate": {
+    "intensity": [
+     {
+      "t": 0,
+      "v": 2.5
+     },
+     {
+      "t": 6.4,
+      "v": 2.5
+     },
+     {
+      "t": 7.3,
+      "v": 1.2,
+      "ease": "in_out"
+     },
+     {
+      "t": 8.1,
+      "v": 0.0,
+      "ease": "in"
+     }
+    ]
+   }
+  },
+  {
+   "id": "laterne",
+   "type": "point_light",
+   "position": [
+    -0.9,
+    0.55,
+    -0.7
+   ],
+   "color": "#ffb36b",
+   "intensity": 30,
+   "range": 4.0
+  },
+  {
+   "id": "laterne_reflex",
+   "type": "point_light",
+   "position": [
+    0.35,
+    0.45,
+    -0.35
+   ],
+   "color": "#ffc285",
+   "intensity": 6,
+   "range": 3.0
+  }
+ ]
+}

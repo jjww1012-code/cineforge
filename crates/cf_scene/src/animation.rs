@@ -209,6 +209,9 @@ pub struct Animation {
     pub opacity: Vec<Key<f32>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub visible: Vec<Key<bool>>,
+    /// Nur bei tube: gezeichneter Anteil 0..1 („Linie zeichnet sich“).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub draw: Vec<Key<f32>>,
     /// Lichtstärke (nur bei point_light), z. B. Blitz bei einer Explosion.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub intensity: Vec<Key<f32>>,
@@ -251,6 +254,7 @@ impl Animation {
         check_keys(&self.opacity, &format!("\"{id}\" animate.opacity"), p);
         check_keys(&self.visible, &format!("\"{id}\" animate.visible"), p);
         check_keys(&self.intensity, &format!("\"{id}\" animate.intensity"), p);
+        check_keys(&self.draw, &format!("\"{id}\" animate.draw"), p);
         if self.opacity.iter().any(|k| !(0.0..=1.0).contains(&k.v)) {
             p.push(format!("\"{id}\" animate.opacity: Werte zwischen 0 und 1"));
         }
@@ -272,6 +276,7 @@ impl Animation {
             .max(last(&self.opacity))
             .max(last(&self.visible))
             .max(last(&self.intensity))
+            .max(last(&self.draw))
     }
 
     /// Lichtstärke zum Zeitpunkt t (inkl. Flackern) ausgehend von `base`.

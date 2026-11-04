@@ -1,0 +1,164 @@
+{
+ "version": 1,
+ "name": "AXTRM – Die Zahl",
+ "description": "1246 · Gestern 1232. · Morgen?",
+ "duration": 8,
+ "fps": 30,
+ "environment": {
+  "sky": {
+   "type": "color",
+   "color": "#000000"
+  },
+  "sun": {
+   "intensity": 0.0,
+   "shadows": false
+  },
+  "ambient": 0.0,
+  "bloom": 0.2
+ },
+ "camera": {
+  "position": [
+   0,
+   0,
+   6.5
+  ],
+  "look_at": [
+   0,
+   0,
+   0
+  ],
+  "fov": 35
+ },
+ "objects": [
+  {
+   "id": "rating",
+   "type": "text",
+   "text": "1246",
+   "size": 1.05,
+   "depth": 0.0,
+   "align": "center",
+   "weight": "black",
+   "italic": true,
+   "letter_spacing": 0.0,
+   "position": [
+    0,
+    0.25,
+    0
+   ],
+   "material": {
+    "color": "#ffffff",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 0.6,
+      "v": 0.0
+     },
+     {
+      "t": 2.4,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ],
+    "position": [
+     {
+      "t": 0.6,
+      "v": [
+       0,
+       0.2,
+       0
+      ]
+     },
+     {
+      "t": 2.4,
+      "v": [
+       0,
+       0.25,
+       0
+      ],
+      "ease": "out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "gestern",
+   "type": "text",
+   "text": "Gestern 1232.",
+   "size": 0.27,
+   "depth": 0.0,
+   "align": "center",
+   "weight": "bold",
+   "italic": true,
+   "letter_spacing": 0.0,
+   "position": [
+    0,
+    -0.42,
+    0
+   ],
+   "material": {
+    "color": "#00D9A3",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 3.0,
+      "v": 0.0
+     },
+     {
+      "t": 3.9,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ]
+   }
+  },
+  {
+   "id": "morgen",
+   "type": "text",
+   "text": "Morgen?",
+   "size": 0.17,
+   "depth": 0.0,
+   "align": "center",
+   "weight": "regular",
+   "italic": true,
+   "letter_spacing": 0.0,
+   "position": [
+    0,
+    -0.85,
+    0
+   ],
+   "material": {
+    "color": "#bfc3d1",
+    "unlit": true
+   },
+   "animate": {
+    "opacity": [
+     {
+      "t": 0,
+      "v": 0.0
+     },
+     {
+      "t": 5.4,
+      "v": 0.0
+     },
+     {
+      "t": 6.3,
+      "v": 1.0,
+      "ease": "in_out"
+     }
+    ]
+   }
+  }
+ ]
+}

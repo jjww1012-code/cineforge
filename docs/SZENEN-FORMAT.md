@@ -122,7 +122,7 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `extrude` | `profile` [[x,z],…] Umriss von oben, `holes` [[[x,z],…]], `height` 1, `taper` 1 (Oberseite relativ, 0 = Spitze) – Basis bei y = 0 |
 | `lathe` | `profile` [[Radius, Höhe],…] von unten nach oben, `segments` 48, `angle` 360 |
 | `tube` | `path` [[x,y,z],…], `radius` 0.1, `radius_end` (optional, spitz zulaufend), `segments` 16, `smooth` true, `closed` false |
-| `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2, `align` center/left/right, `letter_spacing` 0 – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
+| `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2 (0 = flach, z. B. für Bildschirm-Inhalte und Einblendungen), `align` center/left/right, `letter_spacing` 0, `weight` regular/bold/black, `italic` false – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
 
 ## Partikel-Effekte (`type: "particles"`)
@@ -173,6 +173,7 @@ Vor dem ersten Keyframe gilt dessen Wert, nach dem letzten der letzte.
 | `opacity` | 0–1 | Ein-/Ausblenden |
 | `visible` | true/false | Erscheinen/Verschwinden (springt) |
 | `intensity` | Lumen | Nur `point_light`: Lichtstärke über die Zeit (Blitz, Ein-/Ausschalten) |
+| `draw` | 0–1 | Nur `tube`: gezeichneter Anteil – die Linie „zeichnet sich“ (Logos, Routen, Unterschriften) |
 | `flicker` | 0–1 | Nur `point_light`: Flackern (0.3 Kerze/Feuer) |
 | `spin` | [Grad/s x,y,z] | Dauerdrehung, z. B. `[0, 90, 0]` |
 | `smooth_path` | true/false | Position als weiche Kurve durch alle Keyframes |
