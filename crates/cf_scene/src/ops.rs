@@ -182,6 +182,7 @@ pub fn outline(scene: &Scene) -> String {
             Kind::Text(t) => format!("text \"{}\"", t.text.chars().take(30).collect::<String>()),
             Kind::Instance { asset, .. } => format!("instance \"{asset}\""),
             Kind::Particles(p) => format!("particles {:?}", p.preset).to_lowercase(),
+            Kind::Image { file, width } => format!("image \"{file}\" b={width}"),
         }
     }
     fn rec(out: &mut String, objs: &[Object], depth: usize) {
@@ -218,6 +219,9 @@ pub fn outline(scene: &Scene) -> String {
         out.push_str("(keine)\n");
     }
     rec(&mut out, &scene.objects, 0);
+    for o in &scene.overlays {
+        out.push_str(&format!("Einblendung „{}“ ({:.1}–{} s)\n", o.text.replace('\n', " / "), o.start, o.end.map(|e| format!("{e:.1}")).unwrap_or("Ende".into())));
+    }
     out
 }
 

@@ -42,7 +42,10 @@ pub struct SpawnPlugin;
 
 impl Plugin for SpawnPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Library>().init_resource::<SceneStats>().add_systems(Update, rebuild_scene);
+        app.init_resource::<Library>()
+            .init_resource::<SceneStats>()
+            .init_resource::<crate::media::ImageCache>()
+            .add_systems(Update, rebuild_scene);
     }
 }
 
@@ -98,6 +101,7 @@ fn rebuild_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut image_cache: ResMut<crate::media::ImageCache>,
 ) {
     if loaded.read().count() == 0 {
         return;
@@ -116,6 +120,7 @@ fn rebuild_scene(
         meshes: &mut meshes,
         materials: &mut materials,
         images: &mut images,
+        image_cache: &mut image_cache,
         material_cache: HashMap::new(),
         texture_cache: HashMap::new(),
         stats: SceneStats::default(),
@@ -145,6 +150,7 @@ struct Builder<'a, 'w, 's> {
     meshes: &'a mut Assets<Mesh>,
     materials: &'a mut Assets<StandardMaterial>,
     images: &'a mut Assets<Image>,
+    image_cache: &'a mut crate::media::ImageCache,
     /// Gleiche Materialien teilen sich ein GPU-Material ⇒ weniger Draw-Calls.
     material_cache: HashMap<String, Handle<StandardMaterial>>,
     texture_cache: HashMap<String, (Handle<Image>, Option<Handle<Image>>)>,
@@ -281,6 +287,22 @@ impl Builder<'_, '_, '_> {
                         });
                         self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat)));
                     }
+                }
+            }
+            Kind::Image { file, width } => {
+                match crate::media::resolve(self.project, crate::media::IMAGES, file)
+                    .and_then(|p| self.image_cache.load(&p, self.images))
+                {
+                    Ok(img) => {
+                        let h = width * img.height as f32 / img.width.max(1) as f32;
+                        let mesh = self.meshes.add(Rectangle::new(*width, h));
+                        let mut m = material.clone();
+                        m.texture = Some(file.clone());
+                        let mat = self.material(&m);
+                        self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat)));
+                        self.stats.triangles += 2;
+                    }
+                    Err(e) => self.stats.warnings.push(format!("\"{full_id}\": {e}")),
                 }
             }
             Kind::Particles(spec) => {
@@ -421,7 +443,12 @@ impl Builder<'_, '_, '_> {
                     return None;
                 }
             },
-            Kind::Group { .. } | Kind::Scatter(_) | Kind::PointLight(_) | Kind::Instance { .. } | Kind::Particles(_) => return None,
+            Kind::Group { .. }
+            | Kind::Scatter(_)
+            | Kind::PointLight(_)
+            | Kind::Instance { .. }
+            | Kind::Particles(_)
+            | Kind::Image { .. } => return None,
         };
         if mesh.count_vertices() == 0 {
             return None;
@@ -472,12 +499,27 @@ impl Builder<'_, '_, '_> {
         } else {
             color(m.emissive).to_linear() * m.emissive_strength.max(0.0)
         };
-        let (base_color, base_color_texture, normal_map_texture, uv_transform) = match &m.pattern {
-            Some(p) => {
+        // Bild als Oberfläche hat Vorrang vor einem Muster.
+        let mut has_alpha = false;
+        let texture = m.texture.as_ref().and_then(|f| {
+            match crate::media::resolve(self.project, crate::media::IMAGES, f).and_then(|p| self.image_cache.load(&p, self.images)) {
+                Ok(img) => {
+                    has_alpha = img.has_alpha;
+                    Some(img.handle)
+                }
+                Err(e) => {
+                    self.stats.warnings.push(e);
+                    None
+                }
+            }
+        });
+        let (base_color, base_color_texture, normal_map_texture, uv_transform) = match (&texture, &m.pattern) {
+            (Some(t), _) => (Color::srgba(1.0, 1.0, 1.0, m.opacity), Some(t.clone()), None, Affine2::IDENTITY),
+            (None, Some(p)) => {
                 let (c, n) = self.pattern_textures(p, m.color);
                 (Color::srgba(1.0, 1.0, 1.0, m.opacity), Some(c), n, Affine2::from_scale(Vec2::splat(p.scale)))
             }
-            None => (Color::srgba(m.color.r, m.color.g, m.color.b, m.opacity), None, None, Affine2::IDENTITY),
+            (None, None) => (Color::srgba(m.color.r, m.color.g, m.color.b, m.opacity), None, None, Affine2::IDENTITY),
         };
         let handle = self.materials.add(StandardMaterial {
             base_color,
@@ -496,7 +538,7 @@ impl Builder<'_, '_, '_> {
             unlit: m.unlit,
             double_sided: m.double_sided,
             cull_mode: if m.double_sided { None } else { Some(Face::Back) },
-            alpha_mode: if m.opacity < 1.0 { AlphaMode::Blend } else { AlphaMode::Opaque },
+            alpha_mode: if m.opacity < 1.0 || has_alpha { AlphaMode::Blend } else { AlphaMode::Opaque },
             ..default()
         });
         self.material_cache.insert(key, handle.clone());

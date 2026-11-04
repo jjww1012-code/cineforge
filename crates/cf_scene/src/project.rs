@@ -23,6 +23,9 @@ pub struct Project {
     pub style: String,
     /// Reihenfolge der Einstellungen (Shots) des Films.
     pub storyboard: Vec<Shot>,
+    /// Durchgehender Ton über den ganzen Film (Musik, Atmo), Zeiten relativ zum Filmanfang.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub soundtrack: Vec<AudioClip>,
     pub tasks: Vec<Task>,
     /// Wichtige Entscheidungen und Erkenntnisse.
     pub notes: Vec<Note>,
@@ -63,9 +66,66 @@ pub struct Shot {
     pub description: String,
     /// Name der Szenen-Datei (ohne .json) im Projekt.
     pub scene: Option<String>,
+    /// Statt einer Szene: ein fertiger Video-Clip (z. B. KI-Video, Handy-Aufnahme).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clip: Option<VideoClip>,
     /// Dauer in Sekunden.
     pub duration: f32,
     pub status: Status,
+    /// Ton für diesen Shot (Zeiten relativ zum Shot-Anfang).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub audio: Vec<AudioClip>,
+    /// Übergang zum nächsten Shot: cut (Standard) oder fade (über Schwarz).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transition: Option<String>,
+}
+
+/// Ein Stück Ton im Film (Musik, Geräusch, Sprecher).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct AudioClip {
+    /// Datei im Ordner Audio/ des Projekts (oder Pfad relativ zum Projekt).
+    pub file: String,
+    /// Beginn in Sekunden (bei Shot-Ton relativ zum Shot, beim Soundtrack relativ zum Film).
+    #[serde(default)]
+    pub start: f32,
+    /// Ab welcher Stelle der Datei (s).
+    #[serde(default)]
+    pub offset: f32,
+    /// Länge (s); Standard: bis zum Dateiende.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration: Option<f32>,
+    /// Lautstärke (1 = original, 0.5 = halb, 2 = doppelt).
+    #[serde(default = "one_f")]
+    pub volume: f32,
+    #[serde(default)]
+    pub fade_in: f32,
+    #[serde(default)]
+    pub fade_out: f32,
+}
+
+fn one_f() -> f32 {
+    1.0
+}
+
+/// Fertiges Video als Shot.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct VideoClip {
+    /// Datei im Ordner Clips/ des Projekts (oder Pfad relativ zum Projekt).
+    pub file: String,
+    /// Ab welcher Stelle des Clips (s).
+    #[serde(default)]
+    pub offset: f32,
+    /// Originalton des Clips übernehmen.
+    #[serde(default = "yes")]
+    pub use_audio: bool,
+    #[serde(default = "one_f")]
+    pub volume: f32,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -201,21 +261,43 @@ impl Project {
             let total: f32 = self.storyboard.iter().map(|x| x.duration).sum();
             let done = self.storyboard.iter().filter(|x| x.status == Status::Done).count();
             s += &format!(
-                "## Storyboard ({} Shots, {:.0} s gesamt, {done} fertig)\n",
+                "## Storyboard ({} Shots, {} gesamt, {done} fertig)\n",
                 self.storyboard.len(),
-                total
+                format_duration(total)
             );
+            // Lange Filme: nur die nächsten offenen Shots ausführlich zeigen.
+            let long = self.storyboard.len() > 40;
+            let mut shown = 0;
+            let mut film_t = 0.0;
             for (i, sh) in self.storyboard.iter().enumerate() {
+                let start = film_t;
+                film_t += sh.duration;
+                if long && (sh.status == Status::Done || shown >= 15) {
+                    continue;
+                }
+                shown += 1;
+                let source = match (&sh.scene, &sh.clip) {
+                    (Some(x), _) => format!(" → Szene \"{x}\""),
+                    (None, Some(c)) => format!(" → Clip \"{}\"", c.file),
+                    _ => " → (noch keine Szene)".into(),
+                };
                 s += &format!(
-                    "{} {:>2}. {} – {} ({:.1} s){}\n     {}\n",
+                    "{} {:>3}. [{}] {} – {} ({:.1} s){}\n      {}\n",
                     sh.status.symbol(),
                     i + 1,
+                    format_duration(start),
                     sh.id,
                     sh.title,
                     sh.duration,
-                    sh.scene.as_ref().map(|x| format!(" → Szene \"{x}\"")).unwrap_or_default(),
+                    source,
                     sh.description
                 );
+            }
+            if long {
+                s += &format!("… insgesamt {} Shots; gezeigt werden die nächsten offenen. Alle: list_shots\n", self.storyboard.len());
+            }
+            if !self.soundtrack.is_empty() {
+                s += &format!("Soundtrack: {} Ton-Spur(en)\n", self.soundtrack.len());
             }
             s.push('\n');
         }
@@ -266,6 +348,13 @@ impl Project {
 
 fn or_dash(s: &str) -> &str {
     if s.trim().is_empty() { "–" } else { s }
+}
+
+/// Dauer als m:ss bzw. h:mm:ss.
+pub fn format_duration(secs: f32) -> String {
+    let t = secs.max(0.0).round() as u64;
+    let (h, m, s) = (t / 3600, (t % 3600) / 60, t % 60);
+    if h > 0 { format!("{h}:{m:02}:{s:02}") } else { format!("{m}:{s:02}") }
 }
 
 pub fn parse_status(s: &str) -> Result<Status, String> {
@@ -359,6 +448,25 @@ mod tests {
         assert!(d.contains("claude: update_object station"));
         let again = Project::from_json(&p.to_json_pretty()).unwrap();
         assert_eq!(p, again);
+    }
+
+    #[test]
+    fn long_storyboard_digest_stays_compact() {
+        let mut p = Project::new("Langfilm", "1 Stunde");
+        let shots: Vec<serde_json::Value> = (0..300)
+            .map(|i| json!({"id": format!("s{i:03}"), "title": "Shot", "duration": 12, "scene": format!("s{i:03}"),
+                            "status": if i < 100 { "done" } else { "open" }}))
+            .collect();
+        p.update_storyboard(&shots).unwrap();
+        let d = p.digest(None);
+        assert!(d.contains("300 Shots, 1:00:00 gesamt, 100 fertig"), "{}", &d[..300.min(d.len())]);
+        assert!(d.contains("s100") && !d.contains("s050 "), "zeigt die nächsten offenen");
+        assert!(d.lines().count() < 80, "kompakt: {} Zeilen", d.lines().count());
+        // Ton- und Clip-Felder
+        p.update_storyboard(&[json!({"id": "s100", "clip": {"file": "intro.mp4"}, "audio": [{"file": "wecker.wav", "start": 1.5}]})]).unwrap();
+        assert_eq!(p.storyboard[100].clip.as_ref().unwrap().file, "intro.mp4");
+        assert_eq!(p.storyboard[100].audio[0].volume, 1.0);
+        assert_eq!(format_duration(3725.0), "1:02:05");
     }
 
     #[test]

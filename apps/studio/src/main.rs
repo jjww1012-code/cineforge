@@ -15,6 +15,7 @@ mod environment;
 mod fx;
 mod hud;
 mod library;
+mod media;
 mod project;
 mod render;
 mod source;

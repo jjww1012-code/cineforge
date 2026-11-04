@@ -34,6 +34,55 @@ pub struct Scene {
     pub camera: CameraSpec,
     #[serde(default)]
     pub objects: Vec<Object>,
+    /// Einblendungen, die fest im Bild stehen (Untertitel, Bauchbinden, Daten).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overlays: Vec<Overlay>,
+}
+
+/// Text, der fest im Bild steht – unabhängig von der Kamera.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Overlay {
+    pub text: String,
+    /// Waagerechte Position: -1 = linker Rand, 0 = Mitte, 1 = rechter Rand.
+    #[serde(default)]
+    pub x: f32,
+    /// Senkrechte Position (Grundlinie): -1 = unten, 0 = Mitte, 1 = oben.
+    #[serde(default = "default_overlay_y")]
+    pub y: f32,
+    /// Schriftgröße als Anteil der Bildhöhe (0.05 = 5 %).
+    #[serde(default = "default_overlay_size")]
+    pub size: f32,
+    #[serde(default = "white")]
+    pub color: Rgb,
+    #[serde(default)]
+    pub weight: TextWeight,
+    #[serde(default)]
+    pub italic: bool,
+    #[serde(default)]
+    pub align: TextAlign,
+    /// Sichtbar ab (s).
+    #[serde(default)]
+    pub start: f32,
+    /// Sichtbar bis (s); Standard: bis zum Ende.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<f32>,
+    /// Ein-/Ausblendzeit (s).
+    #[serde(default = "default_overlay_fade")]
+    pub fade: f32,
+}
+
+fn default_overlay_y() -> f32 {
+    -0.8
+}
+fn default_overlay_size() -> f32 {
+    0.05
+}
+fn default_overlay_fade() -> f32 {
+    0.3
+}
+fn white() -> Rgb {
+    Rgb::WHITE
 }
 
 fn default_duration() -> f32 {
@@ -271,6 +320,9 @@ pub struct Material {
     /// Oberflächen-Muster (Ziegel, Raster, Rauschen …).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pattern: Option<Pattern>,
+    /// Bild als Oberfläche (Datei im Ordner Bilder/ des Projekts), z. B. Logo, Foto, Plakat.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub texture: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, Hash)]
@@ -325,6 +377,7 @@ impl Default for Material {
             unlit: false,
             double_sided: false,
             pattern: None,
+            texture: None,
         }
     }
 }
@@ -392,6 +445,13 @@ pub enum Kind {
     Tube(TubeSpec),
     /// 3D-Schrift in der XY-Ebene, Blickrichtung +Z, Grundlinie bei y = 0.
     Text(TextSpec),
+    /// Bildfläche (Datei im Ordner Bilder/), Seitenverhältnis wie das Bild; steht in der XY-Ebene, schaut nach +Z.
+    Image {
+        file: String,
+        /// Breite in Metern (Höhe ergibt sich aus dem Bild).
+        #[serde(default = "one")]
+        width: f32,
+    },
     /// Partikel-Effekt (Feuer, Rauch, Funken, Schnee, Regen, Explosion, Magie, Staub, Fontäne).
     Particles(crate::particles::ParticleSpec),
     /// Objekt aus der Bibliothek.
@@ -716,6 +776,14 @@ impl Scene {
         if let Some(a) = &self.environment.animate {
             a.validate(&mut problems);
         }
+        for (i, o) in self.overlays.iter().enumerate() {
+            if o.text.trim().is_empty() {
+                problems.push(format!("overlays[{i}]: text ist leer"));
+            }
+            if !(o.size > 0.0 && o.size <= 1.0) {
+                problems.push(format!("overlays[{i}]: size muss zwischen 0 und 1 liegen (Anteil der Bildhöhe)"));
+            }
+        }
         let mut ids = std::collections::HashSet::new();
         let mut terrains = std::collections::HashSet::new();
         self.walk(&mut |o| {
@@ -800,7 +868,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_)) {
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. }) {
                 p.push(format!("\"{id}\": scatter.shape muss eine einfache Form sein"));
             }
             if s.scale_range[0] > s.scale_range[1] {
@@ -873,6 +941,12 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             }
         }
         Kind::Particles(ps) => ps.validate(id, p),
+        Kind::Image { file, width } => {
+            positive("width", *width, p);
+            if file.trim().is_empty() {
+                p.push(format!("\"{id}\": image.file fehlt"));
+            }
+        }
         Kind::Instance { asset, .. } => {
             if crate::project::safe_name(asset).is_err() {
                 p.push(format!("\"{id}\": ungültiger Bibliotheks-Name \"{asset}\""));
