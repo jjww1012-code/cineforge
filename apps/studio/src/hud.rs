@@ -7,6 +7,7 @@ use bevy::{
 
 use crate::{
     control::ControlStatus,
+    project::ActiveProject,
     source::{SceneLoaded, SceneSource},
     spawn::SceneStats,
     MainCamera,
@@ -102,14 +103,25 @@ fn setup(mut commands: Commands) {
 fn update_info(
     mut loaded: MessageReader<SceneLoaded>,
     src: Res<SceneSource>,
+    project: Res<ActiveProject>,
     mut q: Query<&mut Text, With<InfoText>>,
 ) {
-    if loaded.read().count() == 0 {
+    let scene_changed = loaded.read().count() > 0;
+    if !scene_changed && !project.is_changed() {
         return;
     }
     let s = &src.scene;
     let name = if s.name.is_empty() { "Unbenannte Szene" } else { &s.name };
-    let mut text = format!("{name}\n");
+    let mut text = String::new();
+    if let Some(p) = project.name() {
+        let open = project.data.tasks.iter().filter(|t| t.status != cf_scene::project::Status::Done).count();
+        text.push_str(&format!("Projekt: {p}  ·  {open} offene Aufgaben\n"));
+        if !project.data.next_step.is_empty() {
+            text.push_str(&format!("Nächster Schritt: {}\n", project.data.next_step));
+        }
+        text.push('\n');
+    }
+    text.push_str(&format!("{name}\n"));
     if !s.description.is_empty() {
         text.push_str(&s.description);
         text.push('\n');

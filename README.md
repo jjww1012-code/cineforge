@@ -27,8 +27,9 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 3. **Windows:** `CineForge.exe` starten (bei der SmartScreen-Warnung „Weitere
    Informationen → Trotzdem ausführen“).
 
-Beim ersten Start legt die App die Demo-Szene unter
-`Dokumente/CineForge/Szenen/wueste.json` an und öffnet sie.
+Beim ersten Start legt die App das Demo-Projekt unter
+`Dokumente/CineForge/Projekte/Demo/` an und öffnet die Szene `Szenen/wueste.json`.
+Danach öffnet sie immer die zuletzt bearbeitete Szene.
 **Öffne diese Datei in einem Texteditor, ändere z. B. `"elevation": 7` auf `40`,
 speichere – die Welt ändert sich sofort.**
 

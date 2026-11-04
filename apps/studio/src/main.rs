@@ -13,6 +13,7 @@ mod cli;
 mod control;
 mod environment;
 mod hud;
+mod project;
 mod source;
 mod spawn;
 mod tools;
@@ -71,11 +72,13 @@ fn main() -> AppExit {
     )
     .add_plugins((FreeCameraPlugin, FrameTimeDiagnosticsPlugin::default()))
     .insert_resource(ClearColor(Color::BLACK))
+    .insert_resource(project::ActiveProject::for_scene(&source.path))
     .insert_resource(source)
     .add_plugins((
         environment::EnvironmentPlugin,
         spawn::SpawnPlugin,
         source::SourcePlugin,
+        project::ProjectPlugin,
     ))
     // Auch im Hintergrund weiterrechnen, damit Claude arbeiten kann,
     // während das Fenster nicht im Vordergrund ist.

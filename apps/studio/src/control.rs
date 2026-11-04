@@ -19,6 +19,7 @@ use bevy::prelude::*;
 use serde_json::{json, Value};
 
 use crate::{
+    project::ActiveProject,
     source::{SceneLoaded, SceneSource},
     tools::{self, ToolCall, ToolOutput, UserViewQuery},
 };
@@ -72,6 +73,7 @@ fn process_calls(
     inbox: Res<Inbox>,
     mut status: ResMut<ControlStatus>,
     mut src: ResMut<SceneSource>,
+    mut project: ResMut<ActiveProject>,
     mut out: MessageWriter<SceneLoaded>,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
@@ -85,7 +87,15 @@ fn process_calls(
         let target = call.args.get("id").and_then(Value::as_str).map(|id| format!(" „{id}“")).unwrap_or_default();
         status.last_action = Some(format!("{}{}", call.name, target));
         info!("Claude: {}{}", call.name, target);
-        tools::execute(call, &mut src, &mut out, &mut commands, &mut images, user_view.single().ok().copied());
+        let mut cx = tools::Ctx {
+            src: &mut src,
+            project: &mut project,
+            out: &mut out,
+            commands: &mut commands,
+            images: &mut images,
+            user_view: user_view.single().ok().copied(),
+        };
+        tools::execute(call, &mut cx);
     }
 }
 
@@ -173,7 +183,7 @@ fn handle_one(msg: &Value, tx: &Sender<ToolCall>) -> Option<Value> {
                 id,
                 json!({
                     "protocolVersion": version,
-                    "capabilities": {"tools": {}},
+                    "capabilities": {"tools": {}, "prompts": {}},
                     "serverInfo": {"name": "cineforge", "title": "CineForge Studio", "version": env!("CARGO_PKG_VERSION")},
                     "instructions": tools::INSTRUCTIONS
                 }),
@@ -194,9 +204,58 @@ fn handle_one(msg: &Value, tx: &Sender<ToolCall>) -> Option<Value> {
             rpc_ok(id, output.to_mcp())
         }
         "resources/list" => rpc_ok(id, json!({"resources": []})),
-        "prompts/list" => rpc_ok(id, json!({"prompts": []})),
+        "prompts/list" => rpc_ok(id, json!({"prompts": prompts_list()})),
+        "prompts/get" => match prompt_get(&params) {
+            Ok(v) => rpc_ok(id, v),
+            Err(e) => rpc_error(id, -32602, &e),
+        },
         other => rpc_error(id, -32601, &format!("Unbekannte Methode: {other}")),
     })
+}
+
+// ---------------------------------------------------------------------------
+// Vorlagen (in Claude Desktop unter „+“ → cineforge auswählbar)
+// ---------------------------------------------------------------------------
+
+fn prompts_list() -> Value {
+    json!([
+        {
+            "name": "weitermachen",
+            "title": "Weitermachen",
+            "description": "Setzt die Arbeit am aktuellen CineForge-Projekt genau dort fort, wo zuletzt aufgehört wurde."
+        },
+        {
+            "name": "neuer_film",
+            "title": "Neuer Film",
+            "description": "Startet ein neues Film-Projekt aus einer Idee: Logbuch, Storyboard, Aufgaben, dann Szene für Szene bauen.",
+            "arguments": [{"name": "idee", "description": "Worum geht es im Film? (Handlung, Länge, Stimmung)", "required": true}]
+        }
+    ])
+}
+
+fn prompt_get(params: &Value) -> Result<Value, String> {
+    let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+    let text = match name {
+        "weitermachen" => "Mach in CineForge weiter, wo du zuletzt aufgehört hast: Rufe zuerst `resume` auf,              lies den Stand (nächster Schritt, offene Aufgaben, letzte Aktionen) und arbeite dann selbstständig weiter.              Halte dabei Aufgaben und next_step aktuell, damit es nach einer Unterbrechung wieder nahtlos weitergeht."
+            .to_string(),
+        "neuer_film" => {
+            let idee = params
+                .pointer("/arguments/idee")
+                .and_then(Value::as_str)
+                .filter(|s| !s.trim().is_empty())
+                .ok_or("Argument \"idee\" fehlt")?;
+            format!(
+                "Erstelle in CineForge einen Film zu dieser Idee:\n\n{idee}\n\n\
+                 Vorgehen: 1) get_guide lesen. 2) new_project mit Ziel und Stil. \
+                 3) update_plan mit einem Storyboard (Shots mit Titel, Beschreibung, Dauer). \
+                 4) update_tasks mit konkreten Aufgaben. 5) Shot für Shot eine Szene bauen (new_scene), \
+                 jeweils mit screenshot prüfen und verbessern, dann Shot und Aufgabe abhaken. \
+                 Setze vor jedem größeren Schritt next_step, damit nach einer Unterbrechung nahtlos weitergearbeitet werden kann."
+            )
+        }
+        other => return Err(format!("Unbekannte Vorlage: {other}")),
+    };
+    Ok(json!({"messages": [{"role": "user", "content": {"type": "text", "text": text}}]}))
 }
 
 #[cfg(test)]
@@ -216,6 +275,17 @@ mod tests {
         assert_eq!(r["error"]["code"], -32601);
         let r = handle_rpc("{kaputt", &tx).unwrap();
         assert_eq!(r["error"]["code"], -32700);
+    }
+
+    #[test]
+    fn prompts_are_listed_and_filled() {
+        let (tx, _rx) = mpsc::channel();
+        let r = handle_rpc(r#"{"jsonrpc":"2.0","id":1,"method":"prompts/list"}"#, &tx).unwrap();
+        assert_eq!(r["result"]["prompts"][0]["name"], "weitermachen");
+        let r = handle_rpc(r#"{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"neuer_film","arguments":{"idee":"Raumstation"}}}"#, &tx).unwrap();
+        assert!(r["result"]["messages"][0]["content"]["text"].as_str().unwrap().contains("Raumstation"));
+        let r = handle_rpc(r#"{"jsonrpc":"2.0","id":3,"method":"prompts/get","params":{"name":"neuer_film"}}"#, &tx).unwrap();
+        assert!(r["error"].is_object());
     }
 
     #[test]

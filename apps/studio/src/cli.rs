@@ -7,8 +7,8 @@ Aufruf:
   cineforge [SZENE.json] [Optionen]
   cineforge mcp [--port N]     Brücke für Claude Desktop (stdio)
 
-Ohne SZENE wird die Demo-Szene aus Dokumente/CineForge/Szenen geöffnet
-(beim ersten Start wird sie dort angelegt).
+Ohne SZENE wird die zuletzt bearbeitete Szene geöffnet, beim ersten Start
+das Demo-Projekt (Dokumente/CineForge/Projekte/Demo).
 
 Optionen:
   --screenshot DATEI.png   Szene rendern, Bild speichern und beenden

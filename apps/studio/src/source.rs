@@ -12,9 +12,6 @@ use std::{
 use bevy::{prelude::*, window::FileDragAndDrop};
 use cf_scene::Scene;
 
-const DEMO_SCENE: &str = include_str!("../../../scenes/wueste.json");
-const DEMO_FILE_NAME: &str = "wueste.json";
-
 #[derive(Resource)]
 pub struct SceneSource {
     pub path: PathBuf,
@@ -41,7 +38,7 @@ impl SceneSource {
     pub fn open(path: Option<PathBuf>) -> Result<Self, String> {
         let path = match path {
             Some(p) => p,
-            None => demo_path()?,
+            None => crate::project::startup_scene()?,
         };
         let (scene, modified) = read_scene(&path)?;
         Ok(Self {
@@ -113,33 +110,12 @@ impl SceneSource {
     }
 }
 
-/// Ordner für Szenen: Dokumente/CineForge/Szenen
-pub fn scenes_dir() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .ok_or("Benutzerordner nicht gefunden")?;
-    Ok(home.join("Documents").join("CineForge").join("Szenen"))
-}
-
 fn read_scene(path: &Path) -> Result<(Scene, Option<SystemTime>), String> {
     let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
     let text = std::fs::read_to_string(path)
         .map_err(|e| format!("Datei {} nicht lesbar: {e}", path.display()))?;
     let scene = Scene::from_json(&text).map_err(|e| e.to_string())?;
     Ok((scene, modified))
-}
-
-/// Dokumente/CineForge/Szenen/wueste.json – wird beim ersten Start angelegt,
-/// damit man die Szene sofort bearbeiten und Live-Reload ausprobieren kann.
-fn demo_path() -> Result<PathBuf, String> {
-    let dir = scenes_dir()?;
-    let file = dir.join(DEMO_FILE_NAME);
-    if !file.exists() {
-        std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-        std::fs::write(&file, DEMO_SCENE).map_err(|e| format!("{}: {e}", file.display()))?;
-    }
-    Ok(file)
 }
 
 pub struct SourcePlugin;

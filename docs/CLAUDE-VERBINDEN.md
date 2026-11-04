@@ -40,6 +40,21 @@ Eintragen (Pfad anpassen):
 Windows: `"command": "C:\\Programme\\CineForge\\CineForge.exe"`
 </details>
 
+## Weitermachen nach einer Pause (z. B. Nutzungslimit erreicht)
+
+Jedes Projekt hat ein **Logbuch** (`Dokumente/CineForge/Projekte/<Name>/projekt.json`).
+Darin stehen Ziel, Stil, Storyboard, Aufgaben, Notizen, alle Claude-Aktionen und der
+**nächste Schritt**. Alles wird sofort gespeichert. Ein Abbruch mitten in der Arbeit
+verliert also nichts.
+
+So geht es weiter:
+- In Claude Desktop auf **„+“ → cineforge → „Weitermachen“** klicken, oder einfach schreiben:
+  „Mach in CineForge weiter, wo du aufgehört hast.“
+- Claude ruft dann `resume` auf, liest den Stand und arbeitet selbstständig weiter.
+- Die App öffnet beim Start automatisch die zuletzt bearbeitete Szene.
+
+Für einen neuen Film: **„+“ → cineforge → „Neuer Film“** und die Idee eingeben.
+
 ## Claude Code
 
 App starten, dann im Terminal:
@@ -59,7 +74,11 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `set_scene` | Komplett neue Szene |
 | `screenshot` | Ergebnis ansehen, auch aus beliebigem Blickwinkel |
 | `undo` | Letzte Änderung zurücknehmen |
-| `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien verwalten |
+| `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien im Projekt verwalten |
+| `resume` | Kompletter Projekt-Stand zum Weitermachen |
+| `update_plan` | Ziel, Stil, Storyboard, nächster Schritt |
+| `update_tasks`, `add_note` | Aufgaben abhaken, Entscheidungen festhalten |
+| `list_projects`, `open_project`, `new_project` | Projekte verwalten |
 
 Jede Änderung wird geprüft, bevor sie übernommen wird. Fehlerhafte Befehle werden mit
 Begründung abgelehnt, die Szene bleibt dann unverändert. Alles landet sofort in der
@@ -69,4 +88,4 @@ Szenen-Datei und ist mit **Cmd/Strg+Z** rückgängig zu machen.
 
 - Der Server ist nur auf diesem Rechner erreichbar (127.0.0.1), nicht im Netzwerk.
 - Anfragen von Webseiten werden abgelehnt.
-- Claude kann nur Szenen im Ordner `Dokumente/CineForge/Szenen` öffnen und anlegen.
+- Claude kann nur Projekte und Szenen im Ordner `Dokumente/CineForge` öffnen und anlegen.
