@@ -158,8 +158,27 @@ pub struct Object {
     pub scale: Scale,
     #[serde(default)]
     pub material: Material,
+    /// Wiederholt das Objekt (Reihen, Kreise, Treppen, Spiralen).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<Repeat>,
     #[serde(flatten)]
     pub kind: Kind,
+}
+
+/// Wiederholung: Kopie i bekommt i-mal den Schritt (Verschiebung, Drehung,
+/// Skalierung) angewendet – im Koordinatensystem des Elternobjekts.
+/// Für Kreise: Objekt in eine Gruppe am Mittelpunkt legen, seitlich
+/// verschieben und `rotation` (z. B. [0, 30, 0]) als Schritt verwenden.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Repeat {
+    pub count: u32,
+    #[serde(default)]
+    pub offset: [f32; 3],
+    #[serde(default)]
+    pub rotation: [f32; 3],
+    #[serde(default = "one")]
+    pub scale: f32,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -210,6 +229,55 @@ pub struct Material {
     pub opacity: f32,
     /// Flächenschattierung (facettiert) statt weicher Übergänge.
     pub flat: bool,
+    /// Durchsichtigkeit wie Glas/Wasser (0 = aus, 1 = klares Glas).
+    pub transmission: f32,
+    /// Brechungsindex (Glas 1.5, Wasser 1.33, Diamant 2.4).
+    pub ior: f32,
+    /// Klarlack-Schicht (Autolack, lackiertes Holz), 0..1.
+    pub clearcoat: f32,
+    /// Ohne Beleuchtung (reine Farbe, z. B. für Grafiken/Hologramme).
+    pub unlit: bool,
+    /// Beide Seiten sichtbar (Blätter, Stoff, offene Flächen).
+    pub double_sided: bool,
+    /// Oberflächen-Muster (Ziegel, Raster, Rauschen …).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<Pattern>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum PatternKind {
+    #[default]
+    Noise,
+    Checker,
+    Stripes,
+    Bricks,
+    Grid,
+    Dots,
+    Marble,
+    Wood,
+}
+
+/// Prozedurales Muster: mischt `color` (Material) und `color2`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Pattern {
+    #[serde(rename = "type")]
+    pub kind: PatternKind,
+    #[serde(default = "default_color2")]
+    pub color2: Rgb,
+    /// Wiederholungen pro Meter bzw. pro Fläche (größer = feiner).
+    #[serde(default = "one")]
+    pub scale: f32,
+    /// Plastische Struktur (0 = glatt, 1 = deutlich).
+    #[serde(default)]
+    pub bump: f32,
+    #[serde(default)]
+    pub seed: u32,
+}
+
+fn default_color2() -> Rgb {
+    Rgb::new(0.2, 0.2, 0.2)
 }
 
 impl Default for Material {
@@ -222,6 +290,12 @@ impl Default for Material {
             emissive_strength: 1.0,
             opacity: 1.0,
             flat: false,
+            transmission: 0.0,
+            ior: 1.5,
+            clearcoat: 0.0,
+            unlit: false,
+            double_sided: false,
+            pattern: None,
         }
     }
 }
@@ -272,6 +346,30 @@ pub enum Kind {
         #[serde(default = "one3")]
         size: [f32; 3],
     },
+    /// Quader mit abgerundeten Kanten.
+    RoundedBox {
+        #[serde(default = "one3")]
+        size: [f32; 3],
+        #[serde(default = "tenth")]
+        radius: f32,
+        #[serde(default = "four")]
+        segments: u32,
+    },
+    /// Umriss (in der XZ-Ebene, von oben gesehen) nach oben gezogen, Basis bei y = 0.
+    Extrude(ExtrudeSpec),
+    /// Profil [Radius, Höhe] um die Y-Achse gedreht (Vasen, Säulen, Kuppeln).
+    Lathe(LatheSpec),
+    /// Röhre entlang eines Pfads (Kabel, Rohre, Äste).
+    Tube(TubeSpec),
+    /// 3D-Schrift in der XY-Ebene, Blickrichtung +Z, Grundlinie bei y = 0.
+    Text(TextSpec),
+    /// Objekt aus der Bibliothek.
+    Instance {
+        asset: String,
+        /// Ersetzt das Material aller Teile (optional).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        material_override: Option<Material>,
+    },
     /// Prozedurales Gelände.
     Terrain(TerrainSpec),
     /// Viele Kopien einer Form, zufällig verteilt (Steine, Bäume, Sterne …).
@@ -293,11 +391,104 @@ fn quarter() -> f32 {
 fn tenth() -> f32 {
     0.1
 }
+fn four() -> u32 {
+    4
+}
 fn one3() -> [f32; 3] {
     [1.0, 1.0, 1.0]
 }
 fn ten2() -> [f32; 2] {
     [10.0, 10.0]
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ExtrudeSpec {
+    /// Umriss-Punkte [x, z] (mind. 3), Reihenfolge egal.
+    pub profile: Vec<[f32; 2]>,
+    /// Löcher im Umriss, jeweils eine Punkt-Liste [x, z].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holes: Vec<Vec<[f32; 2]>>,
+    #[serde(default = "one")]
+    pub height: f32,
+    /// Größe der Oberseite relativ zur Unterseite (1 = gerade, 0.5 = verjüngt, 0 = Spitze).
+    #[serde(default = "one")]
+    pub taper: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct LatheSpec {
+    /// Profil-Punkte [Radius, Höhe] von unten nach oben.
+    pub profile: Vec<[f32; 2]>,
+    #[serde(default = "default_lathe_segments")]
+    pub segments: u32,
+    /// Drehwinkel in Grad (360 = geschlossen).
+    #[serde(default = "default_full_angle")]
+    pub angle: f32,
+}
+
+fn default_lathe_segments() -> u32 {
+    48
+}
+fn default_full_angle() -> f32 {
+    360.0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TubeSpec {
+    /// Pfad-Punkte [x, y, z] (mind. 2).
+    pub path: Vec<[f32; 3]>,
+    #[serde(default = "tenth")]
+    pub radius: f32,
+    /// Radius am Ende (für spitz zulaufende Formen wie Äste).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius_end: Option<f32>,
+    /// Anzahl der Kanten im Querschnitt.
+    #[serde(default = "default_tube_segments")]
+    pub segments: u32,
+    /// Pfad weich als Kurve durch die Punkte führen.
+    #[serde(default = "default_true")]
+    pub smooth: bool,
+    /// Ende mit Anfang verbinden (Ring).
+    #[serde(default)]
+    pub closed: bool,
+}
+
+fn default_tube_segments() -> u32 {
+    16
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TextAlign {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TextSpec {
+    /// Text; Zeilenumbrüche mit \n.
+    pub text: String,
+    /// Schriftgröße in Metern (ungefähr Höhe der Großbuchstaben × 1.4).
+    #[serde(default = "one")]
+    pub size: f32,
+    /// Tiefe der Buchstaben in Metern.
+    #[serde(default = "default_text_depth")]
+    pub depth: f32,
+    #[serde(default)]
+    pub align: TextAlign,
+    /// Zusätzlicher Buchstabenabstand (Anteil der Schriftgröße).
+    #[serde(default)]
+    pub letter_spacing: f32,
+}
+
+fn default_text_depth() -> f32 {
+    0.2
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -522,6 +713,19 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
     if !(0.0..=1.0).contains(&o.material.opacity) {
         p.push(format!("\"{id}\": material.opacity muss zwischen 0 und 1 liegen"));
     }
+    if !(0.0..=1.0).contains(&o.material.transmission) {
+        p.push(format!("\"{id}\": material.transmission muss zwischen 0 und 1 liegen"));
+    }
+    if let Some(pt) = &o.material.pattern {
+        if !(pt.scale > 0.0 && pt.scale <= 1000.0) {
+            p.push(format!("\"{id}\": pattern.scale muss zwischen 0 und 1000 liegen"));
+        }
+    }
+    if let Some(r) = &o.repeat {
+        if r.count == 0 || r.count > 10_000 {
+            p.push(format!("\"{id}\": repeat.count muss zwischen 1 und 10000 liegen"));
+        }
+    }
     match &o.kind {
         Kind::Terrain(t) => {
             if !(2..=2048).contains(&t.resolution) {
@@ -535,7 +739,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_)) {
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. }) {
                 p.push(format!("\"{id}\": scatter.shape muss eine einfache Form sein"));
             }
             if s.scale_range[0] > s.scale_range[1] {
@@ -548,6 +752,70 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             }
         }
         Kind::Sphere { radius } => positive("radius", *radius, p),
+        Kind::RoundedBox { size, radius, segments } => {
+            for (i, v) in size.iter().enumerate() {
+                positive(&format!("size[{i}]"), *v, p);
+            }
+            let min = size.iter().cloned().fold(f32::MAX, f32::min);
+            if *radius < 0.0 || *radius > min / 2.0 {
+                p.push(format!("\"{id}\": radius muss zwischen 0 und der halben kleinsten Kante ({}) liegen", min / 2.0));
+            }
+            if *segments == 0 || *segments > 32 {
+                p.push(format!("\"{id}\": segments muss zwischen 1 und 32 liegen"));
+            }
+        }
+        Kind::Extrude(e) => {
+            if e.profile.len() < 3 {
+                p.push(format!("\"{id}\": extrude.profile braucht mindestens 3 Punkte"));
+            }
+            if e.holes.iter().any(|h| h.len() < 3) {
+                p.push(format!("\"{id}\": jedes Loch braucht mindestens 3 Punkte"));
+            }
+            positive("height", e.height, p);
+            if !(0.0..=10.0).contains(&e.taper) {
+                p.push(format!("\"{id}\": taper muss zwischen 0 und 10 liegen"));
+            }
+        }
+        Kind::Lathe(l) => {
+            if l.profile.len() < 2 {
+                p.push(format!("\"{id}\": lathe.profile braucht mindestens 2 Punkte"));
+            }
+            if l.profile.iter().any(|q| q[0] < 0.0) {
+                p.push(format!("\"{id}\": lathe-Radien dürfen nicht negativ sein"));
+            }
+            if !(3..=256).contains(&l.segments) {
+                p.push(format!("\"{id}\": segments muss zwischen 3 und 256 liegen"));
+            }
+            if !(1.0..=360.0).contains(&l.angle) {
+                p.push(format!("\"{id}\": angle muss zwischen 1 und 360 liegen"));
+            }
+        }
+        Kind::Tube(t) => {
+            if t.path.len() < 2 {
+                p.push(format!("\"{id}\": tube.path braucht mindestens 2 Punkte"));
+            }
+            positive("radius", t.radius, p);
+            if !(3..=64).contains(&t.segments) {
+                p.push(format!("\"{id}\": segments muss zwischen 3 und 64 liegen"));
+            }
+        }
+        Kind::Text(t) => {
+            if t.text.trim().is_empty() {
+                p.push(format!("\"{id}\": text darf nicht leer sein"));
+            }
+            if t.text.chars().count() > 500 {
+                p.push(format!("\"{id}\": text ist zu lang (max. 500 Zeichen)"));
+            }
+            positive("size", t.size, p);
+            if t.depth < 0.0 {
+                p.push(format!("\"{id}\": depth darf nicht negativ sein"));
+            }
+        }
+        Kind::Instance { asset, .. } => {
+            if crate::project::safe_name(asset).is_err() {
+                p.push(format!("\"{id}\": ungültiger Bibliotheks-Name \"{asset}\""));
+            }
+        }
         Kind::Cylinder { radius, height } | Kind::Cone { radius, height } => {
             positive("radius", *radius, p);
             positive("height", *height, p);

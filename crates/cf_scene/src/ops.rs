@@ -175,13 +175,20 @@ pub fn outline(scene: &Scene) -> String {
             Kind::Scatter(s) => format!("scatter ×{}", s.count),
             Kind::Group { children } => format!("group ({} Kinder)", children.len()),
             Kind::PointLight(l) => format!("point_light {} lm", l.intensity),
+            Kind::RoundedBox { size, radius, .. } => format!("rounded_box {size:?} r={radius}"),
+            Kind::Extrude(e) => format!("extrude {} Punkte h={}", e.profile.len(), e.height),
+            Kind::Lathe(l) => format!("lathe {} Punkte", l.profile.len()),
+            Kind::Tube(t) => format!("tube {} Punkte r={}", t.path.len(), t.radius),
+            Kind::Text(t) => format!("text \"{}\"", t.text.chars().take(30).collect::<String>()),
+            Kind::Instance { asset, .. } => format!("instance \"{asset}\""),
         }
     }
     fn rec(out: &mut String, objs: &[Object], depth: usize) {
         for o in objs {
             let p = o.position;
+            let rep = o.repeat.as_ref().map(|r| format!(" ×{}", r.count)).unwrap_or_default();
             out.push_str(&format!(
-                "{}- {} [{}] @ [{:.1}, {:.1}, {:.1}]{}{}\n",
+                "{}- {} [{}{rep}] @ [{:.1}, {:.1}, {:.1}]{}{}\n",
                 "  ".repeat(depth),
                 o.id,
                 kind_label(&o.kind),
