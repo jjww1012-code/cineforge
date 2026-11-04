@@ -77,7 +77,7 @@ WICHTIG – Fortsetzung nach Unterbrechungen:
 
 Arbeitsweise:
 1. Beim ersten Mal get_guide lesen (Szenen-Format mit allen Objekt-Typen und Feldern).
-2. Für einen Film: new_project (Ziel + Stil), dann update_plan mit Storyboard (Shots), dann Aufgaben anlegen und Shot für Shot bauen (je Shot eine Szene mit new_scene).
+2. Für einen Film: new_project (Ziel + Stil), dann update_plan mit Storyboard (Shots), dann Aufgaben anlegen und Shot für Shot bauen (je Shot eine Szene mit new_scene). Shots können auch fertige Video-Clips sein (clip, Ordner Clips/). Ton: soundtrack + audio je Shot (Ordner Audio/, Sprecher mit generate_voice). Einblendungen über overlays in der Szene. Vor dem Export check_film, dann export_film (Shot-Cache: Änderungen rendern nur betroffene Shots neu, auch bei 1-Stunden-Filmen).
 3. list_objects / get_scene zeigen den aktuellen Stand der geöffneten Szene.
 4. Ändern mit add_objects, update_object, remove_objects, update_scene_settings – oder set_scene für komplett neue Szenen.
 5. Nach jeder sichtbaren Änderung screenshot aufrufen und das Bild kritisch prüfen (Komposition, Licht, Größenverhältnisse, Überschneidungen). Dann verbessern.
@@ -191,7 +191,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "export_film",
-            "description": "Rendert den ganzen Film: alle Shots des Storyboards in Reihenfolge (jeder Shot braucht scene = Name einer Szenen-Datei; Dauer = duration des Shots oder der Szene) als ein MP4. transition: cut (Standard) oder fade (Abblende über Schwarz zwischen Shots).",
+            "description": "Rendert den ganzen Film (auch 1 Stunde und mehr): alle Shots des Storyboards in Reihenfolge – Szenen (scene) oder Video-Clips (clip) – mit Ton (Soundtrack + audio je Shot) als ein MP4. Jeder Shot wird zwischengespeichert: unveränderte Shots werden nicht neu gerendert, abgebrochene Exporte gehen weiter. transition: cut (Standard) oder fade für alle Übergänge; einzelne Übergänge über transition im Shot.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -201,6 +201,35 @@ pub fn definitions() -> Value {
                     "fps": {"type": "integer"},
                     "quality": {"type": "string", "enum": ["draft", "standard", "high"]},
                     "transition": {"type": "string", "enum": ["cut", "fade"]}
+                }
+            }
+        },
+        {
+            "name": "check_film",
+            "description": "Prüft den ganzen Film vor dem Export: alle Shots (Szene oder Clip), Ton-Dateien, Bibliotheks-Objekte; meldet Länge, fehlende Dateien und wie viele Shots schon im Cache fertig sind.",
+            "inputSchema": {"type": "object", "properties": {"width": {"type": "integer"}, "height": {"type": "integer"}, "fps": {"type": "integer"}, "quality": {"type": "string"}, "transition": {"type": "string"}}}
+        },
+        {
+            "name": "list_shots",
+            "description": "Listet die Shots des Storyboards mit Startzeit, Dauer, Quelle und Ton (seitenweise für lange Filme).",
+            "inputSchema": {"type": "object", "properties": {"from": {"type": "integer"}, "count": {"type": "integer"}}}
+        },
+        {
+            "name": "list_media",
+            "description": "Listet die Mediendateien des Projekts: Audio/ (Musik, Geräusche, Stimmen), Clips/ (Videos), Bilder/ (Logos, Fotos) mit Länge.",
+            "inputSchema": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "generate_voice",
+            "description": "Vertont einen Sprechertext mit einer Systemstimme (kostenlos, offline) und speichert ihn als WAV in Audio/. Danach im Shot über audio einsetzen. list_voices: true zeigt die verfügbaren Stimmen (Mac z. B. „Anna“ für Deutsch).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "file": {"type": "string", "description": "Dateiname ohne Endung"},
+                    "voice": {"type": "string"},
+                    "rate": {"type": "integer", "description": "Sprechtempo (Wörter/Minute, ca. 150–220)"},
+                    "list_voices": {"type": "boolean"}
                 }
             }
         },
@@ -270,7 +299,8 @@ pub fn definitions() -> Value {
                     "goal": {"type": "string"},
                     "style": {"type": "string"},
                     "next_step": {"type": "string"},
-                    "storyboard": {"type": "array", "items": obj}
+                    "storyboard": {"type": "array", "items": obj},
+                    "soundtrack": {"type": "array", "items": obj, "description": "Ersetzt den Film-Ton: [{\"file\":\"musik.mp3\",\"start\":0,\"volume\":0.6,\"fade_in\":2,\"fade_out\":3}] – Dateien im Ordner Audio/ des Projekts"}
                 }
             }
         },
@@ -589,6 +619,66 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         }
         "export_video" => export_video(a, cx),
         "export_film" => export_film(a, cx),
+        "check_film" => check_film(a, cx),
+        "list_shots" => {
+            let from = a.get("from").and_then(Value::as_u64).unwrap_or(1).max(1) as usize;
+            let count = a.get("count").and_then(Value::as_u64).unwrap_or(50).clamp(1, 200) as usize;
+            let sb = &cx.project.data.storyboard;
+            let mut t = 0.0;
+            let mut lines = Vec::new();
+            for (i, sh) in sb.iter().enumerate() {
+                let start = t;
+                t += sh.duration;
+                if i + 1 >= from && lines.len() < count {
+                    let src = match (&sh.scene, &sh.clip) {
+                        (Some(x), _) => format!("Szene {x}"),
+                        (None, Some(c)) => format!("Clip {}", c.file),
+                        _ => "–".into(),
+                    };
+                    lines.push(format!(
+                        "{} {:>3}. [{}] {} – {} ({:.1} s, {src}{})",
+                        sh.status.symbol(),
+                        i + 1,
+                        cf_scene::project::format_duration(start),
+                        sh.id,
+                        sh.title,
+                        sh.duration,
+                        if sh.audio.is_empty() { String::new() } else { format!(", {} Ton", sh.audio.len()) }
+                    ));
+                }
+            }
+            ToolOutput::text(format!(
+                "Shots {from}–{} von {} (Gesamtlänge {}):\n{}",
+                (from + lines.len()).saturating_sub(1),
+                sb.len(),
+                cf_scene::project::format_duration(t),
+                lines.join("\n")
+            ))
+        }
+        "list_media" => {
+            let mut out = String::new();
+            for folder in [crate::media::AUDIO, crate::media::CLIPS, crate::media::IMAGES] {
+                let (dir, files) = crate::media::list(cx.project, folder);
+                out += &format!("{folder}/ ({}):\n", dir.display());
+                if files.is_empty() {
+                    out += "  (leer)\n";
+                }
+                for f in files {
+                    let info = if folder == crate::media::IMAGES {
+                        String::new()
+                    } else {
+                        crate::media::probe(&dir.join(&f))
+                            .ok()
+                            .and_then(|i| i.duration)
+                            .map(|d| format!(" – {d:.1} s"))
+                            .unwrap_or_default()
+                    };
+                    out += &format!("  {f}{info}\n");
+                }
+            }
+            ToolOutput::text(out)
+        }
+        "generate_voice" => generate_voice(a, cx),
         "export_status" => ToolOutput::text(cx.jobs.export_summary().unwrap_or_else(|| "Es wurde noch kein Export gestartet.".into())),
         "cancel_export" => {
             if cx.jobs.export_running() {
@@ -713,9 +803,108 @@ fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
     ))
 }
 
+fn generate_voice(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    if a.get("list_voices").and_then(Value::as_bool) == Some(true) {
+        return ToolOutput::text(format!("Verfügbare Stimmen:\n{}", crate::media::list_voices()));
+    }
+    let Some(text) = a.get("text").and_then(Value::as_str).filter(|t| !t.trim().is_empty()) else {
+        return ToolOutput::error("text fehlt");
+    };
+    let name = match safe_name(a.get("file").and_then(Value::as_str).unwrap_or("sprecher")) {
+        Ok(n) => n,
+        Err(e) => return ToolOutput::error(e),
+    };
+    let dir = match &cx.project.dir {
+        Some(d) => d.join(crate::media::AUDIO),
+        None => return ToolOutput::error("Kein Projekt geöffnet"),
+    };
+    let out = dir.join(format!("{}.wav", name.trim_end_matches(".wav")));
+    let rate = a.get("rate").and_then(Value::as_u64).map(|r| r as u32);
+    match crate::media::synthesize(text, a.get("voice").and_then(Value::as_str), rate, &out) {
+        Ok(()) => {
+            let dur = crate::media::probe(&out).ok().and_then(|i| i.duration);
+            cx.project.log("claude", format!("Sprecher-Ton erzeugt: {}", out.file_name().unwrap_or_default().to_string_lossy()));
+            ToolOutput::text(format!(
+                "✓ Gespeichert: Audio/{}{}\nIm Film verwenden, z. B. im Shot: \"audio\": [{{\"file\": \"{}\", \"start\": 0.5}}]",
+                out.file_name().unwrap_or_default().to_string_lossy(),
+                dur.map(|d| format!(" ({d:.1} s)")).unwrap_or_default(),
+                out.file_name().unwrap_or_default().to_string_lossy()
+            ))
+        }
+        Err(e) => ToolOutput::error(e),
+    }
+}
+
+fn film_options(a: &Value, cx: &Ctx) -> Result<crate::film::PlanOptions, String> {
+    let quality = crate::video::Quality::parse(a.get("quality").and_then(Value::as_str))?;
+    let fade_all = match a.get("transition").and_then(Value::as_str).unwrap_or("cut") {
+        "cut" | "schnitt" => false,
+        "fade" | "blende" => true,
+        other => return Err(format!("Unbekannter Übergang \"{other}\" (cut oder fade)")),
+    };
+    let even = |v: u64| ((v as u32).clamp(64, 3840) / 2) * 2;
+    let width = even(a.get("width").and_then(Value::as_u64).unwrap_or(1920));
+    let height = even(a.get("height").and_then(Value::as_u64).unwrap_or(1080).min(2160));
+    let base_name = match a.get("name").and_then(Value::as_str) {
+        Some(n) => safe_name(n)?,
+        None => safe_name(&cx.project.data.name)?,
+    };
+    let dir = cx.project.export_dir()?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let mut output = dir.join(format!("{base_name}.mp4"));
+    let mut n = 2;
+    while output.exists() {
+        output = dir.join(format!("{base_name}_{n}.mp4"));
+        n += 1;
+    }
+    Ok(crate::film::PlanOptions {
+        width,
+        height,
+        fps: a.get("fps").and_then(Value::as_u64).map(|v| v as u32),
+        quality,
+        fade_all,
+        output,
+    })
+}
+
+fn check_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    if let Err(e) = cx.project.require() {
+        return ToolOutput::error(e);
+    }
+    let opt = match film_options(a, cx) {
+        Ok(o) => o,
+        Err(e) => return ToolOutput::error(e),
+    };
+    match crate::film::build_plan(cx.project, cx.library, opt) {
+        Ok(plan) => ToolOutput::text(format!("✓ Film ist exportierbar.\n{}", crate::film::describe_plan(&plan))),
+        Err(problems) => ToolOutput::error(format!("Noch nicht exportierbar:\n- {}", problems.join("\n- "))),
+    }
+}
+
 fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
     if let Err(e) = cx.project.require() {
         return ToolOutput::error(e);
+    }
+    // Mit ffmpeg: Shot für Shot mit Cache, Clips und Ton (auch für sehr lange Filme).
+    if crate::video::find_ffmpeg().is_some() {
+        if cx.jobs.export_running() {
+            return ToolOutput::error(format!("Es läuft schon ein Export.\n{}", cx.jobs.export_summary().unwrap_or_default()));
+        }
+        let opt = match film_options(a, cx) {
+            Ok(o) => o,
+            Err(e) => return ToolOutput::error(e),
+        };
+        return match crate::film::build_plan(cx.project, cx.library, opt) {
+            Ok(plan) => {
+                let text = crate::film::describe_plan(&plan);
+                cx.project.log("claude", format!("Film-Export gestartet: {}", plan.output.display()));
+                cx.jobs.film = Some(plan);
+                ToolOutput::text(format!(
+                    "Film-Export gestartet.\n{text}\nJeder Shot wird einzeln gerendert und zwischengespeichert; bei Abbruch geht ein neuer export_film dort weiter. Fortschritt mit export_status."
+                ))
+            }
+            Err(problems) => ToolOutput::error(format!("Film kann noch nicht exportiert werden:\n- {}", problems.join("\n- "))),
+        };
     }
     if cx.jobs.export_running() {
         return ToolOutput::error(format!("Es läuft schon ein Export.\n{}", cx.jobs.export_summary().unwrap_or_default()));
@@ -827,6 +1016,15 @@ fn update_plan(a: &Value, project: &mut ActiveProject) -> ToolOutput {
             report.push(format!("{key} gesetzt"));
         }
     }
+    if let Some(v) = a.get("soundtrack") {
+        match serde_json::from_value::<Vec<cf_scene::project::AudioClip>>(v.clone()) {
+            Ok(list) => {
+                report.push(format!("Soundtrack: {} Spur(en)", list.len()));
+                data.soundtrack = list;
+            }
+            Err(e) => return ToolOutput::error(format!("Ungültiger Soundtrack: {e}")),
+        }
+    }
     if let Some(list) = a.get("storyboard").and_then(Value::as_array) {
         match data.update_storyboard(list) {
             Ok(r) => report.extend(r),
@@ -834,7 +1032,7 @@ fn update_plan(a: &Value, project: &mut ActiveProject) -> ToolOutput {
         }
     }
     if report.is_empty() {
-        return ToolOutput::error("Nichts zu ändern (name, goal, style, next_step oder storyboard angeben)");
+        return ToolOutput::error("Nichts zu ändern (name, goal, style, next_step, storyboard oder soundtrack angeben)");
     }
     project.data = data;
     project.log("claude", format!("Plan: {}", report.join("; ")));

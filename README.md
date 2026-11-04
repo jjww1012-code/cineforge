@@ -57,13 +57,15 @@ speichere – die Welt ändert sich sofort.**
 
 ## Video-Export
 
-Claude exportiert mit `export_video` (bis 4K) in `Dokumente/CineForge/Projekte/<Projekt>/Export/`.
-Dafür wird **ffmpeg** benötigt (kostenlos):
-- Mac: Homebrew installieren (brew.sh), dann im Terminal `brew install ffmpeg`
-- Windows: `winget install ffmpeg`
+Claude exportiert mit `export_video` (eine Szene) oder `export_film` (ganzer Film, auch
+1 Stunde+, mit Ton und Video-Clips) in `Dokumente/CineForge/Projekte/<Projekt>/Export/`.
 
-Die App findet ffmpeg automatisch und nutzt den Hardware-Encoder (Mac: VideoToolbox,
-Windows: NVIDIA/Intel/AMD). Ohne ffmpeg werden die Einzelbilder als PNG gespeichert.
+**ffmpeg** (für Video und Ton) ist ab der aktuellen Version in der App enthalten. Falls nicht:
+Mac `brew install ffmpeg`, Windows `winget install ffmpeg`. Die App nutzt automatisch den
+Hardware-Encoder (Mac: VideoToolbox, Windows: NVIDIA/Intel/AMD).
+
+**Eigene Medien** legst du in den Projektordner: `Audio/` (Musik, Geräusche, Stimmen),
+`Clips/` (Videos, z. B. KI-Videos oder Handy-Aufnahmen), `Bilder/` (Logos, Fotos).
 
 ## Für Entwickler
 

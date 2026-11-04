@@ -46,10 +46,20 @@
   Horizont: Atmosphären-Bodenfarbe = Geländefarbe + automatischer 40-km-Horizont-Boden.
   Hinweis: Nutzer müssen die App aus dem Programme-Ordner starten (sonst App Translocation).
 
+- **Lange Filme / Medien:** Film-Pipeline (`film.rs`) mit Shot-Cache (Fingerabdruck aus
+  Szene, Bibliothek, Bildern, Format, Blenden; `Export/.cache/`), Fortsetzen nach Abbruch,
+  verlustfreies Zusammenfügen (concat), Ton-Mischung (soundtrack, audio je Shot, Clip-Originalton),
+  Video-Clips als Shots (skaliert, Bildrate angepasst, Blenden), Bilder (`image`, `texture`),
+  Einblendungen (`overlays`, Größe relativ zur kürzeren Bildseite), Systemstimmen
+  (`generate_voice`), `check_film`, `list_shots`, `list_media`, kompakte Logbuch-Übersicht
+  für Hunderte Shots. ffmpeg wird in CI mitgeliefert (Mac: martin-riedl.de-Build,
+  Windows: BtbN LGPL; Schritt darf fehlschlagen). Ende-zu-Ende getestet inkl. Ton-Positionen
+  und Cache-Wiederverwendung. Fehler behoben: Screenshot-Modus überschrieb „zuletzt“.
+  Lizenz-Hinweis: Mac-ffmpeg-Build vor dem Verkauf auf LGPL prüfen.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **ffmpeg mitliefern** (CI: Mac/Windows), damit Nutzer nichts installieren müssen
-   (Lizenz beachten: LGPL-Build bevorzugen).
+1. **Ton-Vorschau in der App** (Wiedergabe synchron zur Zeitleiste) und Lippen-/Beat-Sync.
 2. **Klicken & sagen:** Objekt im Fenster anklicken → hervorheben → Claude bekommt die id.
 3. **Ton:** lokale KI-Stimmen (Piper), Musik, Untertitel, Ton im Export.
 4. Danach laut Fahrplan: Klicken & sagen, Ton, Figuren-Animation, Produkt, Teams.

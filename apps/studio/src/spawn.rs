@@ -77,6 +77,8 @@ pub struct Animated {
     pub has_pattern: bool,
     /// Grund-Lichtstärke (nur point_light).
     pub base_intensity: f32,
+    /// Einblendung (Farbe wird gegen die Tonwertkurve angehoben).
+    pub overlay: bool,
 }
 
 /// Statistik und Warnungen für die Anzeige.
@@ -256,6 +258,7 @@ impl Builder<'_, '_, '_> {
                     Kind::PointLight(l) => l.intensity,
                     _ => 0.0,
                 },
+                overlay: false,
             });
         }
 

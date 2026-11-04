@@ -107,7 +107,7 @@ pub fn best_encoder(ffmpeg: &Path) -> String {
     .clone()
 }
 
-fn encoder_args(enc: &str, w: u32, h: u32, fps: u32, q: Quality) -> Vec<String> {
+pub fn encoder_args(enc: &str, w: u32, h: u32, fps: u32, q: Quality) -> Vec<String> {
     let factor = match q {
         Quality::Draft => 0.05,
         Quality::Standard => 0.12,
@@ -127,7 +127,11 @@ fn encoder_args(enc: &str, w: u32, h: u32, fps: u32, q: Quality) -> Vec<String> 
         "mpeg4" => a.extend(["-q:v".into(), "3".into()]),
         _ => a.extend(["-b:v".into(), format!("{kbps}k"), "-maxrate".into(), format!("{}k", kbps * 3 / 2)]),
     }
-    a.extend(["-pix_fmt", "yuv420p", "-movflags", "+faststart"].map(String::from));
+    // Einheitliche Bildrate und Zeitbasis: Shots lassen sich so verlustfrei aneinanderhängen.
+    a.extend(["-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r"].map(String::from));
+    a.push(fps.to_string());
+    a.push("-video_track_timescale".into());
+    a.push((fps * 1000).to_string());
     a
 }
 

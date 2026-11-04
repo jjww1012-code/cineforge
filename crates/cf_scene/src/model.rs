@@ -50,7 +50,7 @@ pub struct Overlay {
     /// Senkrechte Position (Grundlinie): -1 = unten, 0 = Mitte, 1 = oben.
     #[serde(default = "default_overlay_y")]
     pub y: f32,
-    /// Schriftgröße als Anteil der Bildhöhe (0.05 = 5 %).
+    /// Schriftgröße als Anteil der kürzeren Bildseite (0.05 = 5 %; im Querformat die Höhe, im Hochformat die Breite).
     #[serde(default = "default_overlay_size")]
     pub size: f32,
     #[serde(default = "white")]
@@ -781,7 +781,7 @@ impl Scene {
                 problems.push(format!("overlays[{i}]: text ist leer"));
             }
             if !(o.size > 0.0 && o.size <= 1.0) {
-                problems.push(format!("overlays[{i}]: size muss zwischen 0 und 1 liegen (Anteil der Bildhöhe)"));
+                problems.push(format!("overlays[{i}]: size muss zwischen 0 und 1 liegen (Anteil der kürzeren Bildseite)"));
             }
         }
         let mut ids = std::collections::HashSet::new();

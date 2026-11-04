@@ -236,11 +236,18 @@ fn ensure_demo_project() -> Result<PathBuf, String> {
     Ok(scene)
 }
 
-pub struct ProjectPlugin;
+pub struct ProjectPlugin {
+    /// Nur im normalen Fenster-Modus merken, welche Szene zuletzt offen war
+    /// (nicht bei einmaligen Screenshots über die Kommandozeile).
+    pub remember: bool,
+}
+
+#[derive(Resource)]
+struct RememberScenes(bool);
 
 impl Plugin for ProjectPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, follow_scene);
+        app.insert_resource(RememberScenes(self.remember)).add_systems(Update, follow_scene);
     }
 }
 
@@ -249,11 +256,14 @@ fn follow_scene(
     mut loaded: MessageReader<crate::source::SceneLoaded>,
     src: Res<crate::source::SceneSource>,
     mut project: ResMut<ActiveProject>,
+    remember: Res<RememberScenes>,
 ) {
     if !loaded.read().any(|m| m.new_file) {
         return;
     }
-    remember_scene(&src.path);
+    if remember.0 {
+        remember_scene(&src.path);
+    }
     let detected = ActiveProject::for_scene(&src.path);
     if detected.dir != project.dir {
         *project = detected;

@@ -81,6 +81,8 @@ pub struct RenderQueue {
     pub export: Option<Arc<Mutex<ExportProgress>>>,
     pub export_started: Option<Instant>,
     cancel: bool,
+    /// Laufender bzw. letzter Film-Export (Shot für Shot mit Cache).
+    pub film: Option<crate::film::FilmPlan>,
 }
 
 impl RenderQueue {
@@ -89,7 +91,13 @@ impl RenderQueue {
     }
 
     pub fn export_running(&self) -> bool {
-        self.export.as_ref().is_some_and(|p| !p.lock().map(|p| p.done).unwrap_or(true))
+        self.film.as_ref().is_some_and(|f| f.running())
+            || self.export.as_ref().is_some_and(|p| !p.lock().map(|p| p.done).unwrap_or(true))
+    }
+
+    /// Kein Auftrag aktiv oder wartend.
+    pub fn idle(&self) -> bool {
+        self.active.is_none() && self.pending.is_empty()
     }
 
     /// Kamera des laufenden Auftrags (für Billboards).
@@ -99,10 +107,21 @@ impl RenderQueue {
 
     pub fn cancel_export(&mut self) {
         self.cancel = true;
+        if let Some(f) = &mut self.film {
+            f.cancel();
+        }
     }
 
     /// Kurztext für Anzeige/Werkzeuge.
     pub fn export_summary(&self) -> Option<String> {
+        if let Some(f) = &self.film {
+            let current = self.export.as_ref().filter(|_| f.running()).and_then(|_| self.single_summary());
+            return Some(f.summary(current));
+        }
+        self.single_summary()
+    }
+
+    fn single_summary(&self) -> Option<String> {
         let p = self.export.as_ref()?.lock().ok()?.clone();
         let elapsed = self.export_started.map(|s| s.elapsed().as_secs_f32()).unwrap_or(p.seconds).max(0.001);
         Some(if let Some(e) = &p.error {
@@ -169,6 +188,7 @@ fn spawn_camera(commands: &mut Commands, images: &mut Assets<Image>, scene: &cf_
         RenderTarget::Image(image.clone().into()),
         Msaa::Sample4,
         Transform::default(),
+        crate::overlay::ViewAspect(w as f32 / h.max(1) as f32),
     ));
     configure_view(&mut cam, scene);
     let id = cam.id();

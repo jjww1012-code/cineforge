@@ -13,7 +13,8 @@ Jede Etappe endet mit etwas, das man ausprobieren kann.
 | 4 | Klicken & sagen | Objekt anklicken → hervorgehoben → Claude ändert genau dieses; Klartext-Ablauf über der Zeitleiste | ⏳ als Nächstes |
 | 5 | Effekte | Partikel (Feuer, Rauch, Funken, Schnee, Regen, Explosion, Magie, Staub, Fontäne), Licht-Flackern/Blitz, Blenden, Kamerawackeln | ✅ |
 | 5b | Film-Export | Alle Storyboard-Shots zu einem Video, Schnitte oder Blenden | ✅ |
-| 6 | Ton | Kostenlose lokale KI-Stimmen (Piper), Musik, Beat-Sync, automatische Untertitel | |
+| 6 | Ton | Musik, Geräusche, Sprecher (Systemstimmen) im Export ✅ · Vorschau in der App, Beat-Sync, bessere KI-Stimmen | teilweise |
+| 6b | Lange Filme | Shot-Cache, Fortsetzen, Video-Clips, Bilder, Einblendungen, ffmpeg mitgeliefert | ✅ |
 | 7 | Produkt | Konten, Abo, Credits, Claude über eigenen Server, Auto-Update, signierte Installer | |
 | 8 | Teams | Gemeinsames Arbeiten in Echtzeit, Vorlagen-Bibliothek / Marktplatz | |
 | 9 | Lange Filme | Regie-Agent schreibt Storyboard, mehrere Claude-Instanzen bauen Szenen parallel, 1-h-Filme | |

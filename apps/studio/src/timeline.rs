@@ -156,6 +156,9 @@ fn animate_objects(
                 let opacity = s.opacity.unwrap_or(a.base_opacity);
                 if a.has_pattern {
                     m.base_color = Color::srgba(1.0, 1.0, 1.0, opacity);
+                } else if a.overlay {
+                    // Einblendung (siehe overlay.rs): Farbe angehoben
+                    m.base_color = crate::overlay::overlay_color(c, opacity);
                 } else {
                     m.base_color = Color::srgba(c.r, c.g, c.b, opacity);
                 }

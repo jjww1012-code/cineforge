@@ -55,6 +55,17 @@ So geht es weiter:
 
 Für einen neuen Film: **„+“ → cineforge → „Neuer Film“** und die Idee eingeben.
 
+## Lange Filme (bis über 1 Stunde)
+
+- Jeder **Shot** im Storyboard ist entweder eine Szene (`scene`) oder ein fertiger Video-Clip
+  (`clip`, z. B. KI-Video oder Handy-Aufnahme aus dem Ordner `Clips/`).
+- **Ton:** `soundtrack` (Musik über den ganzen Film) und `audio` je Shot (Geräusche, Sprecher)
+  mit Dateien aus `Audio/`. Sprechertexte erzeugt `generate_voice` mit den Systemstimmen.
+- **Bilder** (Logos, Fotos) legst du in `Bilder/`.
+- `export_film` rendert jeden Shot einzeln und speichert ihn zwischen. Wird später nur ein
+  Shot geändert, wird auch nur dieser neu gerendert. Bricht ein Export ab, macht ein neuer
+  `export_film` beim ersten fehlenden Shot weiter.
+
 ## Claude Code
 
 App starten, dann im Terminal:
@@ -75,7 +86,10 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `screenshot` | Ergebnis ansehen, auch aus beliebigem Blickwinkel und zu jedem Zeitpunkt |
 | `contact_sheet` | Mehrere Zeitpunkte der Animation als Raster in einem Bild |
 | `export_video`, `export_status`, `cancel_export` | Video (MP4, bis 4K) rendern |
-| `export_film` | Den ganzen Film aus allen Storyboard-Shots rendern |
+| `export_film` | Den ganzen Film rendern (auch 1 Stunde+): Shot für Shot mit Cache, Clips, Ton |
+| `check_film` | Film vor dem Export prüfen: Länge, fehlende Dateien, Cache-Stand |
+| `list_shots` | Storyboard seitenweise (für lange Filme) |
+| `list_media`, `generate_voice` | Medien (Audio/, Clips/, Bilder/) anzeigen, Sprechertext vertonen |
 | `save_asset`, `list_assets`, `get_asset` | Objekt-Bibliothek |
 | `undo` | Letzte Änderung zurücknehmen |
 | `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien im Projekt verwalten |

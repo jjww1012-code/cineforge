@@ -18,7 +18,8 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
   "fps": 30,
   "environment": { ... },
   "camera": { "position": [0, 5, 20], "look_at": [0, 0, 0], "fov": 50 },
-  "objects": [ ... ]
+  "objects": [ ... ],
+  "overlays": [ ... ]
 }
 ```
 
@@ -86,6 +87,7 @@ Beispiele:
 | `unlit` | false | Ohne Licht/Schatten (Grafiken, Hologramme, Bildschirme) |
 | `double_sided` | false | Beide Seiten sichtbar (Blätter, Stoff, Glas) |
 | `pattern` | – | Oberflächen-Muster, siehe unten |
+| `texture` | – | Bild als Oberfläche (Datei in `Bilder/`), z. B. Plakat, Bildschirm, Logo auf einer Kiste |
 
 ### pattern (Oberflächen-Muster)
 
@@ -124,6 +126,27 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `tube` | `path` [[x,y,z],…], `radius` 0.1, `radius_end` (optional, spitz zulaufend), `segments` 16, `smooth` true, `closed` false |
 | `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2 (0 = flach, z. B. für Bildschirm-Inhalte und Einblendungen), `align` center/left/right, `letter_spacing` 0, `weight` regular/bold/black, `italic` false – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
+| `image` | `file` (im Ordner `Bilder/` des Projekts), `width` 1 – Bildfläche mit dem Seitenverhältnis des Bildes (PNG mit Transparenz möglich), XY-Ebene, schaut nach +Z. Für exakte Farben `"material": {"unlit": true}` |
+
+## Einblendungen (`overlays`)
+
+Texte, die **fest im Bild** stehen – unabhängig von der Kamera (Untertitel, Bauchbinden,
+Daten wie „06:14 · Noah, 17 · Rating 1232“). Sie passen sich 16:9 und 9:16 automatisch an.
+
+```json
+"overlays": [
+  {"text": "06:14 · Noah, 17 · Rating 1232", "x": -0.92, "y": -0.85, "size": 0.04, "italic": true, "align": "left"},
+  {"text": "Ein Tag. Eine Zahl.", "y": 0.7, "size": 0.08, "weight": "black", "start": 1, "end": 4}
+]
+```
+
+| Feld | Standard | Bedeutung |
+|---|---|---|
+| `text` | – | Text (Zeilen mit \n) |
+| `x`, `y` | 0, -0.8 | Position: -1 = linker/unterer Rand, 1 = rechter/oberer Rand (y = Grundlinie) |
+| `size` | 0.05 | Anteil der **kürzeren** Bildseite |
+| `color`, `weight`, `italic`, `align` | weiß, regular, false, center | |
+| `start`, `end`, `fade` | 0, Ende, 0.3 | Sichtbarkeit (s) mit weichem Ein-/Ausblenden |
 
 ## Partikel-Effekte (`type: "particles"`)
 
