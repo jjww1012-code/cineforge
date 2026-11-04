@@ -181,7 +181,14 @@ pub fn build_plan(project: &ActiveProject, library: &mut Library, opt: PlanOptio
     }
     let scenes_dir = project.scenes_dir().map_err(|e| vec![e])?;
     let export_dir = project.export_dir().map_err(|e| vec![e])?;
-    let cache_dir = export_dir.join(".cache");
+    // Je Format/Qualität ein eigener Cache-Ordner (16:9 und 9:16 löschen sich nicht gegenseitig).
+    let cache_dir = export_dir.join(".cache").join(format!(
+        "{}x{}_{}fps_{:?}",
+        opt.width,
+        opt.height,
+        opt.fps.map(|f| f.to_string()).unwrap_or_else(|| "auto".into()),
+        opt.quality
+    ).to_lowercase());
     let mut fps = opt.fps;
     let mut tasks = Vec::new();
     let mut audio = Vec::new();
@@ -473,12 +480,29 @@ fn step(plan: &mut FilmPlan, queue: &mut RenderQueue) {
             let r = shared.lock().expect("Status").clone();
             if let Some(r) = r {
                 plan.state = match r {
-                    Ok(()) => State::Done,
+                    Ok(()) => {
+                        cleanup_cache(&plan.tasks);
+                        State::Done
+                    }
                     Err(e) => State::Failed(e),
                 };
             }
         }
         State::Done | State::Failed(_) => {}
+    }
+}
+
+/// Entfernt veraltete Shot-Dateien (gleiches Format, aber nicht mehr im Film).
+fn cleanup_cache(tasks: &[FilmTask]) {
+    let Some(dir) = tasks.first().and_then(|t| t.cache.parent()) else { return };
+    let keep: std::collections::HashSet<&Path> = tasks.iter().map(|t| t.cache.as_path()).collect();
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.extension().is_some_and(|x| x == "mp4") && !keep.contains(p.as_path()) {
+                let _ = std::fs::remove_file(&p);
+            }
+        }
     }
 }
 

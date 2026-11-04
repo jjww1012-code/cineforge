@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-04 · Effekte + Film-Export fertig
+**Zuletzt aktualisiert:** 2026-11-04 · Lange Filme (Cache, Ton, Clips, Bilder, Einblendungen) fertig
 
 ## Fertig
 
@@ -56,6 +56,10 @@
   Windows: BtbN LGPL; Schritt darf fehlschlagen). Ende-zu-Ende getestet inkl. Ton-Positionen
   und Cache-Wiederverwendung. Fehler behoben: Screenshot-Modus überschrieb „zuletzt“.
   Lizenz-Hinweis: Mac-ffmpeg-Build vor dem Verkauf auf LGPL prüfen.
+  Cache je Format/Qualität in eigenem Unterordner, veraltete Shots werden nach erfolgreichem
+  Export entfernt. Belastungstest: 30 Shots, Abbruch bei Shot 13, Fortsetzen → 12 aus Cache,
+  18 neu, Ergebnis bildgenau (180 Bilder, 18,0 s, mit Ton).
+  Speicherbedarf grob: 1 h in 1080p ≈ 3–7 GB Cache + gleich viel für das fertige Video.
 
 ## Nächste Schritte (in dieser Reihenfolge)
 
