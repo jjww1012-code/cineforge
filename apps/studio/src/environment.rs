@@ -66,14 +66,12 @@ fn apply_environment(
     old: Query<Entity, With<EnvEntity>>,
     mut main_cam: Query<(&mut Transform, Option<&mut FreeCameraState>), With<MainCamera>>,
     views: Query<Entity, With<SceneView>>,
+    mut last: Local<Option<u64>>,
 ) {
     let Some(new_file) = loaded.read().fold(None, |acc: Option<bool>, m| Some(acc.unwrap_or(false) | m.new_file))
     else {
         return;
     };
-    for e in &old {
-        commands.entity(e).despawn();
-    }
     let scene = &src.scene;
     let env: &Environment = &scene.environment;
     let atmosphere = matches!(env.sky, Sky::Atmosphere);
@@ -84,6 +82,30 @@ fn apply_environment(
         if let Ok((mut tf, state)) = main_cam.single_mut() {
             crate::timeline::set_view(&mut tf, scene_camera_transform(&scene.camera), state.map(|s| s.into_inner()));
         }
+    }
+
+    // Umgebung nur neu aufbauen, wenn sich etwas daran geändert hat (Objekt-Änderungen
+    // sollen Himmel und Licht nicht neu starten).
+    let key = {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        let text = format!(
+            "{}|{:?}|{}|{:?}|{}",
+            serde_json::to_string(env).unwrap_or_default(),
+            scene.camera.orthographic,
+            scene.camera.fov,
+            ground_color(scene),
+            scene.exact_colors()
+        );
+        text.hash(&mut h);
+        h.finish()
+    };
+    if *last == Some(key) && !old.is_empty() {
+        return;
+    }
+    *last = Some(key);
+    for e in &old {
+        commands.entity(e).despawn();
     }
 
     // Sonne

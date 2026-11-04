@@ -48,6 +48,7 @@ impl Plugin for SpawnPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Library>()
             .init_resource::<SceneStats>()
+            .init_resource::<BuiltScene>()
             .init_resource::<crate::media::ImageCache>()
             .add_systems(Update, (rebuild_scene, track_model_loading));
     }
@@ -92,7 +93,84 @@ pub struct SceneStats {
     pub instances: usize,
     pub triangles: usize,
     pub build_ms: f32,
+    /// Wie viele oberste Objekte beim letzten Laden neu gebaut wurden.
+    pub rebuilt: usize,
     pub warnings: Vec<String>,
+}
+
+/// Was beim letzten Aufbau entstanden ist: je oberstem Objekt ein Halter-Entity mit
+/// Fingerabdruck. Beim nächsten Laden werden nur geänderte Objekte neu gebaut –
+/// so bleibt beim Live-Bearbeiten alles andere unangetastet (kein Flackern, kein Nachladen).
+#[derive(Resource, Default)]
+pub struct BuiltScene {
+    root: Option<Entity>,
+    objects: HashMap<String, BuiltObject>,
+    horizon: Option<(u64, Entity)>,
+}
+
+struct BuiltObject {
+    hash: u64,
+    slot: Entity,
+    stats: SceneStats,
+}
+
+fn hash_str(s: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    s.hash(&mut h);
+    h.finish()
+}
+
+fn file_stamp(path: &std::path::Path) -> String {
+    let m = std::fs::metadata(path).and_then(|m| m.modified()).ok();
+    format!("{}@{m:?}", path.display())
+}
+
+/// Fingerabdruck eines obersten Objekts inkl. allem, wovon sein Aussehen abhängt:
+/// Gelände unter einem Scatter, Bibliotheks-Dateien, Bilder, SVG-Dateien, 3D-Modelle.
+fn object_fingerprint(o: &Object, scene: &Scene, project: &ActiveProject, library: &mut Library) -> u64 {
+    let mut key = serde_json::to_string(o).unwrap_or_default();
+    fn deps(o: &Object, scene: &Scene, project: &ActiveProject, library: &mut Library, depth: u32, key: &mut String) {
+        if depth > MAX_INSTANCE_DEPTH {
+            return;
+        }
+        let file = |folder: &str, f: &str, key: &mut String| {
+            if let Ok(p) = crate::media::resolve(project, folder, f) {
+                key.push_str(&file_stamp(&p));
+            }
+        };
+        if let Some(t) = &o.material.texture {
+            file(crate::media::IMAGES, t, key);
+        }
+        match &o.kind {
+            Kind::Group { children } => {
+                for c in children {
+                    deps(c, scene, project, library, depth, key);
+                }
+            }
+            Kind::Scatter(s) => {
+                if let Some(id) = &s.on_terrain {
+                    if let Some(t) = procedural::find_terrain(&scene.objects, id) {
+                        key.push_str(&serde_json::to_string(&t).unwrap_or_default());
+                    }
+                }
+            }
+            Kind::Instance { asset, .. } => {
+                if let Some(p) = Library::find_path(project, asset) {
+                    key.push_str(&file_stamp(&p));
+                }
+                if let Ok(a) = library.load(project, asset) {
+                    deps(&a.object, scene, project, library, depth + 1, key);
+                }
+            }
+            Kind::Image { file: f, .. } => file(crate::media::IMAGES, f, key),
+            Kind::Svg { file: Some(f), .. } => file(crate::media::IMAGES, f, key),
+            Kind::Model { file: f } => file(crate::media::MODELS, f, key),
+            _ => {}
+        }
+    }
+    deps(o, scene, project, library, 0, &mut key);
+    hash_str(&key)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -103,6 +181,7 @@ fn rebuild_scene(
     src: Res<SceneSource>,
     project: Res<ActiveProject>,
     mut library: ResMut<Library>,
+    mut built: ResMut<BuiltScene>,
     roots: Query<Entity, With<SceneRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -114,13 +193,24 @@ fn rebuild_scene(
         return;
     }
     let started = std::time::Instant::now();
-    for r in &roots {
-        commands.entity(r).despawn();
-    }
-    let root = commands.spawn((SceneRoot, Name::new("Szene"), Transform::default(), Visibility::default())).id();
+    let root = match built.root.filter(|r| roots.contains(*r)) {
+        Some(r) => r,
+        None => {
+            for r in &roots {
+                commands.entity(r).despawn();
+            }
+            *built = BuiltScene::default();
+            let r = commands.spawn((SceneRoot, Name::new("Szene"), Transform::default(), Visibility::default())).id();
+            built.root = Some(r);
+            r
+        }
+    };
+    let scene = &src.scene;
+    let mut old = std::mem::take(&mut built.objects);
+    let mut next: HashMap<String, BuiltObject> = HashMap::new();
     let mut b = Builder {
         fx: fx.as_deref().cloned(),
-        scene: &src.scene,
+        scene,
         project: &project,
         library: &mut library,
         commands: &mut commands,
@@ -133,20 +223,84 @@ fn rebuild_scene(
         texture_cache: HashMap::new(),
         stats: SceneStats::default(),
     };
-    for o in &src.scene.objects {
-        b.spawn_object(o, root, None, 0, "");
+    let mut rebuilt = 0;
+    for (i, o) in scene.objects.iter().enumerate() {
+        let mut key = o.id.clone();
+        if next.contains_key(&key) {
+            key = format!("{}#{i}", o.id);
+        }
+        let hash = object_fingerprint(o, scene, b.project, b.library);
+        match old.remove(&key) {
+            Some(prev) if prev.hash == hash => {
+                next.insert(key, prev);
+            }
+            prev => {
+                if let Some(prev) = prev {
+                    b.commands.entity(prev.slot).despawn();
+                }
+                let slot = b
+                    .commands
+                    .spawn((ObjectSlot, Transform::default(), Visibility::default(), ChildOf(root)))
+                    .id();
+                b.stats = SceneStats::default();
+                b.spawn_object(o, slot, None, 0, "");
+                let stats = std::mem::take(&mut b.stats);
+                next.insert(key, BuiltObject { hash, slot, stats });
+                rebuilt += 1;
+            }
+        }
     }
-    b.spawn_horizon_ground(root);
-    let mut stats = b.stats;
+    let removed = old.len();
+    for (_, gone) in old {
+        b.commands.entity(gone.slot).despawn();
+    }
+    // Horizont-Boden nur neu, wenn sich das größte Gelände geändert hat.
+    let horizon_key = hash_str(&format!("{:?}", horizon_source(scene)));
+    if built.horizon.map(|(h, _)| h) != Some(horizon_key) {
+        if let Some((_, e)) = built.horizon.take() {
+            b.commands.entity(e).despawn();
+        }
+        let slot = b.commands.spawn((ObjectSlot, Transform::default(), Visibility::default(), ChildOf(root))).id();
+        b.spawn_horizon_ground(slot);
+        built.horizon = Some((horizon_key, slot));
+    }
+    let mut stats = SceneStats::default();
+    for o in next.values() {
+        stats.objects += o.stats.objects;
+        stats.instances += o.stats.instances;
+        stats.triangles += o.stats.triangles;
+        stats.warnings.extend(o.stats.warnings.iter().cloned());
+    }
+    stats.rebuilt = rebuilt;
     stats.build_ms = started.elapsed().as_secs_f32() * 1000.0;
+    built.objects = next;
     info!(
-        "Szene aufgebaut: {} Objekte, {} Instanzen, {} Dreiecke in {:.0} ms",
-        stats.objects, stats.instances, stats.triangles, stats.build_ms
+        "Szene aktualisiert: {rebuilt} von {} Objekten neu gebaut, {removed} entfernt, {:.0} ms",
+        scene.objects.len(),
+        stats.build_ms
     );
     for w in &stats.warnings {
         warn!("{w}");
     }
     commands.insert_resource(stats);
+}
+
+/// Halter für ein oberstes Objekt (inkl. Wiederholungen); wird als Ganzes ersetzt.
+#[derive(Component)]
+pub struct ObjectSlot;
+
+/// Woraus der Horizont-Boden entsteht (größtes Gelände: Position + Material).
+fn horizon_source(scene: &Scene) -> Option<([f32; 3], Material)> {
+    let mut found: Option<(f32, [f32; 3], Material)> = None;
+    for o in &scene.objects {
+        if let Kind::Terrain(t) = &o.kind {
+            let area = t.size[0] * t.size[1];
+            if found.as_ref().is_none_or(|(a, _, _)| area > *a) {
+                found = Some((area, o.position, o.material.clone()));
+            }
+        }
+    }
+    found.map(|(_, p, m)| (p, m))
 }
 
 struct Builder<'a, 'w, 's> {
@@ -443,16 +597,7 @@ impl Builder<'_, '_, '_> {
     /// Hinter jedem Gelände eine sehr große Bodenfläche in Geländefarbe, knapp darunter.
     /// So bricht die Welt am Horizont nicht ab; der Dunst lässt sie weich auslaufen.
     fn spawn_horizon_ground(&mut self, root: Entity) {
-        let mut found: Option<(f32, [f32; 3], Material)> = None;
-        for o in &self.scene.objects {
-            if let Kind::Terrain(t) = &o.kind {
-                let area = t.size[0] * t.size[1];
-                if found.as_ref().is_none_or(|(a, _, _)| area > *a) {
-                    found = Some((area, o.position, o.material.clone()));
-                }
-            }
-        }
-        let Some((_, pos, mut mat)) = found else { return };
+        let Some((pos, mut mat)) = horizon_source(self.scene) else { return };
         mat.pattern = None;
         let mesh = self.meshes.add(Plane3d::default().mesh().size(40_000.0, 40_000.0));
         let material = self.material(&mat);

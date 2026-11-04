@@ -169,11 +169,12 @@ fn update_status(
         .unwrap_or(0.0);
     let pos = cam.single().map(|t| t.translation).unwrap_or_default();
     let line = format!(
-        "{fps:.0} FPS  ·  {} Objekte  ·  {} Instanzen  ·  {:.1} Mio. Dreiecke  ·  Aufbau {:.0} ms  ·  Kamera [{:.0}, {:.0}, {:.0}]\n{CONTROLS}",
+        "{fps:.0} FPS  ·  {} Objekte  ·  {} Instanzen  ·  {:.1} Mio. Dreiecke  ·  Aufbau {:.0} ms ({} neu)  ·  Kamera [{:.0}, {:.0}, {:.0}]\n{CONTROLS}",
         stats.objects,
         stats.instances,
         stats.triangles as f32 / 1e6,
         stats.build_ms,
+        stats.rebuilt,
         pos.x,
         pos.y,
         pos.z

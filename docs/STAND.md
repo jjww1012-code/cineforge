@@ -78,11 +78,15 @@
   `Audio/ Clips/ Bilder/ Modelle/`. Beispiel `scenes/cartoon.json`. Behoben: Ebenen-Flimmern
   bei 2D-Kamera (Tiefenbereich -50…2000 m, SVG-Ebenenabstand ≥ 1 mm).
 
+- **Inkrementelle Updates:** Beim Laden werden nur geänderte oberste Objekte neu gebaut
+  (`spawn::BuiltScene`, Fingerabdruck aus Objekt-JSON + Abhängigkeiten: Gelände unter Scatter,
+  Bibliotheks-Dateien, Bilder/SVG/Modelle mit Änderungszeit). Umgebung (Himmel, Sonne) wird nur
+  bei Änderung neu aufgebaut. Wüste: voller Aufbau 878 ms, Einzeländerung 0 ms. HUD zeigt „(N neu)“.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Übersichtliche Oberfläche wie CapCut:** Zeitleiste mit Spuren (Shots, Ton, Einblendungen),
-   Medien-Leiste, Eigenschaften-Bereich, Vorschau-Fenster; Szenen-Änderungen **inkrementell**
-   (nur geänderte Objekte neu aufbauen statt der ganzen Szene).
+   Medien-Leiste, Eigenschaften-Bereich, Vorschau-Fenster.
 2. **Noch detailliertere 3D-Modelle:** Glätten/Unterteilen, Boolesche Operationen, Verformen.
 3. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
 4. **Ton-Vorschau in der App** (synchron zur Zeitleiste), Klicken & sagen.
