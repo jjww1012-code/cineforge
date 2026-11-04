@@ -125,6 +125,33 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2, `align` center/left/right, `letter_spacing` 0 – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
 
+## Partikel-Effekte (`type: "particles"`)
+
+```json
+{"id": "feuer", "type": "particles", "preset": "fire", "position": [0, 0.2, 0]}
+```
+
+Voreinstellungen (`preset`): `fire`, `smoke`, `sparks`, `snow`, `rain`, `explosion`, `magic`,
+`dust`, `fountain`. Alles lässt sich anpassen:
+
+| Feld | Bedeutung |
+|---|---|
+| `rate` | Partikel pro Sekunde |
+| `burst` | Alle auf einmal bei `start` (Explosionen, Konfetti) |
+| `start`, `end` | Zeitraum der Erzeugung (s) |
+| `lifetime` | [min, max] Lebensdauer (s) |
+| `speed`, `direction`, `spread` | Startgeschwindigkeit [min,max], Hauptrichtung, Streuwinkel (180 = alle Richtungen) |
+| `gravity`, `drag`, `turbulence` | Beschleunigung [x,y,z], Luftwiderstand, Taumeln (m) |
+| `size` | [Anfang, Ende] in Metern |
+| `color_start`, `color_end`, `opacity`, `glow` | Farbverlauf, Deckkraft, Leuchten |
+| `area` | Entstehungsfläche [Breite, Höhe, Tiefe] (Schnee/Regen: z. B. [30, 0.5, 30], hoch oben platzieren) |
+| `prewarm` | Dauerhafte Effekte laufen beim Start schon (Standard: an) |
+| `max`, `seed` | Obergrenze, Variante |
+
+Tipps: Explosion = `explosion` + `smoke` mit `burst` und etwas späterem `start`; dazu ein
+`point_light` mit animiertem `intensity`… (Lichtanimation folgt) – oder ein kurz aufleuchtendes
+Objekt (`emissive_strength` animieren). Lagerfeuer = `fire` + `smoke` darüber + `sparks` + warmes `point_light`.
+
 ## Animation
 
 Szene: `duration` (Sekunden, Standard 5) und `fps` (Standard 30).

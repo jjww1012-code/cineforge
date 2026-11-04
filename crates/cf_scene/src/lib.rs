@@ -12,6 +12,7 @@ pub mod model;
 pub mod modeling;
 pub mod noise;
 pub mod ops;
+pub mod particles;
 pub mod project;
 pub mod textures;
 pub mod procedural;

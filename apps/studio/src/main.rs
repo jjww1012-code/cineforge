@@ -12,6 +12,7 @@ mod claude_setup;
 mod cli;
 mod control;
 mod environment;
+mod fx;
 mod hud;
 mod library;
 mod project;
@@ -85,6 +86,7 @@ fn main() -> AppExit {
         project::ProjectPlugin,
         timeline::TimelinePlugin { interactive: args.screenshot.is_none() || args.hud },
         render::RenderPlugin,
+        fx::FxPlugin,
     ))
     // Auch im Hintergrund weiterrechnen, damit Claude arbeiten kann,
     // während das Fenster nicht im Vordergrund ist.

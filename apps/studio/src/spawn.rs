@@ -77,6 +77,7 @@ pub struct SceneStats {
 #[allow(clippy::too_many_arguments)]
 fn rebuild_scene(
     mut commands: Commands,
+    fx: Option<Res<crate::fx::FxAssets>>,
     mut loaded: MessageReader<SceneLoaded>,
     src: Res<SceneSource>,
     project: Res<ActiveProject>,
@@ -95,6 +96,7 @@ fn rebuild_scene(
     }
     let root = commands.spawn((SceneRoot, Name::new("Szene"), Transform::default(), Visibility::default())).id();
     let mut b = Builder {
+        fx: fx.as_deref().cloned(),
         scene: &src.scene,
         project: &project,
         library: &mut library,
@@ -122,6 +124,7 @@ fn rebuild_scene(
 }
 
 struct Builder<'a, 'w, 's> {
+    fx: Option<crate::fx::FxAssets>,
     scene: &'a Scene,
     project: &'a ActiveProject,
     library: &'a mut Library,
@@ -263,6 +266,12 @@ impl Builder<'_, '_, '_> {
                     }
                 }
             }
+            Kind::Particles(spec) => {
+                if let Some(fx) = self.fx.clone() {
+                    let n = crate::fx::spawn_emitter(self.commands, self.materials, &fx, entity, spec.resolve());
+                    self.stats.instances += n;
+                }
+            }
             Kind::PointLight(l) => {
                 self.commands.entity(entity).insert(PointLight {
                     color: color(l.color),
@@ -357,7 +366,7 @@ impl Builder<'_, '_, '_> {
                     return None;
                 }
             },
-            Kind::Group { .. } | Kind::Scatter(_) | Kind::PointLight(_) | Kind::Instance { .. } => return None,
+            Kind::Group { .. } | Kind::Scatter(_) | Kind::PointLight(_) | Kind::Instance { .. } | Kind::Particles(_) => return None,
         };
         if mesh.count_vertices() == 0 {
             return None;

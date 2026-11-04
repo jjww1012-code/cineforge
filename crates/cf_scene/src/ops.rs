@@ -181,6 +181,7 @@ pub fn outline(scene: &Scene) -> String {
             Kind::Tube(t) => format!("tube {} Punkte r={}", t.path.len(), t.radius),
             Kind::Text(t) => format!("text \"{}\"", t.text.chars().take(30).collect::<String>()),
             Kind::Instance { asset, .. } => format!("instance \"{asset}\""),
+            Kind::Particles(p) => format!("particles {:?}", p.preset).to_lowercase(),
         }
     }
     fn rec(out: &mut String, objs: &[Object], depth: usize) {

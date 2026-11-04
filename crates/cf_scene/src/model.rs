@@ -392,6 +392,8 @@ pub enum Kind {
     Tube(TubeSpec),
     /// 3D-Schrift in der XY-Ebene, Blickrichtung +Z, Grundlinie bei y = 0.
     Text(TextSpec),
+    /// Partikel-Effekt (Feuer, Rauch, Funken, Schnee, Regen, Explosion, Magie, Staub, Fontäne).
+    Particles(crate::particles::ParticleSpec),
     /// Objekt aus der Bibliothek.
     Instance {
         asset: String,
@@ -783,7 +785,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. }) {
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_)) {
                 p.push(format!("\"{id}\": scatter.shape muss eine einfache Form sein"));
             }
             if s.scale_range[0] > s.scale_range[1] {
@@ -855,6 +857,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
                 p.push(format!("\"{id}\": depth darf nicht negativ sein"));
             }
         }
+        Kind::Particles(ps) => ps.validate(id, p),
         Kind::Instance { asset, .. } => {
             if crate::project::safe_name(asset).is_err() {
                 p.push(format!("\"{id}\": ungültiger Bibliotheks-Name \"{asset}\""));

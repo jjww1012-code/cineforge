@@ -81,6 +81,11 @@ impl RenderQueue {
         self.export.as_ref().is_some_and(|p| !p.lock().map(|p| p.done).unwrap_or(true))
     }
 
+    /// Kamera des laufenden Auftrags (für Billboards).
+    pub fn active_camera(&self) -> Option<Entity> {
+        self.active.as_ref().map(|j| j.camera)
+    }
+
     pub fn cancel_export(&mut self) {
         self.cancel = true;
     }
