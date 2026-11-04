@@ -417,6 +417,22 @@ fn unweld(w: &Welded, crease_deg: f32) -> MeshData {
     out
 }
 
+/// Hülle für Cartoon-Umrisse: die Form, entlang geglätteter Normalen um `width` vergrößert.
+/// Mit Vorderseiten-Culling gezeichnet, sieht man nur den Rand hinter dem Objekt – eine Linie.
+pub fn outline_shell(m: &MeshData, width: f32) -> MeshData {
+    let mut w = weld(m);
+    let n = point_normals(&w);
+    for (p, n) in w.pos.iter_mut().zip(&n) {
+        *p = add(*p, mul(*n, width));
+    }
+    let mut out = MeshData::default();
+    out.positions = w.pos;
+    out.normals = n;
+    out.uvs = vec![[0.0, 0.0]; out.positions.len()];
+    out.indices = w.tris.iter().flatten().copied().collect();
+    out
+}
+
 /// Ergebnis von [`reshape`].
 pub struct Reshaped {
     pub mesh: MeshData,

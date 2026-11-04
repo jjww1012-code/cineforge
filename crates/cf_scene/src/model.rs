@@ -116,6 +116,15 @@ pub struct Environment {
     /// Ohne Angabe: "cartoon" bei 2D-Kamera (`camera.orthographic`), sonst "film".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub look: Option<Look>,
+    /// Kontaktschatten in Ecken und Fugen (Umgebungsverdeckung). Standard: an im Film-Stil, aus im Cartoon-Stil.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ao: Option<bool>,
+    /// Sichtbare Lichtstrahlen der Sonne im Dunst: 0 = aus, 0.3 = dezent, 1 = stark.
+    #[serde(skip_serializing_if = "is_zero_f32")]
+    pub light_rays: f32,
+    /// Farbkorrektur (Sättigung, Vignette). Farbstimmung warm/kalt: über `sun.color` und den Himmel.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grade: Option<Grade>,
     /// Änderungen über die Zeit (Sonnenstand, Belichtung).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub animate: Option<crate::animation::EnvironmentAnimation>,
@@ -131,6 +140,9 @@ impl Default for Environment {
             exposure: 0.0,
             bloom: 0.15,
             look: None,
+            ao: None,
+            light_rays: 0.0,
+            grade: None,
             animate: None,
         }
     }
@@ -210,6 +222,49 @@ pub struct CameraSpec {
     /// Kamerafahrt über die Zeit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub animate: Option<crate::animation::CameraAnimation>,
+    /// Tiefenschärfe wie bei einer Kinokamera (Hintergrund/Vordergrund weich).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dof: Option<DepthOfFieldSpec>,
+    /// Bewegungsunschärfe: Verschlusswinkel 0..1 (0.5 = 180°, Kino-Standard).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DepthOfFieldSpec {
+    /// Worauf scharf gestellt wird: Entfernung in Metern oder id eines Objekts (folgt ihm).
+    pub focus: Focus,
+    /// Blende: 1.4 = sehr weicher Hintergrund, 2.8 = Kino-Standard, 8 = fast alles scharf.
+    #[serde(default = "default_aperture")]
+    pub aperture: f32,
+}
+
+fn default_aperture() -> f32 {
+    2.8
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum Focus {
+    Distance(f32),
+    Object(String),
+}
+
+/// Farbkorrektur („Grading“) für den Look des Films.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct Grade {
+    /// Farbsättigung (1 = normal, 1.2 = kräftig, 0 = schwarzweiß).
+    pub saturation: f32,
+    /// Abgedunkelte Bildränder (0 = aus, 0.3 = dezent, 1 = stark).
+    pub vignette: f32,
+}
+
+impl Default for Grade {
+    fn default() -> Self {
+        Self { saturation: 1.0, vignette: 0.0 }
+    }
 }
 
 impl Default for CameraSpec {
@@ -220,6 +275,8 @@ impl Default for CameraSpec {
             fov: 50.0,
             orthographic: None,
             animate: None,
+            dof: None,
+            motion_blur: None,
         }
     }
 }
@@ -262,8 +319,15 @@ pub struct Object {
     /// Verformungen in dieser Reihenfolge (verdrehen, biegen, verjüngen, Welle, aufblähen, Rauschen).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deform: Vec<crate::shaping::Deform>,
+    /// Schaut immer zur Kamera (2D-Figuren und Bilder in 3D-Welten, wie Pappaufsteller).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub billboard: bool,
     #[serde(flatten)]
     pub kind: Kind,
+}
+
+fn is_zero_f32(v: &f32) -> bool {
+    *v == 0.0
 }
 
 fn is_zero_u32(v: &u32) -> bool {
@@ -355,6 +419,9 @@ pub struct Material {
     /// Bild als Oberfläche (Datei im Ordner Bilder/ des Projekts), z. B. Logo, Foto, Plakat.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub texture: Option<String>,
+    /// Cartoon-Umrisslinie um das Objekt (wie gezeichnet), z. B. `{"width": 0.02}`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline: Option<Outline>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, Hash)]
@@ -410,8 +477,28 @@ impl Default for Material {
             double_sided: false,
             pattern: None,
             texture: None,
+            outline: None,
         }
     }
+}
+
+/// Umrisslinie für den Cartoon-Look.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Outline {
+    /// Linienstärke in Metern (am Objekt gemessen).
+    #[serde(default = "default_outline_width")]
+    pub width: f32,
+    #[serde(default = "black")]
+    pub color: Rgb,
+}
+
+fn default_outline_width() -> f32 {
+    0.02
+}
+
+fn black() -> Rgb {
+    Rgb::BLACK
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -496,6 +583,12 @@ pub enum Kind {
         width: f32,
         #[serde(default)]
         depth: f32,
+        /// "auto", "vector" (Flächen, `depth` möglich) oder "image" (volle SVG-Darstellung).
+        #[serde(default, skip_serializing_if = "crate::svg::SvgMode::is_auto")]
+        mode: crate::svg::SvgMode,
+        /// Pixel der langen Seite im Bild-Modus (Standard: automatisch nach Größe).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resolution: Option<u32>,
     },
     /// 3D-Modell (GLB/glTF, Datei im Ordner Modelle/), z. B. aus Blender, Sketchfab oder einem KI-3D-Generator.
     Model { file: String },
@@ -787,6 +880,11 @@ impl std::fmt::Display for SceneError {
 impl std::error::Error for SceneError {}
 
 impl Scene {
+    /// Kontaktschatten (SSAO) an? Standard: im Film-Stil ja, im Cartoon-Stil nein.
+    pub fn ao_enabled(&self) -> bool {
+        self.environment.ao.unwrap_or(!self.exact_colors())
+    }
+
     /// Sollen Farben exakt wiedergegeben werden (Cartoon-Stil)?
     pub fn exact_colors(&self) -> bool {
         match self.environment.look {
@@ -822,6 +920,29 @@ impl Scene {
         }
         if !(self.duration > 0.0 && self.duration <= 3.0 * 3600.0) {
             problems.push(format!("duration muss zwischen 0 und 10800 Sekunden liegen (ist {})", self.duration));
+        }
+        if let Some(d) = &self.camera.dof {
+            if !(d.aperture > 0.1 && d.aperture <= 64.0) {
+                problems.push("camera.dof.aperture muss zwischen 0.1 und 64 liegen".into());
+            }
+            match &d.focus {
+                Focus::Distance(x) if !(*x > 0.0) => problems.push("camera.dof.focus muss größer als 0 sein".into()),
+                Focus::Object(id) if crate::ops::find(self, id).is_none() => {
+                    problems.push(format!("camera.dof.focus: Objekt „{id}“ gibt es nicht"))
+                }
+                _ => {}
+            }
+        }
+        if self.camera.motion_blur.is_some_and(|m| !(0.0..=1.0).contains(&m)) {
+            problems.push("camera.motion_blur muss zwischen 0 und 1 liegen (0.5 = Kino-Standard)".into());
+        }
+        if !(0.0..=3.0).contains(&self.environment.light_rays) {
+            problems.push("environment.light_rays muss zwischen 0 und 3 liegen".into());
+        }
+        if let Some(g) = &self.environment.grade {
+            if !(0.0..=3.0).contains(&g.saturation) || !(0.0..=1.5).contains(&g.vignette) {
+                problems.push("environment.grade: saturation 0–3, vignette 0–1.5".into());
+            }
         }
         if !(1..=120).contains(&self.fps) {
             problems.push(format!("fps muss zwischen 1 und 120 liegen (ist {})", self.fps));
@@ -904,6 +1025,11 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
     );
     if (o.subdivide > 0 || o.rounded || !o.deform.is_empty()) && !shapes_mesh {
         p.push(format!("\"{id}\": subdivide/rounded/deform gehen nur bei Formen (box, sphere, extrude, lathe, tube, text …), nicht bei diesem Typ"));
+    }
+    if let Some(ol) = &o.material.outline {
+        if !(ol.width > 0.0 && ol.width < 10.0) {
+            p.push(format!("\"{id}\": outline.width muss zwischen 0 und 10 liegen"));
+        }
     }
     for d in &o.deform {
         if let Some(e) = d.validate() {
@@ -1012,7 +1138,10 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             }
         }
         Kind::Particles(ps) => ps.validate(id, p),
-        Kind::Svg { svg, file, width, depth } => {
+        Kind::Svg { svg, file, width, depth, mode, resolution } => {
+            if resolution.is_some_and(|r| !(16..=8192).contains(&r)) {
+                p.push(format!("\"{id}\": resolution muss zwischen 16 und 8192 liegen"));
+            }
             positive("width", *width, p);
             if *depth < 0.0 {
                 p.push(format!("\"{id}\": depth darf nicht negativ sein"));
@@ -1021,7 +1150,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
                 (Some(_), Some(_)) => p.push(format!("\"{id}\": entweder svg oder file angeben, nicht beides")),
                 (None, None) => p.push(format!("\"{id}\": svg (Markup) oder file fehlt")),
                 (Some(s), None) => {
-                    if let Err(e) = crate::svg::svg_shapes(s, *width, *depth) {
+                    if let Err(e) = crate::svg::check(s, *width, *depth, *mode) {
                         p.push(format!("\"{id}\": {e}"));
                     }
                 }

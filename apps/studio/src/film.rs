@@ -29,7 +29,7 @@ use crate::{
 };
 
 /// Wird erhöht, wenn sich die Darstellung ändert (macht alte Cache-Dateien ungültig).
-const CACHE_VERSION: u32 = 2;
+const CACHE_VERSION: u32 = 3; // 3: Kontaktschatten (SSAO) im Film-Stil, neue Darstellung
 const FADE: f32 = 0.4;
 
 #[derive(Debug, Clone)]

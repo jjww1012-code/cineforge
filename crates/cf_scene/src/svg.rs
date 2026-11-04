@@ -2,6 +2,9 @@
 //! (oder importiert SVG-Dateien). Jeder Pfad wird zu einer flachen (oder
 //! extrudierten) Fläche mit eigener Farbe; Konturen werden zu Linien.
 
+use std::sync::{Arc, OnceLock};
+
+use serde::{Deserialize, Serialize};
 use usvg::tiny_skia_path::{PathSegment, Point};
 
 use crate::color::Rgb;
@@ -83,14 +86,117 @@ fn collect<'a>(g: &'a usvg::Group, out: &mut Vec<&'a usvg::Path>) {
         match n {
             usvg::Node::Group(g) => collect(g, out),
             usvg::Node::Path(p) if p.is_visible() => out.push(p),
+            // Text wird beim Einlesen in Pfade umgewandelt (Schrift Inter).
+            usvg::Node::Text(t) => collect(t.flattened(), out),
             _ => {}
         }
     }
 }
 
+const FONT_REGULAR: &[u8] = include_bytes!("../../../apps/studio/assets/fonts/Inter-Regular.ttf");
+const FONT_BOLD: &[u8] = include_bytes!("../../../apps/studio/assets/fonts/Inter-Bold.ttf");
+const FONT_BLACK: &[u8] = include_bytes!("../../../apps/studio/assets/fonts/Inter-Black.ttf");
+
+/// Einlese-Optionen mit eingebauter Schrift (Inter), damit `<text>` überall gleich aussieht.
+fn options() -> usvg::Options<'static> {
+    static DB: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
+    let db = DB.get_or_init(|| {
+        let mut db = usvg::fontdb::Database::new();
+        for f in [FONT_REGULAR, FONT_BOLD, FONT_BLACK] {
+            db.load_font_data(f.to_vec());
+        }
+        db.set_sans_serif_family("Inter");
+        db.set_serif_family("Inter");
+        db.set_monospace_family("Inter");
+        db.set_cursive_family("Inter");
+        db.set_fantasy_family("Inter");
+        Arc::new(db)
+    });
+    usvg::Options { font_family: "Inter".into(), fontdb: db.clone(), ..usvg::Options::default() }
+}
+
+fn parse(svg: &str) -> Result<usvg::Tree, String> {
+    usvg::Tree::from_str(svg, &options()).map_err(|e| format!("SVG nicht lesbar: {e}"))
+}
+
+/// Wie ein SVG dargestellt wird.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SvgMode {
+    /// Automatisch: „image“, wenn das SVG Verläufe, Filter (Unschärfe, Schatten), Masken,
+    /// Muster, Text oder Bilder enthält, sonst „vector“. Mit `depth` > 0 immer „vector“.
+    #[default]
+    Auto,
+    /// Jede Fläche wird ein eigenes 3D-Flächenstück: in jeder Größe scharf, `depth` möglich.
+    Vector,
+    /// Wie in einem Grafikprogramm gezeichnet (alle SVG-Möglichkeiten), als Bild auf einer Fläche.
+    Image,
+}
+
+impl SvgMode {
+    pub fn is_auto(&self) -> bool {
+        *self == SvgMode::Auto
+    }
+}
+
+/// Braucht dieses SVG die volle Darstellung (nicht nur einfarbige Flächen)?
+pub fn needs_image(svg: &str) -> bool {
+    ["Gradient", "<filter", "filter=", "<mask", "mask=", "<pattern", "<text", "<image", "clip-path", "<clipPath", "mix-blend-mode", "url(#"]
+        .iter()
+        .any(|k| svg.contains(k))
+}
+
+/// Tatsächlicher Modus (Vector oder Image).
+pub fn resolve_mode(svg: &str, mode: SvgMode, depth: f32) -> SvgMode {
+    match mode {
+        _ if depth > 0.0 => SvgMode::Vector,
+        SvgMode::Auto => {
+            if needs_image(svg) {
+                SvgMode::Image
+            } else {
+                SvgMode::Vector
+            }
+        }
+        m => m,
+    }
+}
+
+/// Prüft ein SVG (für die Validierung): lesbar und – im Vektor-Modus – mit sichtbaren Flächen.
+pub fn check(svg: &str, width: f32, depth: f32, mode: SvgMode) -> Result<(), String> {
+    match resolve_mode(svg, mode, depth) {
+        SvgMode::Image => parse(svg).map(|_| ()),
+        _ => svg_shapes(svg, width, depth).map(|_| ()),
+    }
+}
+
+/// Gerastertes SVG: RGBA mit vormultipliziertem Alpha (keine dunklen Ränder beim Filtern).
+pub struct Raster {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+/// Zeichnet das SVG mit resvg (Verläufe, Filter, Masken, Text …); lange Seite = `max_side` Pixel.
+pub fn rasterize(svg: &str, max_side: u32) -> Result<Raster, String> {
+    let tree = parse(svg)?;
+    let size = tree.size();
+    let (sw, sh) = (size.width().max(1e-3), size.height().max(1e-3));
+    let scale = max_side.clamp(16, 8192) as f32 / sw.max(sh);
+    let (w, h) = (((sw * scale).round() as u32).max(1), ((sh * scale).round() as u32).max(1));
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(w, h).ok_or("Bild zu groß")?;
+    resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
+    Ok(Raster { width: w, height: h, rgba: pixmap.take() })
+}
+
+/// Seitenverhältnis Höhe/Breite des SVG.
+pub fn aspect(svg: &str) -> Result<f32, String> {
+    let s = parse(svg)?.size();
+    Ok(s.height() / s.width().max(1e-3))
+}
+
 /// SVG → Flächen. Breite `width` in Metern, zentriert, y nach oben; `depth` > 0 extrudiert.
 pub fn svg_shapes(svg: &str, width: f32, depth: f32) -> Result<Vec<Shape2d>, String> {
-    let tree = usvg::Tree::from_str(svg, &usvg::Options::default()).map_err(|e| format!("SVG nicht lesbar: {e}"))?;
+    let tree = parse(svg)?;
     let size = tree.size();
     let (sw, sh) = (size.width().max(1e-3), size.height().max(1e-3));
     let scale = width / sw;
@@ -166,6 +272,32 @@ mod tests {
         let z_sun = shapes[1].mesh.positions[0][2];
         assert!(z_sun > z_sky);
         assert!(svg_shapes("<svg", 1.0, 0.0).is_err());
+    }
+
+    #[test]
+    fn gradients_filters_and_text_render_as_image() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/></linearGradient>
+              <filter id="b"><feGaussianBlur stdDeviation="4"/></filter>
+            </defs>
+            <rect width="200" height="100" fill="url(#g)"/>
+            <circle cx="100" cy="50" r="20" fill="#000" filter="url(#b)"/>
+            <text x="10" y="90" font-size="20" fill="#fff">Hallo Ü</text>
+        </svg>"##;
+        assert_eq!(resolve_mode(svg, SvgMode::Auto, 0.0), SvgMode::Image);
+        assert_eq!(resolve_mode(svg, SvgMode::Auto, 0.2), SvgMode::Vector);
+        let r = rasterize(svg, 400).unwrap();
+        assert_eq!((r.width, r.height), (400, 200));
+        let px = |x: u32, y: u32| &r.rgba[((y * r.width + x) * 4) as usize..][..4];
+        assert!(px(2, 2)[0] > 200 && px(2, 2)[2] < 60, "links rot");
+        assert!(px(397, 2)[2] > 200 && px(397, 2)[0] < 60, "rechts blau");
+        // Text wurde gezeichnet: helle Pixel unten links
+        let bright = (20..120).flat_map(|x| (150..190).map(move |y| (x, y))).filter(|&(x, y)| px(x, y)[1] > 200).count();
+        assert!(bright > 50, "Text fehlt ({bright})");
+        // Text funktioniert auch im Vektor-Modus
+        let only_text = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 30"><text x="5" y="22" font-size="20" font-weight="bold">Hi</text></svg>"#;
+        assert!(!svg_shapes(only_text, 1.0, 0.0).unwrap().is_empty());
     }
 
     #[test]

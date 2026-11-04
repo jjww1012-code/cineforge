@@ -1,6 +1,7 @@
 //! Himmel, Sonne, Nebel, Belichtung und Kamera-Einstellungen aus dem Szenen-Dokument.
 
 use bevy::{
+    anti_alias::smaa::Smaa,
     camera::Exposure,
     camera_controller::free_camera::FreeCameraState,
     core_pipeline::tonemapping::Tonemapping,
@@ -8,9 +9,16 @@ use bevy::{
         atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
         CascadeShadowConfigBuilder, SunDisk,
     },
-    pbr::{AtmosphereSettings, DistanceFog, FogFalloff},
-    post_process::bloom::Bloom,
+    light::{FogVolume, VolumetricFog, VolumetricLight},
+    pbr::{AtmosphereSettings, DistanceFog, FogFalloff, ScreenSpaceAmbientOcclusion},
+    post_process::{
+        bloom::Bloom,
+        dof::{DepthOfField, DepthOfFieldMode},
+        effect_stack::Vignette,
+        motion_blur::MotionBlur,
+    },
     prelude::*,
+    render::view::{ColorGrading, ColorGradingGlobal},
 };
 use cf_scene::{Environment, Rgb, Sky};
 
@@ -24,7 +32,8 @@ pub struct EnvironmentPlugin;
 impl Plugin for EnvironmentPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_media)
-            .add_systems(Update, (apply_environment, reset_camera_key));
+            .add_systems(Update, (apply_environment, reset_camera_key))
+            .add_systems(Update, (follow_focus, preview_motion_blur).after(crate::timeline::TimelineSet));
     }
 }
 
@@ -90,10 +99,12 @@ fn apply_environment(
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
         let text = format!(
-            "{}|{:?}|{}|{:?}|{}",
+            "{}|{:?}|{}|{:?}|{:?}|{:?}|{}",
             serde_json::to_string(env).unwrap_or_default(),
             scene.camera.orthographic,
             scene.camera.fov,
+            scene.camera.dof,
+            scene.camera.motion_blur,
             ground_color(scene),
             scene.exact_colors()
         );
@@ -131,6 +142,9 @@ fn apply_environment(
         }
         .build(),
     ));
+    if env.light_rays > 0.0 {
+        sun.insert(VolumetricLight);
+    }
     if atmosphere {
         sun.insert(SunDisk::EARTH);
         let mut atmo = Atmosphere::earth(medium.0.clone());
@@ -152,8 +166,54 @@ fn apply_environment(
         });
     }
 
+    if env.light_rays > 0.0 {
+        // Dunst-Volumen um die Szene, in dem das Sonnenlicht sichtbar wird.
+        let c = Vec3::from_array(scene.camera.look_at);
+        let fog_color = env.fog.as_ref().map(|f| color(f.color)).unwrap_or(Color::WHITE);
+        commands.spawn((
+            EnvEntity,
+            Name::new("Lichtstrahlen"),
+            // Sehr dünner Dunst (das Volumen ist hunderte Meter groß): nur das Licht wird sichtbar.
+            FogVolume { fog_color, density_factor: 0.004 * env.light_rays, scattering: 0.5, absorption: 0.05, ..default() },
+            Transform::from_translation(c).with_scale(Vec3::new(400.0, 120.0, 400.0)),
+        ));
+    }
+
     for view in &views {
         configure_view(&mut commands.entity(view), scene);
+    }
+}
+
+/// Fokus auf ein Objekt: Schärfe-Entfernung jedes Bild nachführen.
+#[derive(Component)]
+pub struct FocusOn(pub String);
+
+fn follow_focus(
+    mut views: Query<(&Transform, &FocusOn, &mut DepthOfField)>,
+    objects: Query<(&crate::spawn::SceneObjectId, &GlobalTransform)>,
+) {
+    for (cam, focus, mut dof) in &mut views {
+        if let Some((_, gt)) = objects.iter().find(|(id, _)| id.0 == focus.0) {
+            let d = (gt.translation() - cam.translation).length().max(0.05);
+            if (dof.focal_distance - d).abs() > 1e-3 {
+                dof.focal_distance = d;
+            }
+        }
+    }
+}
+
+/// In der Vorschau nur beim Abspielen verwischen (sonst schmiert jedes Springen).
+fn preview_motion_blur(
+    ph: Option<Res<crate::timeline::Playhead>>,
+    src: Res<SceneSource>,
+    mut cams: Query<&mut MotionBlur, With<MainCamera>>,
+) {
+    let Some(ph) = ph else { return };
+    let want = if ph.playing { src.scene.camera.motion_blur.unwrap_or(0.0) } else { 0.0 };
+    for mut mb in &mut cams {
+        if mb.shutter_angle != want {
+            mb.shutter_angle = want;
+        }
     }
 }
 
@@ -202,15 +262,80 @@ pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
         bevy::pbr::ScreenSpaceTransmission::default(),
         scene_projection(&scene.camera),
     ));
+    // Im Cartoon-Stil gibt es keine Tonwertkurve: beleuchtete Flächen eine Stufe dunkler
+    // belichten, damit sie nicht ausbrennen (unbeleuchtete 2D-Grafiken bleiben exakt).
+    let cartoon_shift = if scene.exact_colors() { 1.0 } else { 0.0 };
     if matches!(env.sky, Sky::Atmosphere) {
         cam.insert((
             AtmosphereSettings::default(),
             AtmosphereEnvironmentMapLight { intensity: env.ambient.max(0.0), ..default() },
-            Exposure { ev100: 13.0 - env.exposure },
+            Exposure { ev100: 13.0 - env.exposure + cartoon_shift },
         ));
     } else {
         cam.remove::<(AtmosphereSettings, AtmosphereEnvironmentMapLight)>()
-            .insert(Exposure { ev100: Exposure::EV100_SUNLIGHT - env.exposure });
+            .insert(Exposure { ev100: Exposure::EV100_SUNLIGHT - env.exposure + cartoon_shift });
+    }
+    // Kontaktschatten (SSAO) brauchen MSAA aus; dann glättet SMAA die Kanten.
+    if scene.ao_enabled() {
+        cam.insert((Msaa::Off, ScreenSpaceAmbientOcclusion::default(), Smaa::default()));
+    } else {
+        cam.remove::<(ScreenSpaceAmbientOcclusion, Smaa)>().insert(Msaa::Sample4);
+    }
+    let camspec = &scene.camera;
+    match &camspec.dof {
+        Some(d) => {
+            let distance = match &d.focus {
+                cf_scene::Focus::Distance(x) => *x,
+                cf_scene::Focus::Object(_) => (Vec3::from_array(camspec.look_at) - Vec3::from_array(camspec.position)).length(),
+            };
+            cam.insert(DepthOfField {
+                mode: DepthOfFieldMode::Gaussian,
+                focal_distance: distance.max(0.05),
+                aperture_f_stops: d.aperture,
+                ..default()
+            });
+            match &d.focus {
+                cf_scene::Focus::Object(id) => {
+                    cam.insert(FocusOn(id.clone()));
+                }
+                _ => {
+                    cam.remove::<FocusOn>();
+                }
+            }
+        }
+        None => {
+            cam.remove::<(DepthOfField, FocusOn)>();
+        }
+    }
+    match camspec.motion_blur {
+        Some(s) if s > 0.0 => {
+            cam.insert(MotionBlur { shutter_angle: s, ..default() });
+        }
+        _ => {
+            cam.remove::<MotionBlur>();
+        }
+    }
+    if env.light_rays > 0.0 {
+        cam.insert(VolumetricFog { ambient_intensity: 0.0, ..default() });
+    } else {
+        cam.remove::<VolumetricFog>();
+    }
+    match &env.grade {
+        Some(g) => {
+            // Nur die globale Sättigung: Bevys Kontrast/Weißabgleich verfälschten im Test die Farben.
+            cam.insert(ColorGrading {
+                global: ColorGradingGlobal { post_saturation: g.saturation, ..default() },
+                ..default()
+            });
+            if g.vignette > 0.0 {
+                cam.insert(Vignette { intensity: g.vignette, ..default() });
+            } else {
+                cam.remove::<Vignette>();
+            }
+        }
+        None => {
+            cam.remove::<(ColorGrading, Vignette)>().insert(ColorGrading::default());
+        }
     }
     match &env.fog {
         Some(f) => {

@@ -50,7 +50,8 @@ impl Plugin for SpawnPlugin {
             .init_resource::<SceneStats>()
             .init_resource::<BuiltScene>()
             .init_resource::<crate::media::ImageCache>()
-            .add_systems(Update, (rebuild_scene, track_model_loading));
+            .add_systems(Update, (rebuild_scene, track_model_loading))
+            .add_systems(Update, face_camera.after(crate::timeline::TimelineSet));
     }
 }
 
@@ -222,6 +223,7 @@ fn rebuild_scene(
         material_cache: HashMap::new(),
         texture_cache: HashMap::new(),
         mesh_cache: HashMap::new(),
+        svg_cache: HashMap::new(),
         stats: SceneStats::default(),
     };
     let mut rebuilt = 0;
@@ -286,6 +288,38 @@ fn rebuild_scene(
     commands.insert_resource(stats);
 }
 
+/// Dreht das Objekt zur rendernden Kamera (nur um die senkrechte Achse, wie ein Pappaufsteller).
+#[derive(Component)]
+pub struct Billboard {
+    base: Quat,
+}
+
+fn face_camera(
+    jobs: Res<crate::render::RenderQueue>,
+    // Kameras sind oberste Entities: Transform ist aktuell (GlobalTransform erst im nächsten Bild).
+    main_cam: Query<&Transform, (With<crate::MainCamera>, Without<Billboard>)>,
+    cams: Query<&Transform, (With<Camera3d>, Without<Billboard>)>,
+    mut q: Query<(&Billboard, &mut Transform, Option<&Animated>)>,
+) {
+    let cam = jobs.active_camera().and_then(|e| cams.get(e).ok()).or_else(|| main_cam.single().ok());
+    let Some(cam) = cam else { return };
+    // Alle schauen parallel zur Blickrichtung (auch bei der 2D-Kamera richtig).
+    let back = -cam.forward().as_vec3();
+    let flat = Vec3::new(back.x, 0.0, back.z);
+    if flat.length_squared() < 1e-6 {
+        return;
+    }
+    let yaw = Quat::from_rotation_y(flat.x.atan2(flat.z));
+    for (b, mut tf, anim) in &mut q {
+        // Animierte Objekte bekommen ihre Drehung jedes Bild neu von der Zeitleiste.
+        let base = if anim.is_some() { tf.rotation } else { b.base };
+        let new = yaw * base;
+        if tf.rotation != new {
+            tf.rotation = new;
+        }
+    }
+}
+
 /// Halter für ein oberstes Objekt (inkl. Wiederholungen); wird als Ganzes ersetzt.
 #[derive(Component)]
 pub struct ObjectSlot;
@@ -319,6 +353,7 @@ struct Builder<'a, 'w, 's> {
     material_cache: HashMap<String, Handle<StandardMaterial>>,
     texture_cache: HashMap<String, (Handle<Image>, Option<Handle<Image>>)>,
     mesh_cache: HashMap<String, (Handle<Mesh>, usize)>,
+    svg_cache: HashMap<String, (Handle<Image>, f32)>,
     stats: SceneStats,
 }
 
@@ -424,6 +459,9 @@ impl Builder<'_, '_, '_> {
                 ChildOf(parent),
             ))
             .id();
+        if o.billboard {
+            self.commands.entity(entity).insert(Billboard { base: transform.rotation });
+        }
         let material = mat_override.unwrap_or(&o.material);
         let animated_material = o.animate.as_ref().is_some_and(|a| a.affects_material());
         if let Some(anim) = &o.animate {
@@ -484,13 +522,40 @@ impl Builder<'_, '_, '_> {
                     }
                 }
             }
-            Kind::Svg { svg, file, width, depth } => {
+            Kind::Svg { svg, file, width, depth, mode, resolution } => {
                 let text = match (svg, file) {
                     (Some(s), _) => Ok(s.clone()),
                     (None, Some(f)) => crate::media::resolve(self.project, crate::media::IMAGES, f)
                         .and_then(|p| std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))),
                     _ => Err("svg oder file fehlt".to_string()),
                 };
+                let image_mode = text
+                    .as_ref()
+                    .is_ok_and(|t| cf_scene::svg::resolve_mode(t, *mode, *depth) == cf_scene::svg::SvgMode::Image);
+                if image_mode {
+                    // Volle SVG-Darstellung (Verläufe, Schatten, Unschärfe, Text) als Bild.
+                    let text = text.unwrap_or_default();
+                    let px = resolution.unwrap_or_else(|| ((width * 400.0) as u32).clamp(1024, 4096));
+                    match self.svg_texture(&text, px) {
+                        Ok((tex, aspect)) => {
+                            let mesh = self.meshes.add(Rectangle::new(*width, width * aspect));
+                            let o = material.opacity.clamp(0.0, 1.0);
+                            let mat = self.materials.add(StandardMaterial {
+                                base_color: Color::LinearRgba(LinearRgba::new(o, o, o, o)),
+                                base_color_texture: Some(tex),
+                                unlit: true,
+                                alpha_mode: AlphaMode::Premultiplied,
+                                double_sided: true,
+                                cull_mode: None,
+                                ..default()
+                            });
+                            self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat), bevy::light::NotShadowCaster));
+                            self.stats.triangles += 2;
+                        }
+                        Err(e) => self.stats.warnings.push(format!("\"{full_id}\": {e}")),
+                    }
+                    return;
+                }
                 match text.and_then(|t| cf_scene::svg::svg_shapes(&t, *width, *depth)) {
                     Ok(shapes) => {
                         for sh in shapes {
@@ -623,11 +688,55 @@ impl Builder<'_, '_, '_> {
                             self.commands.entity(entity).insert(DrawTube { spec: spec.clone(), mesh: mesh.clone(), last: -1.0 });
                         }
                     }
+                    if let Some(ol) = &material.outline {
+                        self.spawn_outline(entity, &mesh, ol);
+                    }
                     self.commands.entity(entity).insert((Mesh3d(mesh), MeshMaterial3d(mat)));
                     self.stats.triangles += tris;
                 }
             }
         }
+    }
+
+    /// Cartoon-Umriss: vergrößerte Hülle, nur die Rückseiten sichtbar, einfarbig.
+    fn spawn_outline(&mut self, entity: Entity, mesh: &Handle<Mesh>, ol: &cf_scene::Outline) {
+        let key = format!("outline|{:?}|{}", mesh.id(), ol.width);
+        let shell = match self.mesh_cache.get(&key) {
+            Some((h, _)) => h.clone(),
+            None => {
+                let Some(data) = self.meshes.get(mesh).and_then(mesh_data) else { return };
+                let h = self.meshes.add(to_bevy_mesh(cf_scene::shaping::outline_shell(&data, ol.width)));
+                self.mesh_cache.insert(key, (h.clone(), 0));
+                h
+            }
+        };
+        let mat = self.materials.add(StandardMaterial {
+            base_color: color(ol.color),
+            unlit: true,
+            cull_mode: Some(Face::Front),
+            ..default()
+        });
+        self.commands.spawn((
+            Mesh3d(shell),
+            MeshMaterial3d(mat),
+            Transform::default(),
+            bevy::light::NotShadowCaster,
+            Pickable::IGNORE,
+            ChildOf(entity),
+        ));
+    }
+
+    /// SVG → Textur (vormultipliziertes Alpha, Mipmaps). Liefert auch Höhe/Breite.
+    fn svg_texture(&mut self, svg: &str, px: u32) -> Result<(Handle<Image>, f32), String> {
+        let key = format!("svg|{px}|{}", hash_str(svg));
+        if let Some((h, aspect)) = self.svg_cache.get(&key) {
+            return Ok((h.clone(), *aspect));
+        }
+        let r = cf_scene::svg::rasterize(svg, px)?;
+        let aspect = r.height as f32 / r.width.max(1) as f32;
+        let h = self.images.add(make_texture_rect(r.width, r.height, r.rgba));
+        self.svg_cache.insert(key, (h.clone(), aspect));
+        Ok((h, aspect))
     }
 
     /// Hinter jedem Gelände eine sehr große Bodenfläche in Geländefarbe, knapp darunter.
@@ -824,6 +933,48 @@ impl Builder<'_, '_, '_> {
 }
 
 /// Erzeugt eine kachelbare Textur mit Mipmaps (kein Flimmern in der Ferne).
+/// Textur beliebiger Größe mit Mipmaps (für gerasterte SVGs, sRGB, vormultipliziert).
+fn make_texture_rect(w: u32, h: u32, data: Vec<u8>) -> Image {
+    let mut levels = vec![data];
+    let (mut cw, mut ch) = (w as usize, h as usize);
+    while cw > 1 || ch > 1 {
+        let prev = levels.last().expect("mindestens eine Stufe");
+        let (nw, nh) = ((cw / 2).max(1), (ch / 2).max(1));
+        let mut next = vec![0u8; nw * nh * 4];
+        for y in 0..nh {
+            for x in 0..nw {
+                for c in 0..4 {
+                    let at = |xx: usize, yy: usize| prev[(yy.min(ch - 1) * cw + xx.min(cw - 1)) * 4 + c] as u32;
+                    let sum = at(2 * x, 2 * y) + at(2 * x + 1, 2 * y) + at(2 * x, 2 * y + 1) + at(2 * x + 1, 2 * y + 1);
+                    next[(y * nw + x) * 4 + c] = ((sum + 2) / 4) as u8;
+                }
+            }
+        }
+        levels.push(next);
+        (cw, ch) = (nw, nh);
+    }
+    let mip_count = levels.len() as u32;
+    let mut img = Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        levels[0].clone(),
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    img.data = Some(levels.concat());
+    img.texture_descriptor.mip_level_count = mip_count;
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::ClampToEdge,
+        address_mode_v: ImageAddressMode::ClampToEdge,
+        mag_filter: ImageFilterMode::Linear,
+        min_filter: ImageFilterMode::Linear,
+        mipmap_filter: ImageFilterMode::Linear,
+        anisotropy_clamp: 8,
+        ..default()
+    });
+    img
+}
+
 fn make_texture(size: u32, data: Vec<u8>, srgb: bool) -> Image {
     let format = if srgb { TextureFormat::Rgba8UnormSrgb } else { TextureFormat::Rgba8Unorm };
     let mut levels = vec![data];

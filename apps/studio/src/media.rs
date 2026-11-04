@@ -64,10 +64,10 @@ pub fn check_files(project: &ActiveProject, scene: &cf_scene::Scene) -> Vec<Stri
         let svg_problem = match &o.kind {
             Kind::Model { file } => need(MODELS, file).and(None),
             Kind::Image { file, .. } => need(IMAGES, file).and(None),
-            Kind::Svg { svg: None, file: Some(file), width, depth } => need(IMAGES, file).and_then(|path| {
+            Kind::Svg { svg: None, file: Some(file), width, depth, mode, .. } => need(IMAGES, file).and_then(|path| {
                 std::fs::read_to_string(&path)
                     .map_err(|e| e.to_string())
-                    .and_then(|text| cf_scene::svg::svg_shapes(&text, *width, *depth).map(|_| ()))
+                    .and_then(|text| cf_scene::svg::check(&text, *width, *depth, *mode))
                     .err()
                     .map(|e| format!("\"{}\": {file}: {e}", o.id))
             }),

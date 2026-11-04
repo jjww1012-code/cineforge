@@ -100,11 +100,21 @@
   (Würfelkanten bleiben scharf). Dreiecks-Obergrenze 1,5 Mio. App: Mesh-Cache für gleiche Formen,
   CPU-Mesh-Daten bleiben für Picking erhalten.
 
+- **2D in voller Qualität:** SVG `mode` auto/vector/image; Bild-Modus rastert mit resvg
+  (Verläufe, Filter, Masken, Text mit eingebauter Inter), vormultipliziertes Alpha + Mipmaps,
+  `resolution`. Text funktioniert auch im Vektor-Modus.
+- **2D/3D mischen:** `billboard` (dreht sich parallel zur Blickrichtung der rendernden Kamera),
+  `material.outline` (Cartoon-Umriss über vergrößerte Hülle mit Vorderseiten-Culling),
+  Cartoon-Stil belichtet beleuchtete Flächen +1 EV dunkler (kein Ausbrennen ohne Tonwertkurve).
+- **Kino-Look:** `camera.dof` (Gauß; Bokeh lieferte auf lavapipe Bildmüll), Fokus folgt Objekt;
+  `camera.motion_blur` (Vorschau nur beim Abspielen); `environment.ao` (SSAO + SMAA, MSAA aus;
+  Standard an im Film-Stil); `light_rays` (VolumetricLight + dünnes FogVolume 400×120×400 m);
+  `grade` (Sättigung, Vignette). Bevys Kontrast/Weißabgleich verfälschten im Test die Farben
+  (rot/schwarz) – bewusst weggelassen, ggf. später eigener Filter. Doku „Kino-Qualität“.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
-1. **2D in voller Qualität** (SVG als Bild über resvg: Verläufe, Unschärfe, Schatten, Text),
-   2D/3D mischen (Billboard, Cartoon-Umriss), Kino-Look (Tiefenschärfe, Bewegungsunschärfe,
-   SSAO, Lichtstrahlen, Farbkorrektur).
+1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.
 2. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
 3. **Ton-Vorschau in der App** (synchron zur Zeitleiste, Wellenform in der Ton-Spur).
 4. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen

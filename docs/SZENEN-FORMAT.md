@@ -37,6 +37,9 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `ambient` | 1 | Umgebungslicht (0 = harte Schatten) |
 | `exposure` | 0 | Belichtung in Blendenstufen (+1 = doppelt so hell) |
 | `bloom` | 0.15 | Glühen heller Stellen (0 = aus) |
+| `ao` | auto | Kontaktschatten in Ecken, Fugen, unter Objekten (wirkt sofort realistischer). Standard: an im Film-Stil, aus im Cartoon-Stil |
+| `light_rays` | 0 | Sichtbare Sonnenstrahlen im Dunst (0.3 dezent, 1 stark) – ideal bei tiefer Sonne, Wald, Ruinen |
+| `grade` | – | Farbkorrektur: `{"saturation": 1.15, "vignette": 0.35}` (Sättigung 1 = normal; Vignette = dunklere Bildränder) |
 | `look` | auto | `"film"` = natürliche, filmische Tonwerte (Farben etwas gedämpft) · `"cartoon"` = Farben **exakt** wie angegeben (Cartoons, 2D, Grafiken, Logos). Ohne Angabe: `cartoon` bei 2D-Kamera, sonst `film` |
 
 ## camera
@@ -46,6 +49,8 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `position` | [0,5,20] | Standort der Kamera |
 | `look_at` | [0,0,0] | Punkt, auf den sie schaut |
 | `fov` | 50 | Bildwinkel in Grad (klein = Tele/Zoom, groß = Weitwinkel) |
+| `dof` | – | **Tiefenschärfe** wie im Kino: `{"focus": "held", "aperture": 2}` – `focus` = id eines Objekts (Schärfe folgt ihm) oder Entfernung in Metern; `aperture` = Blende (1.4 sehr weicher Hintergrund, 2.8 Standard, 8 fast alles scharf) |
+| `motion_blur` | – | **Bewegungsunschärfe** (Verschlusswinkel 0–1, 0.5 = Kino-Standard). Wirkt im Export und beim Abspielen |
 | `orthographic` | – | **2D-Kamera** ohne Perspektive: sichtbare Bildhöhe in Metern (z. B. `7`). Ideal für Cartoons, Erklärvideos, Seitenansichten. Weiter entfernte Objekte werden nicht kleiner – Tiefe (z) bestimmt nur, was vorne liegt |
 | `animate` | – | Kamerafahrt, siehe unten |
 
@@ -65,6 +70,7 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `subdivide` | 0 | Feiner unterteilen (1–5, jede Stufe ×4 Dreiecke) – nötig für Verformungen |
 | `rounded` | false | Beim Unterteilen abrunden (Loop-Glättung): Würfel → Kiesel, Kanten → weiche Rundungen. Ohne `subdivide` = 2 Stufen |
 | `deform` | – | Verformungen, siehe unten |
+| `billboard` | false | Dreht sich immer zur Kamera (nur um die senkrechte Achse) – für 2D-Figuren, Bäume, Bilder in 3D-Welten („Pappaufsteller“) |
 
 ### deform (Verformen – macht aus Grundformen detaillierte Modelle)
 
@@ -122,6 +128,7 @@ Beispiele:
 | `unlit` | false | Ohne Licht/Schatten (Grafiken, Hologramme, Bildschirme) |
 | `double_sided` | false | Beide Seiten sichtbar (Blätter, Stoff, Glas) |
 | `pattern` | – | Oberflächen-Muster, siehe unten |
+| `outline` | – | **Cartoon-Umriss**: `{"width": 0.02, "color": "#000000"}` – schwarze Linie um 3D-Objekte wie gezeichnet (passt 3D an 2D-Figuren an) |
 | `texture` | – | Bild als Oberfläche (Datei in `Bilder/`), z. B. Plakat, Bildschirm, Logo auf einer Kiste |
 
 ### pattern (Oberflächen-Muster)
@@ -162,7 +169,7 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `text` | `text` (Zeilen mit \n), `size` 1, `depth` 0.2 (0 = flach, z. B. für Bildschirm-Inhalte und Einblendungen), `align` center/left/right, `letter_spacing` 0, `weight` regular/bold/black, `italic` false – steht in der XY-Ebene, schaut nach +Z, Grundlinie y = 0 |
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
 | `image` | `file` (im Ordner `Bilder/` des Projekts), `width` 1 – Bildfläche mit dem Seitenverhältnis des Bildes (PNG mit Transparenz möglich), XY-Ebene, schaut nach +Z. Für exakte Farben `"material": {"unlit": true}` |
-| `svg` | `svg` (SVG-Text direkt im Feld) **oder** `file` (SVG-Datei in `Bilder/`), `width` 1, `depth` 0 – **2D-Grafik**: jede Fläche und Kontur des SVG wird mit ihrer eigenen Farbe übernommen, mittig, XY-Ebene, schaut nach +Z. `depth` > 0 macht daraus ein 3D-Relief (Logos). Siehe „Cartoons und 2D“ |
+| `svg` | `svg` (SVG-Text direkt im Feld) **oder** `file` (SVG-Datei in `Bilder/`), `width` 1, `depth` 0, `mode` auto, `resolution` auto – **2D-Grafik**, mittig, XY-Ebene, schaut nach +Z. `mode`: `"vector"` = jede Fläche wird ein eigenes Flächenstück (in jeder Größe scharf, mit `depth` > 0 ein 3D-Relief), `"image"` = volle SVG-Darstellung wie in einem Grafikprogramm (Farbverläufe, `feGaussianBlur`-Schatten, Masken, Text mit Inter, Transparenz). `auto` wählt `image`, sobald das SVG Verläufe, Filter, Masken, Muster oder Text enthält. `resolution` = Pixel der langen Seite (Standard 400 pro Meter, 1024–4096). Siehe „Cartoons und 2D“ |
 | `model` | `file` (glTF/GLB-Datei im Ordner `Modelle/`) – **3D-Modell importieren** (z. B. von Sketchfab, Blender, KI-3D-Generatoren) mit eigenen Materialien und Texturen. Größe/Lage über `position`, `rotation`, `scale` |
 
 ## Cartoons und 2D
@@ -188,7 +195,13 @@ Farben werden dann automatisch exakt wiedergegeben (`look: "cartoon"`).
   `position` mit kleinem Auf und Ab. Ein `svg` dreht sich um seine Mitte. **Gelenke:** das Teil
   (Arm) in eine eigene `group` legen, die am Gelenk (Schulter) sitzt, den Arm darin so verschieben,
   dass die Schulter im Ursprung liegt, und die Gruppe mit `animate.rotation` (um z) drehen.
-- **Mischen:** 3D-Objekte dürfen in 2D-Szenen vorkommen (z. B. ein Logo mit `depth`).
+- **Detaillierte 2D-Figuren:** Farbverläufe für Rundungen (`radialGradient` mit hellem Lichtpunkt
+  oben links), weiche Schatten (`<filter><feGaussianBlur stdDeviation='3'/></filter>`), dunkle
+  Konturen (`stroke` 2–4, `stroke-linejoin='round'`), Glanzpunkte in den Augen, Wangenröte mit
+  halbtransparentem Verlauf. Mehrere Schichten: Schatten → Körper → Details → Lichter.
+- **2D und 3D mischen:** SVG-Figuren mit `"billboard": true` in eine 3D-Welt stellen (sie schauen
+  immer zur Kamera), 3D-Objekte mit `material.outline` bekommen gezeichnete Umrisse, `look: "cartoon"`
+  sorgt für exakte, kräftige Farben. Umgekehrt dürfen 3D-Objekte in 2D-Szenen vorkommen.
 - Beispiel: [`scenes/cartoon.json`](../scenes/cartoon.json)
 
 ## Einblendungen (`overlays`)
@@ -299,6 +312,26 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
 - `export_video` – die geöffnete Szene als MP4 bis 4K (`export_status` für Fortschritt)
 - `export_film` – der ganze Film: alle Storyboard-Shots (je `scene` + `duration`) hintereinander,
   mit harten Schnitten oder Abblenden (`transition: "fade"`)
+
+## Kino-Qualität (Pixar-/Disney-Look) – so geht's
+
+1. **Licht zuerst:** tiefe Sonne (`elevation` 8–25) für lange Schatten und warmes Licht, `sun.color`
+   leicht warm (`#ffe2c0`) am Abend, kühl (`#dfe8ff`) am Morgen; für Innenräume mehrere `point_light`
+   (Hauptlicht warm, Fülllicht schwach und kühl, Kantenlicht hinter der Figur).
+2. **Kamera wie im Film:** `fov` 30–40 (leichtes Tele wirkt edel), `dof` mit Fokus auf die
+   Hauptfigur und `aperture` 2–2.8, langsame Kamerafahrten mit `smooth_path` und `ease: in_out`,
+   `motion_blur` 0.5 bei schnellen Bewegungen.
+3. **Atmosphäre:** `fog` für Tiefe, `light_rays` 0.3–0.6 bei Gegenlicht, `bloom` 0.15–0.3 für
+   leuchtende Dinge, Partikel (Staub, Glühwürmchen) für Leben im Bild.
+4. **Formen weich und organisch:** `rounded` + `subdivide` für Figuren und alles Natürliche,
+   `rounded_box` für Gebautes, kleine Unregelmäßigkeiten (`noise` mit sehr kleinem `amount`).
+5. **Materialien:** wenig reines Weiß/Schwarz, Farben leicht entsättigt mit einem kräftigen
+   Akzent, Glanz über `roughness` (Haut 0.6, Lack 0.2 + `clearcoat`), Metall `metallic` 1.
+6. **Bewegung mit Charakter:** `out_back` (Überschwingen) und `out_bounce` (Abprallen) statt
+   linear, Vorbereitung vor großen Bewegungen (kurz zurück, dann los), nichts steht ganz still
+   (leichtes Atmen über `scale` 1 → 1.02).
+7. **Farbkorrektur zum Schluss:** `grade` mit `saturation` 1.1–1.2 und `vignette` 0.3.
+8. **Prüfen:** `contact_sheet` über die ganze Szene, Nahaufnahmen per `screenshot` mit `position`.
 
 ## Detaillierte Objekte bauen – Tipps
 
