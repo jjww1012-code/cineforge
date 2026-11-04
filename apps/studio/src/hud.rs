@@ -17,8 +17,7 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SceneStats>()
-            .add_systems(Startup, (install_font, setup).chain())
+        app.add_systems(Startup, (install_font, setup).chain())
             .add_systems(Update, (update_info, update_status, update_error, toggle, window_title));
     }
 }

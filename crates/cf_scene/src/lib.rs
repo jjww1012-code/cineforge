@@ -6,11 +6,13 @@
 //! gleichermaßen genutzt werden kann.
 
 pub mod color;
+pub mod library;
 pub mod model;
 pub mod modeling;
 pub mod noise;
 pub mod ops;
 pub mod project;
+pub mod textures;
 pub mod procedural;
 
 pub use color::Rgb;

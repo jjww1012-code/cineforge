@@ -165,10 +165,12 @@ pub struct Object {
     pub kind: Kind,
 }
 
-/// Wiederholung: Kopie i bekommt i-mal den Schritt (Verschiebung, Drehung,
-/// Skalierung) angewendet – im Koordinatensystem des Elternobjekts.
-/// Für Kreise: Objekt in eine Gruppe am Mittelpunkt legen, seitlich
-/// verschieben und `rotation` (z. B. [0, 30, 0]) als Schritt verwenden.
+/// Wiederholung: Kopie i bekommt i-mal den Schritt angewendet:
+/// um `pivot` drehen (`rotation`), skalieren (`scale`), dann um `offset` verschieben.
+///
+/// - Reihe: `offset: [2, 0, 0]`
+/// - Kreis (z. B. 12 Säulen, Radius 5): `pivot: [-5, 0, 0]`, `rotation: [0, 30, 0]`
+/// - Wendeltreppe: `pivot: [-1.5, 0, 0]`, `rotation: [0, 20, 0]`, `offset: [0, 0.2, 0]`
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Repeat {
@@ -179,6 +181,9 @@ pub struct Repeat {
     pub rotation: [f32; 3],
     #[serde(default = "one")]
     pub scale: f32,
+    /// Drehpunkt relativ zur Position des Objekts (Standard: das Objekt selbst).
+    #[serde(default)]
+    pub pivot: [f32; 3],
 }
 
 fn is_false(b: &bool) -> bool {

@@ -115,7 +115,9 @@ pub fn rounded_box(size: [f32; 3], radius: f32, segments: u32) -> MeshData {
                 ];
                 let n = norm(sub(p, c));
                 let pos = if r > 0.0 { add(c, mul(n, r)) } else { p };
-                let uv = [i as f32 / (us.len() - 1) as f32, j as f32 / (vs.len() - 1) as f32];
+                // UV in Metern, damit Muster auf allen Größen gleich groß wirken.
+                let _ = (i, j);
+                let uv = [u + h[ua], v + h[va]];
                 push_vertex(&mut m, pos, n, uv);
             }
         }
@@ -196,8 +198,8 @@ fn prism(
     let (min, max) = all.iter().fold(([f32::MAX; 2], [f32::MIN; 2]), |(lo, hi), p| {
         ([lo[0].min(p[0]), lo[1].min(p[1])], [hi[0].max(p[0]), hi[1].max(p[1])])
     });
-    let ext = [(max[0] - min[0]).max(1e-6), (max[1] - min[1]).max(1e-6)];
-    let cap_uv = |p: [f32; 2]| [(p[0] - min[0]) / ext[0], (p[1] - min[1]) / ext[1]];
+    let _ = max;
+    let cap_uv = |p: [f32; 2]| [p[0] - min[0], p[1] - min[1]];
     let down = mul(up, -1.0);
     let has_top = top_scale > 1e-4;
     for t in tris.chunks(3) {
@@ -216,13 +218,7 @@ fn prism(
         // Normale zeigt vom Material weg: außen beim Umriss, ins Loch hinein bei Löchern.
         let sign = if ccw != is_hole { 1.0 } else { -1.0 };
         let mut along = 0.0;
-        let perimeter: f32 = (0..ring.len())
-            .map(|i| {
-                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
-                ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt()
-            })
-            .sum::<f32>()
-            .max(1e-6);
+        let wall = (w1 - w0).abs();
         for i in 0..ring.len() {
             let a = ring[i];
             let b = ring[(i + 1) % ring.len()];
@@ -230,15 +226,15 @@ fn prism(
             let seg_len = (du * du + dv * dv).sqrt();
             let out2 = [sign * dv, -sign * du];
             let outward = sub(map(out2[0], out2[1], 0.0), map(0.0, 0.0, 0.0));
-            let (u0, u1) = (along / perimeter, (along + seg_len) / perimeter);
+            let (u0, u1) = (along, along + seg_len);
             along += seg_len;
             let a0 = map(a[0], a[1], w0);
             let b0 = map(b[0], b[1], w0);
             let a1 = map(a[0] * top_scale, a[1] * top_scale, w1);
             let b1 = map(b[0] * top_scale, b[1] * top_scale, w1);
-            push_tri(m, [a0, b0, b1], [[u0, 0.0], [u1, 0.0], [u1, 1.0]], outward);
+            push_tri(m, [a0, b0, b1], [[u0, 0.0], [u1, 0.0], [u1, wall]], outward);
             if has_top {
-                push_tri(m, [a0, b1, a1], [[u0, 0.0], [u1, 1.0], [u0, 1.0]], outward);
+                push_tri(m, [a0, b1, a1], [[u0, 0.0], [u1, wall], [u0, wall]], outward);
             }
         }
     }
@@ -292,6 +288,7 @@ pub fn lathe(spec: &LatheSpec) -> MeshData {
         .map(|w| ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2)).sqrt())
         .sum::<f32>()
         .max(1e-6);
+    let rmax = prof.iter().map(|q| q[0]).fold(0.0f32, f32::max).max(1e-3);
     let mut along = 0.0;
     for i in 0..n - 1 {
         // Weiche Übergänge nur bei flachen Knicken (< 35°), sonst scharfe Kante.
@@ -314,7 +311,8 @@ pub fn lathe(spec: &LatheSpec) -> MeshData {
         let n_start = smooth_with(i.checked_sub(1));
         let n_end = smooth_with(if i + 1 < n - 1 { Some(i + 1) } else { None });
         let seg_len = ((prof[i + 1][0] - prof[i][0]).powi(2) + (prof[i + 1][1] - prof[i][1]).powi(2)).sqrt();
-        let (v0, v1) = (along / total_len, (along + seg_len) / total_len);
+        let _ = total_len;
+        let (v0, v1) = (along, along + seg_len);
         along += seg_len;
         let start = m.positions.len() as u32;
         for (p, nn, v) in [(prof[i], n_start, v0), (prof[i + 1], n_end, v1)] {
@@ -322,7 +320,7 @@ pub fn lathe(spec: &LatheSpec) -> MeshData {
                 let t = c as f32 / segs as f32;
                 let a = t * angle;
                 let (s, co) = a.sin_cos();
-                push_vertex(&mut m, [p[0] * co, p[1], -p[0] * s], norm([nn[0] * co, nn[1], -nn[0] * s]), [t, v]);
+                push_vertex(&mut m, [p[0] * co, p[1], -p[0] * s], norm([nn[0] * co, nn[1], -nn[0] * s]), [t * angle * rmax, v]);
             }
         }
         let row = segs as u32 + 1;
@@ -428,7 +426,7 @@ pub fn tube(spec: &TubeSpec) -> MeshData {
         for k in 0..=segs {
             let a = k as f32 / segs as f32 * std::f32::consts::TAU;
             let dir = add(mul(nrm, a.cos()), mul(bin, a.sin()));
-            push_vertex(&mut m, add(path[pi], mul(dir, r)), dir, [k as f32 / segs as f32, d / total]);
+            push_vertex(&mut m, add(path[pi], mul(dir, r)), dir, [k as f32 / segs as f32 * std::f32::consts::TAU * r0, d]);
         }
     }
     let w = segs as u32 + 1;

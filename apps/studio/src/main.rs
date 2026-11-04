@@ -13,6 +13,7 @@ mod cli;
 mod control;
 mod environment;
 mod hud;
+mod library;
 mod project;
 mod source;
 mod spawn;

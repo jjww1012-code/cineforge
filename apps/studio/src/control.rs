@@ -74,6 +74,7 @@ fn process_calls(
     mut status: ResMut<ControlStatus>,
     mut src: ResMut<SceneSource>,
     mut project: ResMut<ActiveProject>,
+    mut library: ResMut<crate::library::Library>,
     mut out: MessageWriter<SceneLoaded>,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
@@ -90,6 +91,7 @@ fn process_calls(
         let mut cx = tools::Ctx {
             src: &mut src,
             project: &mut project,
+            library: &mut library,
             out: &mut out,
             commands: &mut commands,
             images: &mut images,

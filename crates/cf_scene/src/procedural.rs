@@ -97,8 +97,8 @@ pub fn terrain_mesh(spec: &TerrainSpec) -> MeshData {
             let z = (fz - 0.5) * d;
             m.positions.push([x, hf.height(x, z), z]);
             m.normals.push(hf.normal(x, z, eps));
-            // UV in Metern / 4 ⇒ Texturen wiederholen sich alle 4 m.
-            m.uvs.push([x / 4.0, z / 4.0]);
+            // UV in Metern (wie bei allen anderen Formen).
+            m.uvs.push([x, z]);
         }
     }
     m.indices.reserve(((n - 1) * (n - 1) * 6) as usize);

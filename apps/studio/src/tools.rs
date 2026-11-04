@@ -184,6 +184,32 @@ pub fn definitions() -> Value {
             "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
         },
         {
+            "name": "save_asset",
+            "description": "Speichert ein Objekt (meist eine Gruppe aus vielen Teilen) in der Bibliothek, damit es in allen Szenen per {\"type\":\"instance\",\"asset\":NAME} wiederverwendet werden kann – z. B. Hauptfiguren, Fahrzeuge, Gebäude. Entweder object (Definition) oder from_id (Objekt aus der geöffneten Szene; mit replace_with_instance wird es dort gleich durch eine Instanz ersetzt). Ursprung des Objekts = Bezugspunkt (am besten unten in der Mitte). global: true speichert projektübergreifend.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "object": obj,
+                    "from_id": {"type": "string"},
+                    "replace_with_instance": {"type": "boolean"},
+                    "global": {"type": "boolean"}
+                },
+                "required": ["name"]
+            }
+        },
+        {
+            "name": "list_assets",
+            "description": "Listet die Objekte der Bibliothek (Projekt und global) mit Beschreibung und ungefährer Größe.",
+            "inputSchema": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "get_asset",
+            "description": "Liefert die Definition eines Bibliotheks-Objekts (zum Ansehen oder als Vorlage für Varianten).",
+            "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
+        },
+        {
             "name": "resume",
             "description": "Zeigt den kompletten Stand des aktuellen Projekts zum Weitermachen: Ziel, Stil, Storyboard mit Status, offene Aufgaben, Notizen, letzte Aktionen, nächster Schritt und die geöffnete Szene. Zu Beginn JEDER Unterhaltung aufrufen.",
             "inputSchema": {"type": "object", "properties": {}}
@@ -265,6 +291,7 @@ impl Plugin for ToolsPlugin {
 pub struct Ctx<'a, 'm, 'w, 's> {
     pub src: &'a mut SceneSource,
     pub project: &'a mut ActiveProject,
+    pub library: &'a mut crate::library::Library,
     pub out: &'a mut MessageWriter<'m, SceneLoaded>,
     pub commands: &'a mut Commands<'w, 's>,
     pub images: &'a mut Assets<Image>,
@@ -338,6 +365,11 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     };
 
     if let Some(result) = mutation {
+        // Alle Bibliotheks-Verweise müssen auflösbar sein, bevor übernommen wird.
+        let result = result.and_then(|scene| {
+            cx.library.check(cx.project, &scene.objects)?;
+            Ok(scene)
+        });
         let reply = match result.and_then(|scene| cx.src.commit(scene, cx.out)) {
             Ok(()) => {
                 cx.project.log("claude", format!("[{scene_file}] {}", describe(&call.name, a)));
@@ -434,6 +466,33 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             None => ToolOutput::error("name fehlt"),
         },
         "new_scene" => new_scene(a, cx),
+        "save_asset" => save_asset(a, cx),
+        "list_assets" => {
+            let list = crate::library::Library::list(cx.project);
+            if list.is_empty() {
+                ToolOutput::text("Die Bibliothek ist leer. Objekte mit save_asset speichern.")
+            } else {
+                let lines: Vec<String> = list
+                    .iter()
+                    .map(|a| {
+                        let size = a
+                            .extent
+                            .map(|(lo, hi)| format!(" · ca. {:.1}×{:.1}×{:.1} m", hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]))
+                            .unwrap_or_default();
+                        format!("- {} ({}){size}: {}", a.name, a.scope, a.description)
+                    })
+                    .collect();
+                ToolOutput::text(format!(
+                    "Bibliothek (Verwendung: {{\"id\":\"…\",\"type\":\"instance\",\"asset\":\"NAME\",\"position\":[…]}}):\n{}",
+                    lines.join("\n")
+                ))
+            }
+        }
+        "get_asset" => match str_arg("name").map(|n| cx.library.load(cx.project, n)) {
+            Some(Ok(asset)) => ToolOutput::text(asset.to_json_pretty()),
+            Some(Err(e)) => ToolOutput::error(e),
+            None => ToolOutput::error("name fehlt"),
+        },
         "screenshot" => {
             start_capture(call, cx);
             return;
@@ -441,6 +500,54 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         other => ToolOutput::error(format!("Unbekanntes Werkzeug: {other}")),
     };
     let _ = call.reply.send(reply);
+}
+
+fn save_asset(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    let name = match a.get("name").and_then(Value::as_str).map(safe_name) {
+        Some(Ok(n)) => n,
+        Some(Err(e)) => return ToolOutput::error(e),
+        None => return ToolOutput::error("name fehlt"),
+    };
+    let from_id = a.get("from_id").and_then(Value::as_str);
+    let mut object: cf_scene::Object = match (a.get("object"), from_id) {
+        (Some(v), _) => match serde_json::from_value(v.clone()) {
+            Ok(o) => o,
+            Err(e) => return ToolOutput::error(format!("Ungültiges Objekt: {e}")),
+        },
+        (None, Some(id)) => match cx.src.scene.find(id) {
+            Some(o) => o.clone(),
+            None => return ToolOutput::error(format!("Kein Objekt mit id \"{id}\" in der Szene")),
+        },
+        (None, None) => return ToolOutput::error("object oder from_id angeben"),
+    };
+    // Bezugspunkt: Ursprung des Objekts; Position/Drehung gehören zur Platzierung, nicht zum Objekt.
+    let placed_at = (object.position, object.rotation);
+    object.position = [0.0; 3];
+    object.rotation = [0.0; 3];
+    let asset = cf_scene::library::AssetFile {
+        name: name.clone(),
+        description: a.get("description").and_then(Value::as_str).unwrap_or("").to_string(),
+        object,
+    };
+    let global = a.get("global").and_then(Value::as_bool).unwrap_or(false);
+    let path = match cx.library.save(cx.project, &asset, global) {
+        Ok(p) => p,
+        Err(e) => return ToolOutput::error(e),
+    };
+    cx.project.log("claude", format!("Bibliothek: \"{name}\" gespeichert"));
+    let mut msg = format!("✓ \"{name}\" in der Bibliothek gespeichert: {}", path.display());
+    // Optional: Original in der Szene durch eine Instanz ersetzen.
+    if let (Some(id), true) = (from_id, a.get("replace_with_instance").and_then(Value::as_bool).unwrap_or(false)) {
+        let inst = json!({"id": id, "type": "instance", "asset": name, "position": placed_at.0, "rotation": placed_at.1});
+        match ops::upsert_objects(&cx.src.scene, &[inst], None).and_then(|s| cx.src.commit(s, cx.out)) {
+            Ok(()) => msg.push_str(&format!("\n„{id}“ in der Szene ist jetzt eine Instanz davon.")),
+            Err(e) => msg.push_str(&format!("\nErsetzen in der Szene fehlgeschlagen: {e}")),
+        }
+    }
+    msg.push_str(&format!(
+        "\nVerwenden: {{\"id\":\"…\",\"type\":\"instance\",\"asset\":\"{name}\",\"position\":[x,y,z]}}"
+    ));
+    ToolOutput::text(msg)
 }
 
 fn resume_text(cx: &Ctx) -> String {

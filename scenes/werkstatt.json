@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "name": "Modellier-Werkstatt",
+  "description": "Vorführung der Modellier-Werkzeuge: 3D-Schrift, Säulenreihe (lathe + repeat), Glasvase, Ziegelmauer mit Struktur, Rohrleitung (tube), Stern mit Loch (extrude), abgerundete Kisten mit Holz- und Marmor-Muster.",
+  "environment": {
+    "sky": { "type": "atmosphere" },
+    "sun": { "azimuth": 210, "elevation": 28, "intensity": 1.0, "shadows": true },
+    "ambient": 0.8,
+    "exposure": 0.3,
+    "bloom": 0.15
+  },
+  "camera": { "position": [0, 5.5, 17], "look_at": [0, 2.2, 0], "fov": 45 },
+  "objects": [
+    {
+      "id": "boden", "type": "box", "size": [400, 0.2, 400], "position": [0, -0.1, 0],
+      "material": { "color": "#d8d2c4", "roughness": 0.85, "pattern": { "type": "checker", "color2": "#8f8778", "scale": 0.5 } }
+    },
+    {
+      "id": "titel", "type": "text", "text": "CineForge", "size": 1.6, "depth": 0.35,
+      "position": [0, 4.6, -3],
+      "material": { "color": "#ffb347", "metallic": 1.0, "roughness": 0.25, "clearcoat": 0.6 }
+    },
+    {
+      "id": "mauer", "type": "box", "size": [16, 4, 0.6], "position": [0, 2, -6],
+      "material": { "color": "#a4553a", "roughness": 0.9,
+        "pattern": { "type": "bricks", "color2": "#cfc6b8", "scale": 0.5, "bump": 0.8, "seed": 4 } }
+    },
+    {
+      "id": "saeulen", "type": "group", "position": [-7, 0, -3.5],
+      "children": [
+        {
+          "id": "saeule", "type": "lathe",
+          "profile": [[0.0, 0.0], [0.55, 0.0], [0.55, 0.25], [0.4, 0.35], [0.35, 3.2], [0.45, 3.35], [0.6, 3.45], [0.6, 3.6], [0.0, 3.6]],
+          "segments": 40,
+          "repeat": { "count": 4, "offset": [0, 0, 2.2] },
+          "position": [0, 0, -1.2],
+          "material": { "color": "#f1ece2", "roughness": 0.4, "pattern": { "type": "marble", "color2": "#9a9a9a", "scale": 0.6, "seed": 2 } }
+        }
+      ]
+    },
+    {
+      "id": "vase", "type": "lathe",
+      "profile": [[0.0, 0.02], [0.45, 0.02], [0.7, 0.5], [0.6, 1.2], [0.3, 1.7], [0.35, 2.1]],
+      "segments": 64, "position": [-2.8, 0, 2.5],
+      "material": { "color": "#bfe8ff", "roughness": 0.05, "transmission": 0.9, "ior": 1.5, "double_sided": true }
+    },
+    {
+      "id": "kiste_holz", "type": "rounded_box", "size": [1.6, 1.2, 1.2], "radius": 0.12, "position": [2.6, 0.6, 2.8], "rotation": [0, 20, 0],
+      "material": { "color": "#c08850", "roughness": 0.6, "pattern": { "type": "wood", "color2": "#6e4120", "scale": 0.8, "bump": 0.3 } }
+    },
+    {
+      "id": "kiste_klein", "type": "rounded_box", "size": [0.8, 0.8, 0.8], "radius": 0.2, "position": [2.4, 1.6, 2.7], "rotation": [0, -15, 0],
+      "material": { "color": "#2d6cdf", "roughness": 0.3, "clearcoat": 1.0 }
+    },
+    {
+      "id": "stern", "type": "extrude",
+      "profile": [[0, 1.2], [0.33, 0.45], [1.14, 0.37], [0.53, -0.17], [0.71, -0.97], [0, -0.55], [-0.71, -0.97], [-0.53, -0.17], [-1.14, 0.37], [-0.33, 0.45]],
+      "holes": [[[0, 0.3], [0.25, 0], [0, -0.3], [-0.25, 0]]],
+      "height": 0.3, "position": [0, 1.25, 3.2], "rotation": [90, 0, 0],
+      "material": { "color": "#ffd23f", "emissive": "#ffb000", "emissive_strength": 3, "roughness": 0.3, "metallic": 0.6 }
+    },
+    {
+      "id": "rohr", "type": "tube",
+      "path": [[6.5, 0.3, -5.6], [6.5, 3.0, -5.6], [5.0, 3.6, -4.5], [4.5, 1.0, -2.0], [6.0, 0.3, 0.5]],
+      "radius": 0.18, "segments": 20,
+      "material": { "color": "#b87333", "metallic": 1.0, "roughness": 0.3 }
+    },
+    {
+      "id": "kabel", "type": "tube",
+      "path": [[-1.5, 0.05, 4.5], [0.5, 0.05, 5.5], [2.0, 0.05, 4.0], [3.5, 0.05, 5.2]],
+      "radius": 0.04, "segments": 10,
+      "material": { "color": "#1a1a1a", "roughness": 0.5 }
+    },
+    {
+      "id": "kugeln", "type": "sphere", "radius": 0.25, "position": [5.2, 0.25, 3.5],
+      "repeat": { "count": 8, "offset": [0, 0.42, 0], "rotation": [0, 45, 0], "pivot": [-0.6, 0, 0], "scale": 0.93 },
+      "material": { "color": "#e63946", "roughness": 0.2, "clearcoat": 1.0 }
+    }
+  ]
+}

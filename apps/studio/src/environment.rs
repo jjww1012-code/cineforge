@@ -127,6 +127,8 @@ pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
     let env = &scene.environment;
     cam.insert((
         Tonemapping::AgX,
+        // Für Glas/Wasser (Material transmission); in Bevy 0.20 muss das pro Kamera aktiviert werden.
+        bevy::pbr::ScreenSpaceTransmission::default(),
         Projection::Perspective(PerspectiveProjection {
             fov: scene.camera.fov.clamp(5.0, 150.0).to_radians(),
             near: 0.1,
