@@ -20,6 +20,18 @@ fehler() { printf '\n\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
 [ "$(uname -s)" = "Darwin" ] || fehler "Dieses Skript ist für macOS."
 [ -f Cargo.toml ] && [ -d apps/studio ] || fehler "Bitte im CineForge-Projektordner ausführen."
 
+# Eigener Zwischenspeicher (auch für temporäre Dateien – der System-Temp-Ordner machte Probleme)
+CACHE="$HOME/Library/Caches/CineForge-Bau"
+mkdir -p "$CACHE/tmp"
+export TMPDIR="$CACHE/tmp"
+
+# Genug Platz? Rust + Bau brauchen zusammen etwa 8 GB.
+FREI_GB=$(df -g "$HOME" | awk 'NR==2 {print $4}')
+echo "Freier Speicher: ${FREI_GB} GB"
+if [ "${FREI_GB:-0}" -lt 8 ]; then
+  fehler "Zu wenig Speicherplatz (${FREI_GB} GB frei, gebraucht werden etwa 8 GB). Bitte Platz schaffen – z. B. Papierkorb leeren, große Downloads löschen (Systemeinstellungen → Allgemein → Speicher) – und dann die Zeile noch einmal ausführen."
+fi
+
 schritt "1/4 Apples Entwickler-Werkzeuge"
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "Es öffnet sich gleich ein Fenster von Apple – bitte auf „Installieren“ klicken."
@@ -35,8 +47,13 @@ if [ -f "$HOME/.cargo/env" ]; then
   . "$HOME/.cargo/env"
 fi
 if ! command -v rustup >/dev/null 2>&1; then
-  echo "Rust wird installiert (einmalig) …"
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+  echo "Rust wird installiert (einmalig, etwa 1–2 Minuten) …"
+  # Installer direkt in unseren Zwischenspeicher laden (nicht in den System-Temp-Ordner)
+  curl --proto '=https' --tlsv1.2 -fL --retry 3 -o "$CACHE/rustup-init" \
+    "https://static.rust-lang.org/rustup/dist/$(uname -m | sed 's/arm64/aarch64/')-apple-darwin/rustup-init" \
+    || fehler "Rust konnte nicht heruntergeladen werden. Internetverbindung und freien Speicher prüfen, dann erneut versuchen."
+  chmod +x "$CACHE/rustup-init"
+  "$CACHE/rustup-init" -y --profile minimal --no-modify-path >/dev/null || fehler "Rust-Installation fehlgeschlagen."
   # shellcheck disable=SC1091
   . "$HOME/.cargo/env"
 fi
@@ -46,8 +63,6 @@ echo "✓ $(rustc --version)"
 
 schritt "3/4 CineForge bauen (beim ersten Mal 10–20 Minuten – Zeit für einen Kaffee)"
 # Fester Zwischenspeicher: nach einem Update (neue ZIP) wird nur Geändertes neu gebaut
-CACHE="$HOME/Library/Caches/CineForge-Bau"
-mkdir -p "$CACHE"
 export CARGO_TARGET_DIR="$CACHE/target"
 cargo build --release -p cineforge-studio
 
