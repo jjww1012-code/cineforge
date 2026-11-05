@@ -155,6 +155,10 @@ fn object_fingerprint(o: &Object, scene: &Scene, project: &ActiveProject, librar
             if let Some(tk) = &c.talk {
                 file(crate::media::AUDIO, &tk.audio, key);
             }
+            // Blickziel: ändert sich dessen Position, muss die Figur neu gebaut werden
+            if let Some(t) = &c.look_at {
+                key.push_str(&format!("{:?}", cf_scene::motion::world_position(scene, t, 0.0)));
+            }
         }
         match &o.kind {
             Kind::Group { children } => {
@@ -592,7 +596,19 @@ impl Builder<'_, '_, '_> {
             }
             Kind::Character(spec) => {
                 // Figur als Gruppe aus Grundformen; Teile heißen „<id>/…“ (Klick wählt die Figur).
-                let figure = cf_scene::character::build(o, spec);
+                let look_yaw = spec
+                    .look_at
+                    .as_ref()
+                    .and_then(|target| {
+                        let me = cf_scene::motion::world_position(self.scene, &o.id, 0.0)?;
+                        let other = cf_scene::motion::world_position(self.scene, target, 0.0)?;
+                        let (dx, dz) = (other[0] - me[0], other[2] - me[2]);
+                        let world = dx.atan2(dz).to_degrees();
+                        let (_, rot, _) = cf_scene::motion::local_state(o, 0.0);
+                        Some(((world - rot[1] + 540.0) % 360.0) - 180.0)
+                    })
+                    .unwrap_or(0.0);
+                let figure = cf_scene::character::build_looking(o, spec, look_yaw);
                 let child_prefix = format!("{full_id}/");
                 self.spawn_object(&figure, entity, mat_override, depth + 1, &child_prefix);
             }

@@ -1037,6 +1037,19 @@ impl Scene {
                 problems.push(format!("camera: Objekt „{id}“ gibt es nicht"));
             }
         }
+        let mut look_targets = Vec::new();
+        self.walk(&mut |o| {
+            if let Kind::Character(c) = &o.kind {
+                if let Some(t) = &c.look_at {
+                    look_targets.push((o.id.clone(), t.clone()));
+                }
+            }
+        });
+        for (who, t) in look_targets {
+            if crate::ops::find(self, &t).is_none() {
+                problems.push(format!("\"{who}\": look_at „{t}“ gibt es nicht"));
+            }
+        }
         if let Some(o) = &self.camera.orbit {
             if o.target.is_none() && o.center.is_none() {
                 problems.push("camera.orbit: target (id) oder center angeben".into());

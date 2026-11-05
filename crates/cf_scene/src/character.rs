@@ -148,6 +148,9 @@ pub struct CharacterSpec {
     /// Beim Laufen auf einem `path` die Beine automatisch bewegen (Standard an).
     #[serde(default = "yes")]
     pub auto_walk: bool,
+    /// Zu diesem Objekt schauen (Kopf und Oberkörper drehen sich hin), z. B. zum Gesprächspartner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub look_at: Option<String>,
 }
 
 impl CharacterSpec {
@@ -315,6 +318,12 @@ fn total_pose(actions: &[(ActionKind, f32, f32, f32)], t: f32) -> Pose {
 
 /// Baut die Figur als Gruppe (Kinder-ids: `<id>_…`). `obj` = das Szenen-Objekt (für `path`).
 pub fn build(obj: &Object, spec: &CharacterSpec) -> Object {
+    build_looking(obj, spec, 0.0)
+}
+
+/// Wie [`build`], mit Blickrichtung: `look_yaw` = Winkel (Grad) vom Körper zum Ziel.
+pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Object {
+    let look = look_yaw.clamp(-80.0, 80.0);
     let u = spec.height / 1.2; // Maßstab: Entwurf für 1,2 m
     let bw = match spec.build {
         Build::Slim => 0.85,
@@ -354,7 +363,15 @@ pub fn build(obj: &Object, spec: &CharacterSpec) -> Object {
     let fps = 15.0;
     let n = if acts.is_empty() { 0 } else { (t_end * fps).ceil() as usize + 1 };
     let times: Vec<f32> = (0..n).map(|i| i as f32 / fps).collect();
-    let poses: Vec<Pose> = times.iter().map(|&t| total_pose(&acts, t)).collect();
+    let poses: Vec<Pose> = times
+        .iter()
+        .map(|&t| {
+            let mut p = total_pose(&acts, t);
+            p.head[1] += look * 0.7;
+            p.hip_rot_y += look * 0.3;
+            p
+        })
+        .collect();
     let keys3 = |f: &dyn Fn(&Pose) -> [f32; 3]| -> Value {
         Value::Array(times.iter().zip(&poses).map(|(t, p)| json!({"t": t, "v": f(p), "ease": "linear"})).collect())
     };
@@ -473,6 +490,7 @@ pub fn build(obj: &Object, spec: &CharacterSpec) -> Object {
     }
     let head_y = 0.75 * u; // Hals-Gelenk
     let head = json!({"id": format!("{id}_kopf"), "type": "group", "position": [0.0, head_y, 0.0],
+        "rotation": [0.0, if n == 0 { look * 0.7 } else { 0.0 }, 0.0],
         "animate": anim_rot(&|p: &Pose| p.head),
         "children": [{"id": format!("{id}_kopf_mitte"), "type": "group", "position": [0.0, hr * 0.92, 0.0], "children": head_children}]});
 
@@ -516,6 +534,7 @@ pub fn build(obj: &Object, spec: &CharacterSpec) -> Object {
         })
     };
     let hips = json!({"id": format!("{id}_huefte"), "type": "group", "position": [0.0, hip_y, 0.0], "animate": hip_anim,
+        "rotation": [0.0, if n == 0 { look * 0.3 } else { 0.0 }, 0.0],
         "children": [leg(-1.0), leg(1.0), belly, torso, neck, arm(-1.0), arm(1.0), head_rel]});
     let root = json!({"id": format!("{id}_figur"), "type": "group", "children": [hips]});
     let mut v = root;

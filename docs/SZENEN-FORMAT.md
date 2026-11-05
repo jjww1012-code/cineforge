@@ -214,6 +214,7 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 | `blink` | true | Blinzeln |
 | `talk` | – | Lippen-Sync wie `animate.talk` (WAV aus `Audio/`) |
 | `actions` | – | `idle`, `walk`, `run`, `wave`, `jump`, `cheer`, `dance`, `point`, `nod`, `shake_head`, `talk` (Gesten beim Sprechen), `sit`, `think` – je mit `start`, `end`, `speed` |
+| `look_at` | – | Kopf und Oberkörper drehen sich zu diesem Objekt (z. B. Gesprächspartner) |
 | `auto_walk` | true | Läuft die Figur einen `animate.path` entlang, bewegen sich Beine und Arme automatisch im passenden Tempo (schnell ⇒ rennen) |
 
 **Dialoge in einem Schritt:** Werkzeug `dialogue` mit
