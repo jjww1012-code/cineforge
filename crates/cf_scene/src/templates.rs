@@ -14,6 +14,9 @@ pub const TEMPLATES: &[(&str, &str)] = &[
     ("weltraum", "Weltraum mit Sternen, Planet und Mond"),
     ("zimmer", "Gemütliches Zimmer mit Fenster, Tisch, Stühlen und Lampe"),
     ("cartoon_2d", "2D-Zeichentrick: 2D-Kamera, gemalter Hintergrund mit Himmel und Hügeln"),
+    ("schloss", "Märchenschloss mit Türmen und Fahnen auf einem Hügel im goldenen Abendlicht"),
+    ("unterwasser", "Unterwasserwelt mit Sand, Korallen, Seegras, Fischen und Lichtstrahlen"),
+    ("stadt", "Straße in einer bunten Stadt mit Häusern, Autos, Laternen und Bäumen"),
 ];
 
 fn base(name: &str, desc: &str) -> Value {
@@ -150,6 +153,84 @@ pub fn template(name: &str) -> Option<Value> {
             s["objects"] = json!([
                 {"id": "hintergrund", "type": "svg", "width": 18, "position": [0, 2.5, -3], "svg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 700'><defs><linearGradient id='h' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#7cc8ff'/><stop offset='1' stop-color='#d8f0ff'/></linearGradient></defs><rect width='1600' height='700' fill='url(#h)'/><circle cx='1320' cy='150' r='80' fill='#ffe066'/><path d='M0 500 Q 300 380 600 480 T 1200 460 T 1600 470 L1600 700 L0 700 Z' fill='#6cc46a'/><path d='M0 600 Q 400 520 800 600 T 1600 590 L1600 700 L0 700 Z' fill='#4aa04a'/></svg>"}
             ]);
+            s
+        }
+        "schloss" => {
+            let mut s = base("Schloss", "Märchenschloss im Abendlicht.");
+            s["environment"] = json!({"sun": {"azimuth": 250, "elevation": 12, "color": "#ffd29a"}, "fog": {"visibility": 400, "color": "#f2d6b8"}, "light_rays": 0.4, "bloom": 0.25, "grade": {"saturation": 1.15, "vignette": 0.3}});
+            s["camera"] = json!({"position": [0, 3, 34], "look_at": [0, 8, 0], "fov": 40});
+            let stone = json!({"color": "#e9e2d6", "roughness": 0.85, "pattern": {"type": "bricks", "color2": "#cfc6b8", "scale": 0.8, "bump": 0.5}});
+            let roof = json!({"color": "#3b6fd1", "roughness": 0.5});
+            let mut objs = vec![
+                json!({"id": "huegel", "type": "terrain", "size": [300, 300], "resolution": 160, "height": 5, "style": "hills", "feature_size": 60, "flat_center_radius": 20, "material": {"color": "#6fb04f"}}),
+                json!({"id": "bergfried", "type": "rounded_box", "size": [8, 16, 8], "radius": 0.3, "position": [0, 8, -4], "material": stone}),
+                json!({"id": "bergfried_dach", "type": "cone", "radius": 5.2, "height": 7, "position": [0, 19.5, -4], "material": roof}),
+                json!({"id": "mauer_vorne", "type": "box", "size": [18, 6, 1.2], "position": [0, 3, 4], "material": stone}),
+                json!({"id": "zinnen", "type": "box", "size": [0.8, 0.9, 1.2], "position": [-8.6, 6.45, 4], "repeat": {"count": 12, "offset": [1.56, 0, 0]}, "material": stone}),
+                json!({"id": "tor", "type": "rounded_box", "size": [3.2, 4.2, 0.4], "radius": 0.2, "position": [0, 2.1, 4.65], "material": {"color": "#5b3a1e", "roughness": 0.8, "pattern": {"type": "wood", "color2": "#4a2f17", "scale": 1.5}}}),
+                json!({"id": "fenster", "type": "rounded_box", "size": [1.2, 2, 0.2], "radius": 0.1, "position": [-2, 12, 0.05], "repeat": {"count": 3, "offset": [2, 0, 0]}, "material": {"color": "#ffd77a", "emissive": "#ffc45a", "emissive_strength": 15}})
+            ];
+            for (i, (x, z)) in [(-9.0, 4.0), (9.0, 4.0), (-7.0, -9.0), (7.0, -9.0)].iter().enumerate() {
+                objs.push(json!({"id": format!("turm_{i}"), "type": "cylinder", "radius": 2.2, "height": 13, "position": [x, 6.5, z], "material": stone}));
+                objs.push(json!({"id": format!("turmdach_{i}"), "type": "cone", "radius": 2.8, "height": 5.5, "position": [x, 15.75, z], "material": roof}));
+                objs.push(json!({"id": format!("fahne_{i}"), "type": "box", "size": [1.4, 0.8, 0.04], "position": [x + 0.75, 19.3, z], "subdivide": 3, "deform": [{"type": "wave", "amplitude": 0.08, "wavelength": 0.9, "axis": "x"}], "material": {"color": "#e63946", "double_sided": true}}));
+                objs.push(json!({"id": format!("fahnenmast_{i}"), "type": "cylinder", "radius": 0.05, "height": 2.2, "position": [x, 19.6, z], "material": {"color": "#555555", "metallic": 1}}));
+            }
+            objs.push(json!({"id": "baeume", "type": "scatter", "count": 40, "area": [160, 100], "position": [0, 0, 40], "seed": 9, "on_terrain": "huegel", "keep_clear_radius": 30, "shape": {"type": "tree", "kind": "oak", "height": 7, "wind": 0.2}}));
+            s["objects"] = Value::Array(objs);
+            s
+        }
+        "unterwasser" => {
+            let mut s = base("Unterwasser", "Unterwasserwelt mit Korallen und Fischen.");
+            s["environment"] = json!({"sky": {"type": "color", "color": "#0a4f78"}, "sun": {"azimuth": 180, "elevation": 70, "color": "#bfe9ff", "intensity": 0.8}, "fog": {"visibility": 45, "color": "#0e6a96"}, "ambient": 1.1, "light_rays": 0.9, "bloom": 0.3, "grade": {"saturation": 1.15, "vignette": 0.35}});
+            s["camera"] = json!({"position": [0, 2, 10], "look_at": [0, 1.5, 0], "fov": 50});
+            let mut objs = vec![
+                json!({"id": "meeresboden", "type": "terrain", "size": [120, 120], "resolution": 128, "height": 1.5, "style": "dunes", "feature_size": 12, "flat_center_radius": 5, "material": {"color": "#e3c890", "pattern": {"type": "noise", "color2": "#d2b47a", "scale": 1.0, "bump": 0.4}}}),
+                json!({"id": "fels_1", "type": "instance", "asset": "felsen", "position": [-4, 0, -2], "scale": 2}),
+                json!({"id": "fels_2", "type": "instance", "asset": "felsen", "position": [5, 0, -4], "scale": 2.5}),
+                json!({"id": "blasen", "type": "particles", "preset": "magic", "position": [0, 0.5, 0], "area": [14, 1, 10], "color_start": "#e8f8ff", "color_end": "#bfe9ff", "gravity": [0, 0.6, 0]})
+            ];
+            for (i, (x, z, c)) in [(-2.5, 1.0, "#ff6f61"), (2.0, 0.0, "#ffb84d"), (-5.5, -5.0, "#c86bfa"), (6.0, -1.0, "#ff8fb1"), (0.5, -6.0, "#4dd0e1")].iter().enumerate() {
+                objs.push(json!({"id": format!("koralle_{i}"), "type": "sphere", "radius": 0.7, "position": [x, 0.5, z], "subdivide": 2, "deform": [{"type": "noise", "amount": 0.3, "scale": 3.5, "octaves": 3, "seed": i}], "scale": [1, 1.3, 1], "material": {"color": c, "roughness": 0.7}}));
+            }
+            for i in 0..8 {
+                let x = -6.0 + i as f32 * 1.7;
+                objs.push(json!({"id": format!("seegras_{i}"), "type": "tube", "radius": 0.08, "radius_end": 0.02, "path": [[x, 0, -3.0 - (i % 3) as f32], [x + 0.3, 1.2, -3.0 - (i % 3) as f32], [x - 0.2, 2.4, -3.0 - (i % 3) as f32]],
+                    "material": {"color": "#2f9e44"}, "animate": {"rotation": [{"t": 0, "v": [0, 0, -6]}, {"t": 3, "v": [0, 0, 6]}, {"t": 6, "v": [0, 0, -6]}]}}));
+            }
+            objs.push(json!({"id": "fisch_1", "type": "animal", "kind": "fish", "size": 0.6, "animate": {"path": {"points": [[-8, 2, 0], [0, 2.5, 2], [8, 2, 0]], "start": 0, "end": 6, "ease": "linear"}}}));
+            objs.push(json!({"id": "fisch_2", "type": "animal", "kind": "fish", "size": 0.4, "color": "#4dabf7", "color2": "#fff3bf", "animate": {"path": {"points": [[7, 1.2, -3], [0, 1.6, -2], [-7, 1.4, -4]], "start": 0, "end": 6, "ease": "linear"}}}));
+            s["objects"] = Value::Array(objs);
+            s
+        }
+        "stadt" => {
+            let mut s = base("Stadt", "Bunte Stadtstraße am Tag.");
+            s["environment"] = json!({"sun": {"azimuth": 220, "elevation": 40}, "ao": true, "grade": {"saturation": 1.1, "vignette": 0.2}});
+            s["camera"] = json!({"position": [0, 1.7, 14], "look_at": [0, 2.5, -10], "fov": 50});
+            let mut objs = vec![
+                json!({"id": "strasse", "type": "plane", "size": [8, 120], "position": [0, 0.01, -30], "material": {"color": "#3d3f44", "roughness": 0.9}}),
+                json!({"id": "mittellinie", "type": "box", "size": [0.15, 0.01, 2], "position": [0, 0.02, 12], "repeat": {"count": 20, "offset": [0, 0, -4]}, "material": {"color": "#f5f5f5"}}),
+                json!({"id": "gehweg_l", "type": "box", "size": [4, 0.2, 120], "position": [-6, 0.1, -30], "material": {"color": "#b8b4ae", "pattern": {"type": "grid", "color2": "#9e9a94", "scale": 1, "bump": 0.3}}}),
+                json!({"id": "gehweg_r", "type": "box", "size": [4, 0.2, 120], "position": [6, 0.1, -30], "material": {"color": "#b8b4ae", "pattern": {"type": "grid", "color2": "#9e9a94", "scale": 1, "bump": 0.3}}}),
+                json!({"id": "boden", "type": "plane", "size": [200, 200], "position": [0, -0.01, -30], "material": {"color": "#8a8a8a"}}),
+                json!({"id": "auto_1", "type": "instance", "asset": "auto", "position": [-1.8, 0, 2], "rotation": [0, 180, 0]}),
+                json!({"id": "auto_2", "type": "instance", "asset": "auto", "position": [1.8, 0, -8]})
+            ];
+            let colors = ["#f4a261", "#e76f51", "#2a9d8f", "#e9c46a", "#8ecae6", "#ffb5a7", "#b5838d", "#90be6d"];
+            for i in 0..8 {
+                let z = 6.0 - i as f32 * 9.0;
+                for (side, x) in [(-1.0f32, -12.5f32), (1.0, 12.5)] {
+                    let h = 9.0 + ((i * 7 + if side < 0.0 { 3 } else { 0 }) % 5) as f32 * 2.5;
+                    let c = colors[(i + if side < 0.0 { 0 } else { 3 }) % colors.len()];
+                    objs.push(json!({"id": format!("haus_{i}_{}", if side < 0.0 { "l" } else { "r" }), "type": "rounded_box", "size": [9, h, 8.5], "radius": 0.15, "position": [x, h / 2.0, z],
+                        "material": {"color": c, "roughness": 0.8, "pattern": {"type": "grid", "color2": "#5d7fa3", "scale": 0.7, "bump": 0.2}}}));
+                }
+                if i % 2 == 0 {
+                    objs.push(json!({"id": format!("laterne_{i}"), "type": "instance", "asset": "laterne", "position": [-4.5, 0.2, z]}));
+                    objs.push(json!({"id": format!("baum_{i}"), "type": "tree", "kind": "lollipop", "height": 4, "position": [4.8, 0.2, z - 3.0], "leaves": "#5fae4a"}));
+                }
+            }
+            s["objects"] = Value::Array(objs);
             s
         }
         _ => return None,

@@ -145,7 +145,7 @@
 - **Mitgelieferte Bibliothek:** 12 Cartoon-Objekte (`apps/studio/assets/bibliothek.json`, erzeugt
   mit `tools/make_starter_library.py`), beim Start in `Dokumente/CineForge/Bibliothek/`
   installiert (nur fehlende Dateien), Test prüft alle Objekte.
-- **Szenen-Vorlagen (`cf_scene::templates`):** 9 Vorlagen für `new_scene` (`template`), alle
+- **Szenen-Vorlagen (`cf_scene::templates`):** 12 Vorlagen (inkl. schloss, unterwasser, stadt; Bild `docs/bilder/vorlagen.png`) für `new_scene` (`template`), alle
   gerendert und geprüft; Test validiert sie.
 - **Einstellungsgrößen (`camera.frame`):** wide/full/medium/close/extreme_close, Winkel relativ zur
   Blickrichtung der Figur, Neigung; Abstand aus Bildwinkel und Figurenhöhe.

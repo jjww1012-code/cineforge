@@ -84,7 +84,7 @@ Arbeitsweise:
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
 8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
-Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
+Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Tiere: type \"animal\" (dog, cat, bunny, bird, fish; actions walk/run/wag/jump/sit/fly/swim).
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
@@ -419,7 +419,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "new_scene",
-            "description": "Legt eine neue Szenen-Datei im aktuellen Projekt an und öffnet sie. Optional direkt mit Inhalt (scene) oder mit einer fertig ausgeleuchteten Vorlage (template): wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d. Vorlagen sind der schnellste Weg zu schönen Szenen – danach Figuren und Handlung ergänzen.",
+            "description": "Legt eine neue Szenen-Datei im aktuellen Projekt an und öffnet sie. Optional direkt mit Inhalt (scene) oder mit einer fertig ausgeleuchteten Vorlage (template): wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt. Vorlagen sind der schnellste Weg zu schönen Szenen – danach Figuren und Handlung ergänzen.",
             "inputSchema": {
                 "type": "object",
                 "properties": {"name": {"type": "string"}, "scene": obj, "template": {"type": "string"}},

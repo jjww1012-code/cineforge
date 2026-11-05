@@ -285,7 +285,7 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
                  2) Geschichte: kurze Handlung mit Anfang, Problem, Höhepunkt, Ende; Figuren mit Namen, Aussehen, Charakter.\n\
                  3) new_project mit Ziel und Stil (Farben, Stimmung, Look film oder cartoon).\n\
                  4) update_plan: Storyboard – je Shot Titel, Beschreibung, Dauer (3–8 s), Szene s01, s02 …; update_tasks mit Aufgaben.\n\
-                 5) Je Shot: new_scene mit passendem template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d).\n\
+                 5) Je Shot: new_scene mit passendem template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt).\n\
                  6) Figuren als type \"character\" (immer gleiche Farben/Frisur je Figur in allen Szenen!), Tiere als type \"animal\"; \
                  Handlung mit actions (walk, wave, jump, talk …), Wege mit animate.path, Mimik mit expressions, look_at zum Gesprächspartner.\n\
                  7) Dialoge mit dialogue (Stimmen, Lippen-Sync, Untertitel; camera_cuts: true für Schuss/Gegenschuss).\n\

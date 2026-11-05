@@ -10,7 +10,8 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 ## Schnellstart mit Vorlagen
 
 `new_scene` mit `"template"` legt eine fertig ausgeleuchtete Umgebung an: `wiese`, `dorf`, `wald`,
-`strand`, `nacht`, `studio`, `weltraum`, `zimmer`, `cartoon_2d`. Danach nur noch Figuren
+`strand`, `nacht`, `studio`, `weltraum`, `zimmer`, `cartoon_2d`, `schloss`, `unterwasser`, `stadt`.
+Danach nur noch Figuren
 (`type: "character"`), Handlung (`actions`, `path`) und Kamera (`frame`, `follow`) ergänzen.
 
 ## Grundgerüst
