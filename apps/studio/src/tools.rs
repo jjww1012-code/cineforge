@@ -376,7 +376,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "update_plan",
-            "description": "Ändert das Projekt-Logbuch: name, goal (Ziel/Idee), style (Stil-Vorgaben), next_step (Übergabe-Notiz: wo geht es weiter?) und storyboard. Storyboard-Einträge (Shots) werden per id zusammengeführt: {\"id\":\"s01\",\"title\":…,\"description\":…,\"scene\":\"s01\",\"duration\":6,\"status\":\"open|in_progress|done|blocked\"}; neue ids werden angehängt (oder mit position eingefügt), {\"id\":…,\"remove\":true} löscht. Ganzen Film in EINEM Schritt anlegen: je Shot template (z. B. \"dorf\") oder copy_scene (Name einer Szene: gleicher Drehort, z. B. für Gegenschuss) – dann wird die Szene (Name = scene oder id, Länge = duration) gleich mit angelegt; vorhandene Szenen bleiben unverändert.",
+            "description": "Ändert das Projekt-Logbuch: name, goal (Ziel/Idee), style (Stil-Vorgaben), next_step (Übergabe-Notiz: wo geht es weiter?) und storyboard. Storyboard-Einträge (Shots) werden per id zusammengeführt: {\"id\":\"s01\",\"title\":…,\"description\":…,\"scene\":\"s01\",\"duration\":6,\"status\":\"open|in_progress|done|blocked\",\"transition\":\"cut|fade|dissolve|wipe|slide|circle\",\"speed\":0.5 (Zeitlupe; 2 = Zeitraffer; Szenenton entfällt dann, Musik bleibt)}; neue ids werden angehängt (oder mit position eingefügt), {\"id\":…,\"remove\":true} löscht. Ganzen Film in EINEM Schritt anlegen: je Shot template (z. B. \"dorf\") oder copy_scene (Name einer Szene: gleicher Drehort, z. B. für Gegenschuss) – dann wird die Szene (Name = scene oder id, Länge = duration) gleich mit angelegt; vorhandene Szenen bleiben unverändert.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1070,7 +1070,7 @@ fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
     let encoder = crate::video::find_ffmpeg()
         .map(|ff| crate::video::best_encoder(&ff))
         .unwrap_or_else(|| "keiner – ffmpeg nicht gefunden, es werden PNG-Bilder gespeichert".into());
-    let segments = vec![crate::render::Segment { path: None, start, duration: end - start, fade_in: false, fade_out: false }];
+    let segments = vec![crate::render::Segment { path: None, start, duration: end - start, fade_in: false, fade_out: false, speed: 1.0 }];
     cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, segments, quality });
     cx.project.log(&who(a), format!("Video-Export gestartet: {} ({width}×{height}, {fps} fps, {frames} Bilder)", output.display()));
     ToolOutput::text(format!(
@@ -1393,7 +1393,8 @@ fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
             continue;
         }
         first_fps.get_or_insert(scene.fps);
-        let duration = if shot.duration > 0.0 { shot.duration } else { scene.duration };
+        let speed = shot.speed.unwrap_or(1.0).clamp(0.05, 20.0);
+        let duration = if shot.duration > 0.0 { shot.duration } else { scene.duration / speed };
         let last = i + 1 == shots.len();
         segments.push(crate::render::Segment {
             path: Some(path),
@@ -1401,6 +1402,7 @@ fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
             duration,
             fade_in: i == 0 || fade_all,
             fade_out: last || fade_all,
+            speed,
         });
     }
     if !problems.is_empty() {

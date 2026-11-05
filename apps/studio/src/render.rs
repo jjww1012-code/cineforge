@@ -71,6 +71,8 @@ pub struct Segment {
     /// Aus Schwarz einblenden / nach Schwarz abblenden (je 0,4 s).
     pub fade_in: bool,
     pub fade_out: bool,
+    /// Szenen-Zeit je Film-Sekunde (0.5 = Zeitlupe, 2 = Zeitraffer).
+    pub speed: f32,
 }
 
 /// Warteschlange + Status des laufenden/letzten Exports.
@@ -459,7 +461,7 @@ fn drive_jobs(
                     }
                 }
                 if !finished {
-                    let t = segment.start + *seg_frame as f32 / *fps as f32;
+                    let t = segment.start + *seg_frame as f32 / *fps as f32 * segment.speed.clamp(0.05, 20.0);
                     ph.time = t;
                     let (tf, fov) = scene_camera_at(&src.scene, t);
                     set_camera(&mut cams, tf, fov);

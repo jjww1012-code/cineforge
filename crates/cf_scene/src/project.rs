@@ -78,6 +78,9 @@ pub struct Shot {
     /// Übergang zum nächsten Shot: cut (Standard) oder fade (über Schwarz).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transition: Option<String>,
+    /// Abspielgeschwindigkeit der Szene: 0.5 = Zeitlupe, 2 = Zeitraffer (Standard 1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed: Option<f32>,
 }
 
 /// Ein Stück Ton im Film (Musik, Geräusch, Sprecher).

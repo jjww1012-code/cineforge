@@ -34,7 +34,8 @@ const FADE: f32 = 0.4;
 
 #[derive(Debug, Clone)]
 pub enum TaskKind {
-    Scene { path: PathBuf },
+    /// `speed`: Szenen-Zeit je Film-Sekunde (Zeitlupe < 1 < Zeitraffer).
+    Scene { path: PathBuf, speed: f32 },
     Clip { file: PathBuf, offset: f32 },
 }
 
@@ -290,9 +291,15 @@ pub fn build_plan(project: &ActiveProject, library: &mut Library, opt: PlanOptio
                         }
                     }
                 });
-                let d = if shot.duration > 0.0 { shot.duration } else { s.duration };
+                let speed = shot.speed.unwrap_or(1.0).clamp(0.05, 20.0);
+                let d = if shot.duration > 0.0 { shot.duration } else { s.duration / speed };
                 d.to_bits().hash(&mut h);
-                (TaskKind::Scene { path }, d)
+                if (speed - 1.0).abs() > 1e-4 {
+                    speed.to_bits().hash(&mut h);
+                    // Zeitlupe/Zeitraffer: Stimmen und Geräusche der Szene passen nicht mehr zum Bild
+                    auto_audio.clear();
+                }
+                (TaskKind::Scene { path, speed }, d)
             }
             (Some((path, Err(e))), _) => {
                 problems.push(format!("Shot {}: Szene {} nicht ladbar ({e})", shot.id, path.display()));
@@ -478,7 +485,7 @@ fn step(plan: &mut FilmPlan, queue: &mut RenderQueue) {
                 return;
             }
             match &task.kind {
-                TaskKind::Scene { path } => {
+                TaskKind::Scene { path, speed } => {
                     queue.push(JobRequest::Export {
                         output: part_path(&task.cache),
                         width: plan.width,
@@ -490,6 +497,7 @@ fn step(plan: &mut FilmPlan, queue: &mut RenderQueue) {
                             duration: task.duration,
                             fade_in: task.fade_in,
                             fade_out: task.fade_out,
+                            speed: *speed,
                         }],
                         quality: plan.quality,
                     });
