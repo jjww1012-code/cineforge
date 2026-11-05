@@ -84,6 +84,7 @@ Arbeitsweise:
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
 8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
+Cartoon-Figuren leben lassen: Mund mit animate.talk (Lippen-Sync zur Stimme aus generate_voice), Augen mit animate.blink, Körper mit animate.breathe.
 Qualität: Für Kino-/Pixar-Look den Abschnitt „Kino-Qualität“ aus get_guide befolgen (Licht, dof, motion_blur, light_rays, grade, rounded-Formen, Bewegung mit out_back). Detaillierte 2D-Figuren als SVG mit Verläufen, weichen Schatten und Konturen; in 3D-Welten mit billboard, 3D-Objekte mit material.outline passend zum Cartoon-Stil.
 Medien: Bilder (PNG/JPG/SVG) in Bilder/, 3D-Modelle (glTF/GLB) in Modelle/ (type \"model\"). 2D-Grafiken zeichnest du selbst als SVG (type \"svg\"), Geräusche mit create_sound, Musik mit create_music. Cartoons: 2D-Kamera (camera.orthographic) + SVG-Figuren, siehe get_guide.
 Einheiten: Meter und Grad, Y zeigt nach oben. Jedes Objekt braucht eine eindeutige, sprechende id.";

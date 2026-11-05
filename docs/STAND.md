@@ -112,6 +112,12 @@
   `grade` (Sättigung, Vignette). Bevys Kontrast/Weißabgleich verfälschten im Test die Farben
   (rot/schwarz) – bewusst weggelassen, ggf. später eigener Filter. Doku „Kino-Qualität“.
 
+- **Lebendige Figuren:** `animate.talk` (Lippen-Sync: WAV → Lautstärke-Hüllkurve 100/s,
+  `cf_audio::read_wav`/`envelope`, Mund-Höhe skaliert), `animate.blink` (deterministisch je
+  `seed`), `animate.breathe`. Fehlende Stimme wird Claude sofort gemeldet.
+  Hinweis Tests: mehrere Software-Renderings parallel ⇒ Shader evtl. beim Foto noch nicht fertig
+  (leeres Bild) – Kontrollbilder einzeln oder mit `--frames 60` rendern.
+
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.

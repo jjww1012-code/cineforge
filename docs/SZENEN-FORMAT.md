@@ -199,6 +199,10 @@ Farben werden dann automatisch exakt wiedergegeben (`look: "cartoon"`).
   oben links), weiche Schatten (`<filter><feGaussianBlur stdDeviation='3'/></filter>`), dunkle
   Konturen (`stroke` 2–4, `stroke-linejoin='round'`), Glanzpunkte in den Augen, Wangenröte mit
   halbtransparentem Verlauf. Mehrere Schichten: Schatten → Körper → Details → Lichter.
+- **Sprechende Figuren:** Stimme mit `generate_voice` erzeugen, Figur als `group` aus Kopf, Augen,
+  Mund (je ein `svg`); Mund mit `"animate": {"talk": {"audio": "…wav", "start": …}}`, Augen mit
+  `blink`, die ganze Gruppe mit `breathe`. Die Stimme zusätzlich als `audio` im Shot eintragen,
+  damit man sie im Video hört (gleicher Startzeitpunkt).
 - **2D und 3D mischen:** SVG-Figuren mit `"billboard": true` in eine 3D-Welt stellen (sie schauen
   immer zur Kamera), 3D-Objekte mit `material.outline` bekommen gezeichnete Umrisse, `look: "cartoon"`
   sorgt für exakte, kräftige Farben. Umgekehrt dürfen 3D-Objekte in 2D-Szenen vorkommen.
