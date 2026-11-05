@@ -157,6 +157,8 @@
   andere Objekte: animate.talk; Untertitel (y −0.82 + Box, ersetzt frühere), Szenenlänge, Shot-Ton.
 - **Kamera-Schnitte (`camera.cuts`)** in einer Szene; `dialogue` mit `camera_cuts: true` setzt
   Schuss/Gegenschuss automatisch; Figuren-`look_at` (Kopf/Oberkörper zum Ziel, Startpositionen).
+- **Mimik über die Zeit (`character.expressions`):** Brauen/Lippen/O-Mund je Ausdruck als Varianten
+  mit `visible`-Sprüngen; Mundöffnung nur bei `talk`. Einstellungsgrößen an Figurenproportionen angepasst.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

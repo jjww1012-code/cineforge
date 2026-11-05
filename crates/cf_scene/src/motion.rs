@@ -313,9 +313,9 @@ fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32) -> Option<([f32; 3], [f32;
     let (view, look_y) = match f.shot {
         ShotSize::Wide => (h * 4.0, h * 0.5),
         ShotSize::Full => (h * 1.35, h * 0.5),
-        ShotSize::Medium => (h * 0.75, h * 0.72),
-        ShotSize::Close => (h * 0.42, h * 0.85),
-        ShotSize::ExtremeClose => (h * 0.24, h * 0.88),
+        ShotSize::Medium => (h * 0.95, h * 0.66),
+        ShotSize::Close => (h * 0.62, h * 0.74),
+        ShotSize::ExtremeClose => (h * 0.42, h * 0.8),
     };
     let dist = (view / 2.0) / (fov.to_radians() / 2.0).tan().max(0.05);
     // Blickrichtung des Objekts (Gier) berücksichtigen: „von vorne“ heißt vor seinem Gesicht.
@@ -471,8 +471,8 @@ mod tests {
         let s = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character", "height": 1.2, "position": [2, 0, 0]}],
             "camera": {"fov": 40, "frame": {"target": "max", "shot": "close"}}}"#).unwrap();
         let (pos, look, _) = camera_shot(&s, 0.0);
-        assert!((look[1] - 1.02).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
-        assert!(pos[2] > 0.3 && pos[2] < 1.2 && (pos[0] - 2.0).abs() < 1e-3, "nah vor dem Gesicht: {pos:?}");
+        assert!((look[1] - 0.888).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
+        assert!(pos[2] > 0.5 && pos[2] < 1.5 && (pos[0] - 2.0).abs() < 1e-3, "nah vor dem Gesicht: {pos:?}");
         let wide = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character"}], "camera": {"frame": {"target": "max", "shot": "wide", "angle": 90}}}"#).unwrap();
         let (p2, _, _) = camera_shot(&wide, 0.0);
         assert!(p2[0] > 3.0, "von rechts und weit weg: {p2:?}");

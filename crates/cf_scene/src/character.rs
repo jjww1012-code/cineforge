@@ -151,6 +151,17 @@ pub struct CharacterSpec {
     /// Zu diesem Objekt schauen (Kopf und Oberkörper drehen sich hin), z. B. zum Gesprächspartner.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub look_at: Option<String>,
+    /// Gesichtsausdruck wechselt im Lauf der Szene: [{"t": 3, "expression": "surprised"}, …].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub expressions: Vec<ExpressionChange>,
+}
+
+/// Wechsel des Gesichtsausdrucks ab Zeitpunkt `t`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ExpressionChange {
+    pub t: f32,
+    pub expression: Expression,
 }
 
 impl CharacterSpec {
@@ -382,13 +393,6 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
     // ---- Kopf ----
     let hr = 0.24 * u; // Kopfradius (großer Kopf = niedlich)
     let eye_x = 0.085 * u;
-    let (brow_rot, brow_y, mouth_scale, mouth_y): (f32, f32, [f32; 3], f32) = match spec.expression {
-        Expression::Neutral => (0.0, 0.125, [0.9, 0.22, 0.5], -0.1),
-        Expression::Happy => (-6.0, 0.135, [1.2, 0.45, 0.5], -0.1),
-        Expression::Sad => (16.0, 0.13, [0.8, 0.25, 0.5], -0.11),
-        Expression::Angry => (-22.0, 0.115, [1.0, 0.25, 0.5], -0.105),
-        Expression::Surprised => (-4.0, 0.15, [0.6, 0.75, 0.5], -0.105),
-    };
     let blink = if spec.blink {
         let seed = id.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32));
         json!({"blink": {"every": 3.6, "seed": seed % 1000}})
@@ -405,31 +409,48 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
             {"id": format!("{id}_glanz_{side}"), "type": "sphere", "radius": 0.012 * u, "position": [0.016 * u, 0.02 * u, 0.06 * u], "material": {"color": "#ffffff", "unlit": true}}
           ]})
     };
-    let brow = |side: f32| {
-        json!({"id": format!("{id}_braue_{side}"), "type": "capsule", "radius": 0.011 * u, "length": 0.06 * u,
-          "position": [side * eye_x, brow_y * u, 0.215 * u], "rotation": [0.0, 0.0, 90.0 + side * brow_rot],
-          "material": {"color": spec.hair_color.to_hex(), "roughness": 0.7}})
+    // Ausdrucks-abhängige Teile: Brauen, Lippenlinie, ggf. „O“-Mund
+    let face_parts = |expr: Expression, suffix: &str| -> Vec<Value> {
+        let (brow_rot, brow_y, mouth_w, mouth_y): (f32, f32, f32, f32) = match expr {
+            Expression::Neutral => (0.0, 0.125, 0.9, -0.1),
+            Expression::Happy => (-6.0, 0.135, 1.2, -0.1),
+            Expression::Sad => (16.0, 0.13, 0.8, -0.11),
+            Expression::Angry => (-22.0, 0.115, 1.0, -0.105),
+            Expression::Surprised => (-4.0, 0.15, 0.6, -0.105),
+        };
+        let brow = |side: f32| {
+            json!({"id": format!("{id}_braue_{side}{suffix}"), "type": "capsule", "radius": 0.011 * u, "length": 0.06 * u,
+              "position": [side * eye_x, brow_y * u, 0.215 * u], "rotation": [0.0, 0.0, 90.0 + side * brow_rot],
+              "material": {"color": spec.hair_color.to_hex(), "roughness": 0.7}})
+        };
+        let curve: f32 = match expr {
+            Expression::Happy => 0.035,
+            Expression::Sad => -0.03,
+            Expression::Angry => -0.012,
+            Expression::Neutral | Expression::Surprised => 0.004,
+        };
+        let half_w = 0.07 * u * mouth_w.min(1.3);
+        let lip_points: Vec<[f32; 3]> = (0..=8)
+            .map(|i| {
+                let x = -half_w + 2.0 * half_w * i as f32 / 8.0;
+                let k = x / half_w;
+                let y = mouth_y * u + curve * u * k * k;
+                let z = ((hr * hr - x * x - y * y).max(0.0)).sqrt() * 0.95 + 0.004 * u;
+                [x, y, z]
+            })
+            .collect();
+        let mut parts = vec![brow(-1.0), brow(1.0)];
+        if expr == Expression::Surprised {
+            parts.push(json!({"id": format!("{id}_o_mund{suffix}"), "type": "sphere", "radius": 0.04 * u,
+                "position": [0.0, (mouth_y - 0.01) * u, 0.205 * u], "scale": [0.8, 1.0, 0.45], "material": {"color": "#4a1018", "roughness": 0.6}}));
+        } else {
+            parts.push(json!({"id": format!("{id}_lippen{suffix}"), "type": "tube", "path": lip_points, "radius": 0.009 * u, "radius_end": 0.009 * u,
+                "segments": 8, "material": {"color": "#5b1a22", "roughness": 0.5}}));
+        }
+        parts
     };
-    // Mund: Lippenlinie (gebogene Röhre auf der Gesichtsoberfläche) + Mundöffnung (geht beim Sprechen auf)
-    let curve: f32 = match spec.expression {
-        Expression::Happy => 0.035,
-        Expression::Sad => -0.03,
-        Expression::Angry => -0.012,
-        Expression::Neutral | Expression::Surprised => 0.004,
-    };
-    let half_w = 0.07 * u * mouth_scale[0].min(1.3);
-    let lip_points: Vec<[f32; 3]> = (0..=8)
-        .map(|i| {
-            let x = -half_w + 2.0 * half_w * i as f32 / 8.0;
-            let k = x / half_w;
-            let y = mouth_y * u + curve * u * k * k;
-            let z = ((hr * hr - x * x - y * y).max(0.0)).sqrt() * 0.95 + 0.004 * u;
-            [x, y, z]
-        })
-        .collect();
-    let lips = json!({"id": format!("{id}_lippen"), "type": "tube", "path": lip_points, "radius": 0.009 * u, "radius_end": 0.009 * u,
-        "segments": 8, "material": {"color": "#5b1a22", "roughness": 0.5}});
-    let open_base = if spec.expression == Expression::Surprised { [0.7, 0.8, 0.45] } else { [1.0, 0.12, 0.45] };
+    let mouth_y = -0.1;
+    let open_base = [1.0, 0.12, 0.45];
     let mut mouth = json!({"id": format!("{id}_mund"), "type": "sphere", "radius": 0.05 * u,
         "position": [0.0, (mouth_y - 0.012) * u, 0.2 * u], "scale": open_base,
         "material": {"color": "#4a1018", "roughness": 0.6}});
@@ -449,11 +470,31 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
         json!({"id": format!("{id}_wange_r"), "type": "sphere", "radius": 0.035 * u, "position": [0.13 * u, -0.06 * u, 0.175 * u], "scale": [1.0, 0.7, 0.4], "material": {"color": "#f59a9a", "roughness": 0.7}}),
         eye(-1.0),
         eye(1.0),
-        brow(-1.0),
-        brow(1.0),
-        mouth,
-        lips,
     ];
+    // Mundöffnung nur, wenn die Figur spricht (sonst sähe man einen zweiten Strich)
+    if spec.talk.is_some() {
+        head_children.push(mouth);
+    }
+    if spec.expressions.is_empty() {
+        head_children.extend(face_parts(spec.expression, ""));
+    } else {
+        let mut changes = spec.expressions.clone();
+        changes.sort_by(|a, b| a.t.total_cmp(&b.t));
+        let mut variants = vec![spec.expression];
+        for c in &changes {
+            if !variants.contains(&c.expression) {
+                variants.push(c.expression);
+            }
+        }
+        for (k, v) in variants.iter().enumerate() {
+            let mut keys = vec![json!({"t": 0.0, "v": spec.expression == *v, "ease": "step"})];
+            keys.extend(changes.iter().map(|c| json!({"t": c.t, "v": c.expression == *v, "ease": "step"})));
+            for mut part in face_parts(*v, &format!("_v{k}")) {
+                part["animate"] = json!({"visible": keys});
+                head_children.push(part);
+            }
+        }
+    }
     let hair = mat(spec.hair_color, 0.65);
     let cap = |extra: Value| {
         let mut o = json!({"id": format!("{id}_haar"), "type": "sphere", "radius": hr * 1.06, "position": [0.0, 0.07 * u, -0.045 * u],
