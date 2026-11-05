@@ -167,6 +167,9 @@
 - **Shot-Vorschaubilder (`thumbs.rs`):** wenn eine Storyboard-Szene offen ist und Ruhe herrscht
   (4 s nach dem Laden, keine Aufträge), Still-Auftrag 192×108 aus der Shot-Mitte →
   `Export/.vorschau/<szene>.png`, Film-Leiste zeigt sie; schwarze Bilder werden verworfen (max. 3 Versuche).
+- **Foley-Werkzeug (`foley`):** analysiert die geöffnete Szene (Figuren/Tiere: walk/run/jump/fly,
+  Pfade mit Schrittfrequenz aus Tempo; Partikel fire/rain/snow/explosion; Titel pop/typewriter/
+  slide_up) → `sfx_<szene>.wav` (normalisiert), im Shot eingetragen.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

@@ -88,7 +88,7 @@ Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Tiere: type \"animal\" (dog, cat, bunny, bird, fish; actions walk/run/wag/jump/sit/fly/swim).
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
-Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
+Geräusche zur Handlung: foley (je Szene, nach dem Bauen). Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
 Cartoon-Figuren leben lassen: Mund mit animate.talk (Lippen-Sync zur Stimme aus generate_voice), Augen mit animate.blink, Körper mit animate.breathe.
 Qualität: Für Kino-/Pixar-Look den Abschnitt „Kino-Qualität“ aus get_guide befolgen (Licht, dof, motion_blur, light_rays, grade, rounded-Formen, Bewegung mit out_back). Detaillierte 2D-Figuren als SVG mit Verläufen, weichen Schatten und Konturen; in 3D-Welten mit billboard, 3D-Objekte mit material.outline passend zum Cartoon-Stil.
@@ -119,6 +119,11 @@ pub fn definitions() -> Value {
             "name": "dialogue",
             "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Hi Max!\", \"pause\": 0.3}]. Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. camera_cuts: true setzt automatisch Schnitte (Nahaufnahme auf den Sprecher, Schuss/Gegenschuss). Ersetzt einen früheren Dialog derselben Szene.",
             "inputSchema": {"type": "object", "properties": {"lines": {"type": "array", "items": obj}, "start": {"type": "number"}, "gap": {"type": "number"}, "subtitles": {"type": "boolean"}, "camera_cuts": {"type": "boolean"}, "voices": obj, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["lines"]}
+        },
+        {
+            "name": "foley",
+            "description": "Erzeugt automatisch Geräusche zur Handlung der geöffneten Szene: Schritte im Lauftempo der Figuren und Tiere, Sprünge (Whoosh + Landung), Flügelschlag, Jubel, Feuer/Regen/Wind passend zu Partikeln, Pop/Tippen/Wisch zu Titel-Effekten. Ergebnis: eine Tonspur sfx_<szene>.wav, im Storyboard-Shot eingetragen (volume, Standard 0.7). Nach Änderungen der Handlung erneut aufrufen.",
+            "inputSchema": {"type": "object", "properties": {"volume": {"type": "number"}, "agent": {"type": "string"}}}
         },
         {
             "name": "get_selection",
@@ -880,6 +885,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         "generate_voice" => generate_voice(a, cx),
         "create_sound" => create_sound(a, cx),
         "create_music" => create_music(a, cx),
+        "foley" => foley(a, cx),
         "export_status" => ToolOutput::text(cx.jobs.export_summary().unwrap_or_else(|| "Es wurde noch kein Export gestartet.".into())),
         "cancel_export" => {
             if cx.jobs.export_running() {
@@ -1652,6 +1658,173 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         let _ = cx.project.save();
     }
     Ok(scene)
+}
+
+/// Geräusche zur Handlung der geöffneten Szene (Schritte, Sprünge, Flügel, Feuer, Regen, Titel-Pops):
+/// eine Tonspur `sfx_<szene>.wav`, im Storyboard-Shot eingetragen.
+fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    use cf_scene::{animal::AnimalAction as AA, character::ActionKind as CA, Kind};
+    if let Err(e) = cx.project.require() {
+        return ToolOutput::error(e);
+    }
+    let scene = cx.src.scene.clone();
+    let scene_name = cx.src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let volume = a.get("volume").and_then(Value::as_f64).unwrap_or(0.7) as f32;
+    const SR: f32 = 48_000.0;
+    let len = ((scene.duration + 1.0) * SR) as usize;
+    let mut track = (vec![0.0f32; len], vec![0.0f32; len]);
+    let mut events: Vec<String> = Vec::new();
+    // Erst alle Geräusch-Einsätze sammeln, dann rendern (Name, Zeit, Lautstärke, Tonhöhe, Länge, Variante)
+    let mut cues: Vec<(&'static str, f32, f32, f32, f32, u32)> = Vec::new();
+    fn steps(cues: &mut Vec<(&'static str, f32, f32, f32, f32, u32)>, from: f32, to: f32, per_sec: f32, gain: f32, pitch: f32, events: &mut Vec<String>, who: &str) {
+        let dt = 1.0 / per_sec.max(0.5);
+        let mut t = from + dt * 0.5;
+        let mut k = 0u32;
+        while t < to {
+            cues.push(("footstep", t, gain, pitch * if k % 2 == 0 { 1.0 } else { 0.94 }, 1.0, k % 4));
+            t += dt;
+            k += 1;
+        }
+        events.push(format!("{who}: {k} Schritte ({from:.1}–{to:.1} s)"));
+    }
+    scene.walk(&mut |o| {
+        let path = o.animate.as_ref().and_then(|x| x.path.as_ref());
+        match &o.kind {
+            Kind::Character(c) => {
+                let mut walked = false;
+                for act in &c.actions {
+                    let end = act.end.unwrap_or(act.start + 2.0);
+                    match act.kind {
+                        CA::Walk => { steps(&mut cues, act.start, end, 1.7 * act.speed, 0.55, 1.0, &mut events, &o.id); walked = true; }
+                        CA::Run => { steps(&mut cues, act.start, end, 2.6 * act.speed, 0.7, 1.05, &mut events, &o.id); walked = true; }
+                        CA::Jump => {
+                            cues.push(("whoosh", act.start + 0.15, 0.5, 1.2, 0.5, 1));
+                            cues.push(("impact", act.start + 0.75 / act.speed.max(0.2), 0.35, 1.6, 0.6, 2));
+                            events.push(format!("{}: Sprung bei {:.1} s", o.id, act.start));
+                        }
+                        CA::Cheer => { cues.push(("crowd_cheer", act.start, 0.25, 1.3, 1.0, 3)); }
+                        _ => {}
+                    }
+                }
+                if let (Some(p), false, true) = (path, walked, c.auto_walk) {
+                    let v = p.length() / (p.end - p.start).max(0.1);
+                    let per_sec = (v / (0.45 * c.height)).clamp(0.8, 6.0);
+                    steps(&mut cues, p.start, p.end, per_sec, if v > 2.6 * c.height / 1.2 { 0.7 } else { 0.55 }, 1.0, &mut events, &o.id);
+                }
+            }
+            Kind::Animal(an) => {
+                let small = matches!(an.kind, cf_scene::animal::AnimalKind::Cat | cf_scene::animal::AnimalKind::Bunny);
+                let mut moved = false;
+                for act in &an.actions {
+                    let end = act.end.unwrap_or(act.start + 2.0);
+                    match act.kind {
+                        AA::Walk | AA::Run => {
+                            steps(&mut cues, act.start, end, if act.kind == AA::Run { 5.0 } else { 3.5 } * act.speed, if small { 0.18 } else { 0.3 }, 1.8, &mut events, &o.id);
+                            moved = true;
+                        }
+                        AA::Fly => {
+                            let mut t = act.start;
+                            while t < end { cues.push(("swoosh", t, 0.12, 1.6, 0.4, 5)); t += 1.0 / (3.0 * act.speed.max(0.2)); }
+                            moved = true;
+                        }
+                        AA::Jump => { cues.push(("whoosh", act.start + 0.1, 0.35, 1.5, 0.4, 6)); }
+                        _ => {}
+                    }
+                }
+                if let (Some(p), false) = (path, moved) {
+                    match an.kind {
+                        cf_scene::animal::AnimalKind::Bird => {
+                            let mut t = p.start;
+                            while t < p.end { cues.push(("swoosh", t, 0.12, 1.6, 0.4, 5)); t += 0.33; }
+                        }
+                        cf_scene::animal::AnimalKind::Fish => {}
+                        _ => steps(&mut cues, p.start, p.end, 4.0, if small { 0.18 } else { 0.3 }, 1.8, &mut events, &o.id),
+                    }
+                }
+            }
+            Kind::Particles(pt) => {
+                let name = match pt.preset {
+                    cf_scene::particles::ParticlePreset::Fire => Some(("fire", 0.35)),
+                    cf_scene::particles::ParticlePreset::Rain => Some(("rain", 0.4)),
+                    cf_scene::particles::ParticlePreset::Snow => Some(("wind", 0.25)),
+                    cf_scene::particles::ParticlePreset::Explosion => Some(("boom", 0.8)),
+                    _ => None,
+                };
+                if let Some((n, g)) = name {
+                    let start = pt.start;
+                    let length = if n == "boom" { 1.0 } else { (pt.end.unwrap_or(scene.duration) - start).max(1.0) / 2.0 };
+                    cues.push((n, start, g, 1.0, length, 7));
+                    events.push(format!("{}: {n}", o.id));
+                }
+            }
+            _ => {}
+        }
+    });
+    for ov in &scene.overlays {
+        match ov.effect {
+            cf_scene::OverlayEffect::Pop => cues.push(("pop", ov.start, 0.4, 1.0, 1.0, 8)),
+            cf_scene::OverlayEffect::Typewriter => {
+                let n = ov.text.chars().count() as f32;
+                cues.push(("typing", ov.start, 0.3, 1.0, (n / 22.0).max(0.5) / 1.5, 9));
+            }
+            cf_scene::OverlayEffect::SlideUp => cues.push(("swoosh", ov.start, 0.25, 1.0, 1.0, 10)),
+            _ => {}
+        }
+    }
+    let mut cache: std::collections::HashMap<String, cf_audio::synth::Stereo> = Default::default();
+    for (name, at, gain, pitch, length, seed) in &cues {
+        if *at < 0.0 || *at > scene.duration {
+            continue;
+        }
+        let key = format!("{name}|{pitch:.2}|{length:.2}|{seed}");
+        let snd = cache.entry(key).or_insert_with(|| {
+            let tw = cf_audio::presets::Tweak { pitch: *pitch, length: *length, intensity: 0.5, brightness: 1.0, reverb: Some(0.15), seed: *seed };
+            cf_audio::presets::preset(name, &tw).map(|r| r.render()).unwrap_or_default()
+        });
+        let off = (at * SR) as usize;
+        for (i, (l, r)) in snd.0.iter().zip(&snd.1).enumerate() {
+            if let (Some(tl), Some(tr)) = (track.0.get_mut(off + i), track.1.get_mut(off + i)) {
+                *tl += l * gain;
+                *tr += r * gain;
+            }
+        }
+    }
+    if events.is_empty() && scene.overlays.is_empty() {
+        return ToolOutput::text("Keine Handlung gefunden, zu der Geräusche passen (Figuren/Tiere mit actions oder path, Feuer/Regen, Titel mit effect).");
+    }
+    // Normalisieren (Spitze −3 dB) und speichern
+    let peak = track.0.iter().chain(&track.1).fold(0.0f32, |m, v| m.max(v.abs()));
+    if peak > 0.708 {
+        let g = 0.708 / peak;
+        track.0.iter_mut().chain(track.1.iter_mut()).for_each(|v| *v *= g);
+    }
+    let file = format!("sfx_{}.wav", safe_name(&scene_name).unwrap_or_else(|_| "szene".into()));
+    let path = match audio_out(cx, &file) {
+        Ok(p) => p,
+        Err(e) => return ToolOutput::error(e),
+    };
+    if let Some(d) = path.parent() {
+        let _ = std::fs::create_dir_all(d);
+    }
+    if let Err(e) = cf_audio::write_wav(&path, &track) {
+        return ToolOutput::error(e.to_string());
+    }
+    let mut in_shot = false;
+    if let Some(shot) = cx.project.data.storyboard.iter_mut().find(|s| s.scene.as_deref() == Some(scene_name.as_str())) {
+        shot.audio.retain(|c| c.file != file);
+        if let Ok(clip) = serde_json::from_value(serde_json::json!({"file": file, "start": 0.0, "volume": volume})) {
+            shot.audio.push(clip);
+        }
+        in_shot = true;
+        let _ = cx.project.save();
+    }
+    cx.project.log(&who(a), format!("Geräusche erzeugt: {file}"));
+    ToolOutput::text(format!(
+        "✓ Audio/{file} ({:.1} s)\n- {}\n{}",
+        scene.duration,
+        events.join("\n- "),
+        if in_shot { "Im Storyboard-Shot eingetragen." } else { "Diese Szene ist in keinem Shot – im Shot als audio eintragen." }
+    ))
 }
 
 /// Hilfs-Query für die aktuelle Fenster-Kamera.

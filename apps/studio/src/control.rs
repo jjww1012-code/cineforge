@@ -293,7 +293,7 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
                  dof mit focus auf die Hauptfigur, langsame Fahrten.\n\
                  9) Licht und Look: Tageszeit passend zur Stimmung, light_rays/fog für Atmosphäre, grade (saturation 1.1, vignette 0.3).\n\
                  10) Jede Szene mit screenshot oder contact_sheet prüfen und verbessern (Komposition, Größenverhältnisse, Lesbarkeit).\n\
-                 11) Ton: create_music (Stil passend, als soundtrack mit volume 0.3–0.5), create_sound für Effekte (Schritte, Whoosh, Pop) als audio im Shot.\n\
+                 11) Ton: create_music (Stil passend, als soundtrack mit volume 0.3–0.5); je Szene foley aufrufen (Geräusche automatisch zur Handlung), einzelne Effekte mit create_sound.\n\
                  12) Titel und Abspann mit overlays (effect pop/typewriter, shadow).\n\
                  13) check_film, dann export_film. Shots und Aufgaben abhaken.\n\
                  Setze vor jedem größeren Schritt next_step, damit nach einer Unterbrechung nahtlos weitergearbeitet werden kann."
