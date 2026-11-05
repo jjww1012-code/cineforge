@@ -215,7 +215,7 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 | `outline` | false | gezeichnete Umrisslinie |
 | `blink` | true | Blinzeln |
 | `talk` | – | Lippen-Sync wie `animate.talk` (WAV aus `Audio/`) |
-| `actions` | – | `idle`, `walk`, `run`, `wave`, `jump`, `cheer`, `dance`, `point`, `nod`, `shake_head`, `talk` (Gesten beim Sprechen), `sit`, `think` – je mit `start`, `end`, `speed` |
+| `actions` | – | `idle`, `walk`, `run`, `wave`, `jump`, `cheer`, `dance`, `point`, `nod`, `shake_head`, `talk` (Gesten beim Sprechen), `sit`, `think`, `clap` (klatschen), `bow` (verbeugen), `laugh` (lachen), `scared` (erschrecken), `look_around` (umschauen), `shrug` (Schultern zucken), `sad` (traurig), `excited` (aufgeregt hüpfen) – je mit `start`, `end`, `speed`. Sprünge und Hüpfer mit Ausholen und Stauchen/Strecken wie im Zeichentrick; passend dazu `expressions` (z. B. `sad` + Ausdruck traurig) |
 | `hat`, `hat_color` | – | `cap`, `beanie`, `top_hat`, `crown`, `party` |
 | `glasses` | false | Brille |
 | `outfit` | shirt | `dress` = Kleid in der Farbe von `shirt` |

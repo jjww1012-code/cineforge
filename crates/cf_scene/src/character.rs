@@ -62,6 +62,22 @@ pub enum ActionKind {
     Talk,
     Sit,
     Think,
+    /// In die Hände klatschen
+    Clap,
+    /// Verbeugen
+    Bow,
+    /// Lachen (zurücklehnen, Schultern beben)
+    Laugh,
+    /// Erschrecken (ducken, Arme schützend hoch, zittern)
+    Scared,
+    /// Sich umschauen
+    LookAround,
+    /// Schultern zucken („keine Ahnung“)
+    Shrug,
+    /// Traurig (Kopf hängen lassen)
+    Sad,
+    /// Aufgeregt hüpfen
+    Excited,
 }
 
 /// Eine Aktion im Zeitablauf.
@@ -248,6 +264,8 @@ struct Pose {
     arm_l: [f32; 2], // [x, z]
     arm_r: [f32; 2],
     head: [f32; 3], // x, y, z
+    /// Stauchen (−) / Strecken (+) des ganzen Körpers, volumenerhaltend (Disney: Squash & Stretch).
+    squash: f32,
 }
 
 impl Pose {
@@ -265,6 +283,7 @@ impl Pose {
         for k in 0..3 {
             self.head[k] += o.head[k] * w;
         }
+        self.squash += o.squash * w;
     }
 }
 
@@ -307,16 +326,31 @@ fn action_pose(kind: ActionKind, lt: f32, speed: f32, len: f32) -> Pose {
             p.head[0] = -3.0;
         }
         ActionKind::Jump => {
+            // Ausholen (in die Knie, Arme nach hinten) → Absprung gestreckt → Flugbogen → Landung gestaucht
             let u = (lt / (0.9 / speed)).clamp(0.0, 1.0);
-            let crouch = if u < 0.25 { -0.06 * smoothstep(u / 0.25) } else { 0.0 };
+            let crouch = if u < 0.25 { -0.07 * smoothstep(u / 0.25) } else if u < 0.32 { -0.07 * (1.0 - smoothstep((u - 0.25) / 0.07)) } else { 0.0 };
             let air = if (0.25..0.85).contains(&u) { ((u - 0.25) / 0.6 * std::f32::consts::PI).sin() * 0.35 } else { 0.0 };
-            let land = if u >= 0.85 { -0.05 * (1.0 - (u - 0.85) / 0.15) } else { 0.0 };
+            let land = if u >= 0.85 { -0.06 * (1.0 - smoothstep((u - 0.85) / 0.15)) } else { 0.0 };
             p.hip_y = crouch + air + land;
-            let up = if (0.25..0.85).contains(&u) { 1.0 } else { 0.0 };
-            p.arm_l[1] = -150.0 * up;
-            p.arm_r[1] = 150.0 * up;
+            p.squash = if u < 0.25 {
+                -0.12 * smoothstep(u / 0.25)
+            } else if u < 0.55 {
+                // Absprung: von gestaucht schnell auf gestreckt, bis zum Scheitelpunkt wieder normal
+                let k = (u - 0.25) / 0.3;
+                0.14 * (k * std::f32::consts::PI).sin().max(0.0) - 0.12 * (1.0 - smoothstep(k * 4.0))
+            } else if u < 0.85 {
+                0.05 * smoothstep((u - 0.6) / 0.25) // im Fall leicht gestreckt
+            } else {
+                -0.16 * (1.0 - smoothstep((u - 0.85) / 0.15))
+            };
+            let up = smoothstep((u - 0.22) / 0.1) * (1.0 - smoothstep((u - 0.82) / 0.12));
+            let back = smoothstep(u / 0.2) * (1.0 - smoothstep((u - 0.22) / 0.06));
+            p.arm_l = [35.0 * back, -150.0 * up];
+            p.arm_r = [35.0 * back, 150.0 * up];
             p.leg_l = -15.0 * up;
             p.leg_r = 10.0 * up;
+            p.hip_rot_x = 12.0 * back;
+            p.head[0] = 8.0 * back - 6.0 * up;
         }
         ActionKind::Cheer => {
             let s = (lt * TAU * 2.0 * speed).sin();
@@ -359,6 +393,67 @@ fn action_pose(kind: ActionKind, lt: f32, speed: f32, len: f32) -> Pose {
         ActionKind::Think => {
             p.arm_r = [-120.0, 30.0];
             p.head = [-6.0, -10.0, 8.0];
+        }
+        ActionKind::Clap => {
+            let c = (lt * TAU * 2.6 * speed).sin();
+            // Hände treffen sich vor der Brust (Schulterbreite ≈ Armlänge × sin 45°)
+            p.arm_l = [-58.0, 42.0 + 9.0 * c];
+            p.arm_r = [-58.0, -42.0 - 9.0 * c];
+            p.head[0] = -4.0;
+            p.squash = 0.015 * c;
+        }
+        ActionKind::Bow => {
+            p.hip_rot_x = 38.0;
+            p.head[0] = 12.0;
+            p.arm_l = [-12.0, -4.0];
+            p.arm_r = [-12.0, 4.0];
+        }
+        ActionKind::Laugh => {
+            let b = (lt * TAU * 5.5 * speed).sin();
+            p.hip_rot_x = -8.0;
+            p.head = [-16.0 + 3.0 * b, 0.0, 4.0 * (lt * TAU * 0.8).sin()];
+            p.hip_y = 0.008 * b;
+            p.squash = 0.02 * b;
+            p.arm_l = [-35.0, 18.0];
+            p.arm_r = [-35.0, -18.0];
+        }
+        ActionKind::Scared => {
+            let tr = (lt * TAU * 11.0).sin();
+            p.hip_y = -0.04;
+            p.hip_x = 0.004 * tr;
+            p.hip_rot_x = 10.0;
+            p.arm_l = [-105.0, 25.0];
+            p.arm_r = [-105.0, -25.0];
+            p.head = [12.0, 3.0 * tr, 0.0];
+            p.squash = -0.06;
+        }
+        ActionKind::LookAround => {
+            p.head = [-4.0, 55.0 * (lt * TAU * 0.35 * speed).sin(), 0.0];
+            p.hip_rot_y = 12.0 * (lt * TAU * 0.35 * speed - 0.4).sin();
+        }
+        ActionKind::Shrug => {
+            p.arm_l = [-35.0, -38.0];
+            p.arm_r = [-35.0, 38.0];
+            p.head = [-3.0, 0.0, 12.0];
+            p.hip_y = 0.012;
+            p.squash = 0.03;
+        }
+        ActionKind::Sad => {
+            p.head = [22.0, 0.0, 3.0];
+            p.hip_rot_x = 8.0;
+            p.hip_y = -0.012;
+            p.arm_l = [4.0, -2.0];
+            p.arm_r = [4.0, 2.0];
+            p.squash = -0.04;
+        }
+        ActionKind::Excited => {
+            let ph = (lt * TAU * 2.4 * speed).sin();
+            let hop = ph.abs();
+            p.hip_y = 0.07 * hop;
+            p.squash = 0.08 * hop - 0.06 * (1.0 - hop).powi(4);
+            p.arm_l = [-20.0, -110.0 - 25.0 * ph];
+            p.arm_r = [-20.0, 110.0 + 25.0 * ph];
+            p.head[0] = -8.0;
         }
     }
     let _ = len;
@@ -740,7 +835,17 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
     let hips = json!({"id": format!("{id}_huefte"), "type": "group", "position": [0.0, hip_y, 0.0], "animate": hip_anim,
         "rotation": [0.0, if n == 0 { look * 0.3 } else { 0.0 }, 0.0],
         "children": body_children});
-    let root = json!({"id": format!("{id}_figur"), "type": "group", "children": [hips]});
+    // Stauchen & Strecken: ganze Figur vom Boden aus skalieren (Füße bleiben am Boden, Volumen bleibt)
+    let squash_anim = if n > 0 && poses.iter().any(|p| p.squash.abs() > 1e-3) {
+        json!({"scale": Value::Array(times.iter().zip(&poses).map(|(t, p)| {
+            let sy = (1.0 + p.squash).clamp(0.6, 1.5);
+            let sx = 1.0 / sy.sqrt();
+            json!({"t": t, "v": [sx, sy, sx], "ease": "linear"})
+        }).collect())})
+    } else {
+        Value::Null
+    };
+    let root = json!({"id": format!("{id}_figur"), "type": "group", "animate": squash_anim, "children": [hips]});
     let mut v = root;
     strip_nulls(&mut v);
     serde_json::from_value(v).expect("Figur ist ein gültiges Objekt")

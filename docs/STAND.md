@@ -200,6 +200,12 @@
   Film-Leiste nutzt die Szenenlänge bei Shots ohne Dauer. Layout-Fehler behoben: die Objektliste
   bzw. die Vorschau bestimmten die Mindesthöhe der Mitte → Zeitleiste rutschte aus dem Fenster
   (jetzt `flex_basis: 0`/`min_height: 0`, Vorschau absolut positioniert, Spurenbereich scrollbar).
+- **Kamerafahrten mit `frame.to`:** Ziel-Einstellung (shot, angle, tilt, zoom, ease, start/end) –
+  Heranfahren, Wegfahren, Bogen, Kran, Push-in; läuft bis zum nächsten Schnitt. Dialog-Nahaufnahmen
+  mit sanftem Push-in (zoom 1.1). Nahaufnahme mit mehr Kopffreiheit.
+- **Disney-Prinzipien bei Figuren:** Squash & Stretch (`Pose.squash`, Skalierung der ganzen Figur
+  vom Boden aus, volumenerhaltend), Sprung mit Ausholen (Knie, Arme nach hinten) und gestauchter
+  Landung; neue Aktionen `clap`, `bow`, `laugh`, `scared`, `look_around`, `shrug`, `sad`, `excited`.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

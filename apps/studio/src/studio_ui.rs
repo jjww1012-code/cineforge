@@ -891,6 +891,14 @@ fn action_name(k: cf_scene::character::ActionKind) -> &'static str {
         A::Talk => "spricht",
         A::Sit => "sitzt",
         A::Think => "denkt nach",
+        A::Clap => "klatscht",
+        A::Bow => "verbeugt sich",
+        A::Laugh => "lacht",
+        A::Scared => "erschrickt",
+        A::LookAround => "schaut sich um",
+        A::Shrug => "zuckt die Schultern",
+        A::Sad => "ist traurig",
+        A::Excited => "hüpft aufgeregt",
     }
 }
 
