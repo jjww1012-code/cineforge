@@ -119,6 +119,10 @@
   (leeres Bild) – Kontrollbilder einzeln oder mit `--frames 60` rendern.
 
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
+- **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
+  die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in
+  `Dokumente/CineForge/absturz.txt` (`crash.rs`, Panic-Hook mit Aufrufliste). Anlass: Nutzer
+  konnte die neue Version auf dem Mac nicht öffnen (Ursache dort noch nicht bestätigt).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 

@@ -1655,6 +1655,7 @@ fn update_error(
     }
     let msg = match (&src.error, stats.warnings.first()) {
         (Some(e), _) => Some(format!("Änderung nicht übernommen – vorherige Fassung bleibt sichtbar: {e}")),
+        (None, _) if src.notice.is_some() => src.notice.clone(),
         (None, Some(w)) => Some(format!("⚠ {w}{}", if stats.warnings.len() > 1 { format!(" (+{} weitere)", stats.warnings.len() - 1) } else { String::new() })),
         _ => None,
     };

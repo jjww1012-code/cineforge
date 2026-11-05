@@ -223,6 +223,11 @@ pub fn startup_scene() -> Result<PathBuf, String> {
     ensure_demo_project()
 }
 
+/// Demo-Szene (legt das Demo-Projekt bei Bedarf an).
+pub fn demo_scene() -> Result<PathBuf, String> {
+    ensure_demo_project()
+}
+
 fn ensure_demo_project() -> Result<PathBuf, String> {
     let dir = projects_dir()?.join("Demo");
     let scene = dir.join("Szenen").join("wueste.json");

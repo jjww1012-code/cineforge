@@ -1314,7 +1314,8 @@ fn selection_line(cx: &Ctx) -> String {
 
 fn resume_text(cx: &Ctx) -> String {
     let text = resume_inner(cx);
-    format!("{text}{}", selection_line(cx))
+    let notice = cx.src.notice.as_ref().map(|n| format!("⚠ {n}\n\n")).unwrap_or_default();
+    format!("{notice}{text}{}", selection_line(cx))
 }
 
 fn resume_inner(cx: &Ctx) -> String {

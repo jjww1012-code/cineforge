@@ -21,6 +21,8 @@ pub struct SceneSource {
     pub scene: Scene,
     /// Fehler des letzten Ladeversuchs (None = alles ok).
     pub error: Option<String>,
+    /// Hinweis für den Menschen (z. B. „letzte Szene nicht ladbar, Demo geöffnet“).
+    pub notice: Option<String>,
     /// Frühere Fassungen für „Rückgängig“ (neueste zuletzt).
     history: Vec<Scene>,
 }
@@ -47,8 +49,33 @@ impl SceneSource {
             poll: Timer::new(Duration::from_millis(250), TimerMode::Repeating),
             scene,
             error: None,
+            notice: None,
             history: Vec::new(),
         })
+    }
+
+    /// Ersatz, wenn die gewünschte Szene nicht ladbar ist: Demo-Szene, sonst eine leere Notfall-Szene.
+    pub fn fallback(reason: &str) -> Self {
+        let notice = format!("Die zuletzt geöffnete Szene konnte nicht geladen werden – stattdessen Demo geöffnet. Grund: {reason}");
+        let mut s = crate::project::demo_scene()
+            .ok()
+            .and_then(|p| Self::open(Some(p)).ok())
+            .unwrap_or_else(|| {
+                let path = std::env::temp_dir().join("cineforge-notfall.json");
+                let scene = Scene::from_json("{}").expect("leere Szene ist gültig");
+                let _ = std::fs::write(&path, scene.to_json_pretty());
+                Self {
+                    modified: std::fs::metadata(&path).and_then(|m| m.modified()).ok(),
+                    path,
+                    poll: Timer::new(Duration::from_millis(250), TimerMode::Repeating),
+                    scene,
+                    error: None,
+                    notice: None,
+                    history: Vec::new(),
+                }
+            });
+        s.notice = Some(notice);
+        s
     }
 
     /// Übernimmt eine neue (bereits geprüfte) Szene: merkt die alte für
@@ -83,6 +110,7 @@ impl SceneSource {
         self.scene = scene;
         self.modified = modified;
         self.error = None;
+        self.notice = None;
         self.history.clear();
         out.write(SceneLoaded { new_file: true });
         Ok(())

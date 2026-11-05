@@ -12,6 +12,7 @@ mod capture;
 mod claude_setup;
 mod cli;
 mod control;
+mod crash;
 mod environment;
 mod film;
 mod fx;
@@ -55,11 +56,19 @@ fn main() -> AppExit {
         return AppExit::Success;
     }
 
+    crash::install();
     let source = match source::SceneSource::open(args.scene.clone()) {
         Ok(s) => s,
-        Err(e) => {
+        // Einmaliger Screenshot: Fehler melden und beenden.
+        Err(e) if args.screenshot.is_some() => {
             eprintln!("{e}");
             return AppExit::error();
+        }
+        // Normaler Start: nie stumm beenden, sondern mit der Demo-Szene öffnen und den Grund zeigen.
+        Err(e) => {
+            eprintln!("{e}");
+            crash::note(&format!("Start: Szene nicht ladbar – öffne Demo. Grund: {e}"));
+            source::SceneSource::fallback(&e)
         }
     };
 
