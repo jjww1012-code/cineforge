@@ -86,6 +86,7 @@ Arbeitsweise:
 8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
 Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
+Tiere: type \"animal\" (dog, cat, bunny, bird, fish; actions walk/run/wag/jump/sit/fly/swim).
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
 Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.

@@ -589,6 +589,11 @@ impl Builder<'_, '_, '_> {
                 ));
                 self.stats.triangles += n * n * 2;
             }
+            Kind::Animal(spec) => {
+                let animal = cf_scene::animal::build_animal(o, spec);
+                let child_prefix = format!("{full_id}/");
+                self.spawn_object(&animal, entity, mat_override, depth + 1, &child_prefix);
+            }
             Kind::Tree(spec) => {
                 let tree = cf_scene::nature::build_tree(o, spec, self.scene.duration);
                 let child_prefix = format!("{full_id}/");
@@ -970,6 +975,7 @@ impl Builder<'_, '_, '_> {
             | Kind::Character(_)
             | Kind::Tree(_)
             | Kind::Water(_)
+            | Kind::Animal(_)
             | Kind::Model { .. } => return None,
         };
         if mesh.count_vertices() == 0 {

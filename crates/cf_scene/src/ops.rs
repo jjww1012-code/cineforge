@@ -253,6 +253,7 @@ pub fn kind_label(k: &Kind) -> String {
         Kind::Model { file } => format!("model \"{file}\""),
         Kind::Character(c) => format!("character {:.1} m, {} Aktionen", c.height, c.actions.len()),
         Kind::Tree(t) => format!("tree {:?} {:.1} m", t.kind, t.height).to_lowercase(),
+        Kind::Animal(a) => format!("animal {:?}", a.kind).to_lowercase(),
         Kind::Water(w) => format!("water {:?} Wellen {} m", w.size, w.wave_height),
     }
 }

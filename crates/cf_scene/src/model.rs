@@ -682,6 +682,8 @@ pub enum Kind {
     },
     /// Fertige Cartoon-Figur mit Gelenken, Gesicht und Aktionen (siehe `character`).
     Character(crate::character::CharacterSpec),
+    /// Tier (Hund, Katze, Hase, Vogel, Fisch) mit Bewegungen.
+    Animal(crate::animal::AnimalSpec),
     /// Baum (Laubbaum, Tanne, Palme, Birke, Cartoon) mit Wind.
     Tree(crate::nature::TreeSpec),
     /// Wasserfläche mit Wellen.
@@ -1150,7 +1152,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
     }
     let shapes_mesh = !matches!(
         o.kind,
-        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. } | Kind::Character(_) | Kind::Tree(_) | Kind::Water(_)
+        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. } | Kind::Character(_) | Kind::Tree(_) | Kind::Water(_) | Kind::Animal(_)
     );
     if (o.subdivide > 0 || o.rounded || !o.deform.is_empty()) && !shapes_mesh {
         p.push(format!("\"{id}\": subdivide/rounded/deform gehen nur bei Formen (box, sphere, extrude, lathe, tube, text …), nicht bei diesem Typ"));
@@ -1194,7 +1196,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Character(_) | Kind::Water(_)) {
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Character(_) | Kind::Water(_) | Kind::Animal(_)) {
                 p.push(format!("\"{id}\": scatter.shape muss eine einfache Form oder ein tree sein"));
             }
             if matches!(s.shape.kind, Kind::Tree(_)) && s.count > 1500 {
@@ -1291,6 +1293,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
         }
         Kind::Character(c) => c.validate(id, p),
         Kind::Tree(t) => t.validate(id, p),
+        Kind::Animal(a) => a.validate(id, p),
         Kind::Water(w) => w.validate(id, p),
         Kind::Model { file } => {
             let lower = file.to_lowercase();

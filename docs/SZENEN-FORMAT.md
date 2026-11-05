@@ -228,6 +228,21 @@ Tipps: Gesichtsausdruck je Shot wählen (zwei Fassungen derselben Figur in versc
 Kamera mit `follow`/`target` auf die Figur, `dof` mit `focus` = Figur. Aktionen dürfen sich
 überlappen (z. B. `walk` + `wave`). Übergänge zwischen Aktionen werden automatisch weich.
 
+## Tiere (`type: "animal"`)
+
+`{"id": "bello", "type": "animal", "kind": "dog", "color": "#c98b52", "color2": "#f7ead6", "actions": [{"type": "wag", "start": 0, "end": 3}]}`
+
+| Feld | Werte |
+|---|---|
+| `kind` | `dog`, `cat`, `bunny`, `bird`, `fish` |
+| `size` | Körperlänge in Metern (Standard je Art: Hund 0.8, Katze 0.6, Hase 0.4, Vogel 0.3, Fisch 0.4) |
+| `color`, `color2` | Fell/Grundfarbe und Zweitfarbe (Bauch, Schnauze, Streifen) |
+| `actions` | `idle`, `walk`, `run`, `wag` (Schwanzwedeln), `jump`, `sit`, `fly` (Vogel), `swim` (Fisch) – mit `start`, `end`, `speed` |
+| `outline` | Cartoon-Umriss |
+| `auto_move` | auf einem `animate.path` automatisch laufen / fliegen / schwimmen (Standard an) |
+
+Tiere blinzeln und atmen von selbst; Vögel flattern, Fische schwimmen dauerhaft ein wenig.
+
 ## Cartoons und 2D
 
 Für Zeichentrick-Look: **2D-Kamera** (`camera.orthographic`) + **SVG-Grafiken** (`type: "svg"`).

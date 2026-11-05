@@ -847,6 +847,7 @@ fn kind_name(k: &Kind) -> &'static str {
         Kind::Character(_) => "Figur",
         Kind::Tree(_) => "Baum",
         Kind::Water(_) => "Wasser",
+        Kind::Animal(_) => "Tier",
     }
 }
 
@@ -871,7 +872,7 @@ fn action_name(k: cf_scene::character::ActionKind) -> &'static str {
 
 fn kind_color(k: &Kind) -> Color {
     match k {
-        Kind::Group { .. } | Kind::Instance { .. } | Kind::Character(_) => VIOLET,
+        Kind::Group { .. } | Kind::Instance { .. } | Kind::Character(_) | Kind::Animal(_) => VIOLET,
         Kind::PointLight(_) | Kind::Particles(_) => AMBER,
         Kind::Svg { .. } | Kind::Image { .. } | Kind::Text(_) => ACCENT,
         _ => DIM,
