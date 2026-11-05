@@ -240,6 +240,12 @@
 
 ## Offene Punkte / Wissenswertes
 
+- **GitHub Actions startet keine Builds mehr (seit 2026-11-05 ~01:20 UTC):** „recent account payments have
+  failed or your spending limit needs to be increased“. Letzter erfolgreicher Build: 00:21 UTC
+  („App startet immer …“). Der Kontoinhaber muss unter GitHub → Settings → Billing and plans die
+  Zahlung/das Ausgabenlimit für Actions prüfen, danach den letzten Build mit „Re-run“ starten.
+  Workflow spart jetzt Minuten (concurrency mit Abbruch älterer Läufe, keine Builds für Doku-Änderungen).
+
 - **Gegenlicht/Rim-Light:** mit einem zusätzlichen Richtungslicht getestet – wirkt in Bevy nicht
   (hellt nur den Boden auf, keine Kanten; Lichter lassen sich nicht auf Objekte beschränken).
   Echter Rim braucht einen eigenen Shader (`ExtendedMaterial` mit Fresnel-Term) – noch offen.
