@@ -51,7 +51,7 @@ impl Plugin for SpawnPlugin {
             .init_resource::<BuiltScene>()
             .init_resource::<crate::media::ImageCache>()
             .add_systems(Update, (rebuild_scene, track_model_loading))
-            .add_systems(Update, face_camera.after(crate::timeline::TimelineSet));
+            .add_systems(Update, (face_camera, animate_water).after(crate::timeline::TimelineSet));
     }
 }
 
@@ -302,6 +302,37 @@ fn rebuild_scene(
     commands.insert_resource(stats);
 }
 
+/// Wasserfläche, deren Wellen jedes Bild aus der Zeit berechnet werden (deterministisch).
+#[derive(Component)]
+pub struct WaterSurface {
+    spec: cf_scene::nature::WaterSpec,
+    mesh: Handle<Mesh>,
+    last: f32,
+}
+
+fn animate_water(ph: Res<crate::timeline::Playhead>, mut q: Query<&mut WaterSurface>, mut meshes: ResMut<Assets<Mesh>>) {
+    use bevy::mesh::VertexAttributeValues as V;
+    for mut w in &mut q {
+        if (w.last - ph.time).abs() < 1e-5 {
+            continue;
+        }
+        w.last = ph.time;
+        let Some(mut mesh) = meshes.get_mut(&w.mesh) else { continue };
+        let t = ph.time;
+        let mut normals = Vec::new();
+        if let Some(V::Float32x3(pos)) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) {
+            normals.reserve(pos.len());
+            for p in pos.iter_mut() {
+                let (h, dx, dz) = w.spec.height(p[0], p[2], t);
+                p[1] = h;
+                let l = (dx * dx + 1.0 + dz * dz).sqrt();
+                normals.push([-dx / l, 1.0 / l, -dz / l]);
+            }
+        }
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+}
+
 /// Dreht das Objekt zur rendernden Kamera (nur um die senkrechte Achse, wie ein Pappaufsteller).
 #[derive(Component)]
 pub struct Billboard {
@@ -521,6 +552,45 @@ impl Builder<'_, '_, '_> {
                     self.spawn_object(c, entity, mat_override, depth, prefix);
                 }
             }
+            Kind::Water(spec) => {
+                let n = spec.resolution.clamp(4, 512) as usize;
+                let (w, d) = (spec.size[0], spec.size[1]);
+                let mut data = MeshData::default();
+                for j in 0..=n {
+                    for i in 0..=n {
+                        let (u, v) = (i as f32 / n as f32, j as f32 / n as f32);
+                        data.positions.push([(u - 0.5) * w, 0.0, (v - 0.5) * d]);
+                        data.normals.push([0.0, 1.0, 0.0]);
+                        data.uvs.push([u * w, v * d]);
+                    }
+                }
+                for j in 0..n {
+                    for i in 0..n {
+                        let a = (j * (n + 1) + i) as u32;
+                        let b = a + 1;
+                        let c = a + (n + 1) as u32;
+                        data.indices.extend([a, c, b, b, c, c + 1]);
+                    }
+                }
+                let mesh = self.meshes.add(to_bevy_mesh(data));
+                let mut m = material.clone();
+                m.color = spec.color;
+                m.roughness = m.roughness.min(0.04);
+                m.metallic = m.metallic.max(0.15); // spiegelt den Himmel stärker
+                m.clearcoat = m.clearcoat.max(1.0);
+                let mat = self.material(&m);
+                self.commands.entity(entity).insert((
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(mat),
+                    WaterSurface { spec: spec.clone(), mesh, last: f32::NAN },
+                ));
+                self.stats.triangles += n * n * 2;
+            }
+            Kind::Tree(spec) => {
+                let tree = cf_scene::nature::build_tree(o, spec, self.scene.duration);
+                let child_prefix = format!("{full_id}/");
+                self.spawn_object(&tree, entity, mat_override, depth + 1, &child_prefix);
+            }
             Kind::Character(spec) => {
                 // Figur als Gruppe aus Grundformen; Teile heißen „<id>/…“ (Klick wählt die Figur).
                 let figure = cf_scene::character::build(o, spec);
@@ -669,6 +739,31 @@ impl Builder<'_, '_, '_> {
                     .map(|((_, offset, scale), hf)| Ground { heightfield: hf, offset, scale });
                 let world_pos = transform.translation.to_array();
                 let instances = procedural::scatter_instances(spec, world_pos, ground.as_ref());
+                if let Kind::Tree(tree) = &spec.shape.kind {
+                    // Wald: jeder Baum eine eigene Variante (seed), an seiner Position.
+                    for (i, inst) in instances.iter().enumerate() {
+                        let mut t = tree.clone();
+                        t.seed = tree.seed.wrapping_add(i as u32 * 7 + 1);
+                        let holder = self
+                            .commands
+                            .spawn((
+                                Transform {
+                                    translation: Vec3::from_array(inst.position),
+                                    rotation: Quat::from_rotation_y(inst.yaw),
+                                    scale: Vec3::splat(inst.scale),
+                                },
+                                Visibility::default(),
+                                ChildOf(entity),
+                            ))
+                            .id();
+                        let fake = Object { id: format!("{}_{i}", o.id), kind: Kind::Tree(t.clone()), ..o.clone() };
+                        let built = cf_scene::nature::build_tree(&fake, &t, self.scene.duration);
+                        let child_prefix = format!("{full_id}/");
+                        self.spawn_object(&built, holder, None, depth + 1, &child_prefix);
+                    }
+                    self.stats.instances += instances.len();
+                    return;
+                }
                 let needs_tangents = material.pattern.as_ref().is_some_and(|p| p.bump > 0.0);
                 if let Some((mesh, tris)) = self.shape_mesh(&spec.shape.kind, material.flat, needs_tangents, None) {
                     let mat = self.material(material);
@@ -858,6 +953,8 @@ impl Builder<'_, '_, '_> {
             | Kind::Image { .. }
             | Kind::Svg { .. }
             | Kind::Character(_)
+            | Kind::Tree(_)
+            | Kind::Water(_)
             | Kind::Model { .. } => return None,
         };
         if mesh.count_vertices() == 0 {

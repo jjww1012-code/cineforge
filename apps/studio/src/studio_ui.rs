@@ -800,6 +800,8 @@ fn kind_name(k: &Kind) -> &'static str {
         Kind::Group { .. } => "Gruppe",
         Kind::PointLight(_) => "Licht",
         Kind::Character(_) => "Figur",
+        Kind::Tree(_) => "Baum",
+        Kind::Water(_) => "Wasser",
     }
 }
 

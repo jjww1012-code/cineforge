@@ -119,6 +119,13 @@ pub struct Environment {
     /// Kontaktschatten in Ecken und Fugen (Umgebungsverdeckung). Standard: an im Film-Stil, aus im Cartoon-Stil.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ao: Option<bool>,
+    /// Sternenhimmel für Nachtszenen (0 = aus, 1 = normal, 2 = sehr viele). Nur bei Nacht sichtbar
+    /// (Sonne unter dem Horizont oder dunkler Farb-Himmel).
+    #[serde(skip_serializing_if = "is_zero_f32")]
+    pub stars: f32,
+    /// Mond: kühles Mondlicht mit Schatten + sichtbare Mondscheibe (für Nachtszenen).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub moon: Option<Moon>,
     /// Sichtbare Lichtstrahlen der Sonne im Dunst: 0 = aus, 0.3 = dezent, 1 = stark.
     #[serde(skip_serializing_if = "is_zero_f32")]
     pub light_rays: f32,
@@ -141,6 +148,8 @@ impl Default for Environment {
             bloom: 0.15,
             look: None,
             ao: None,
+            stars: 0.0,
+            moon: None,
             light_rays: 0.0,
             grade: None,
             animate: None,
@@ -265,6 +274,25 @@ fn default_aperture() -> f32 {
 pub enum Focus {
     Distance(f32),
     Object(String),
+}
+
+/// Mond am Nachthimmel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct Moon {
+    pub azimuth: f32,
+    pub elevation: f32,
+    /// Helligkeit des Mondlichts (1 = filmische Nacht, 2 = Vollmond-hell).
+    pub intensity: f32,
+    pub color: Rgb,
+    /// Größe der Mondscheibe (1 = normal, 3 = riesig wie im Märchenfilm).
+    pub size: f32,
+}
+
+impl Default for Moon {
+    fn default() -> Self {
+        Self { azimuth: 120.0, elevation: 30.0, intensity: 1.0, color: Rgb::new(0.72, 0.8, 1.0), size: 1.0 }
+    }
 }
 
 /// Farbkorrektur („Grading“) für den Look des Films.
@@ -612,6 +640,10 @@ pub enum Kind {
     },
     /// Fertige Cartoon-Figur mit Gelenken, Gesicht und Aktionen (siehe `character`).
     Character(crate::character::CharacterSpec),
+    /// Baum (Laubbaum, Tanne, Palme, Birke, Cartoon) mit Wind.
+    Tree(crate::nature::TreeSpec),
+    /// Wasserfläche mit Wellen.
+    Water(crate::nature::WaterSpec),
     /// 3D-Modell (GLB/glTF, Datei im Ordner Modelle/), z. B. aus Blender, Sketchfab oder einem KI-3D-Generator.
     Model { file: String },
     /// Partikel-Effekt (Feuer, Rauch, Funken, Schnee, Regen, Explosion, Magie, Staub, Fontäne).
@@ -1059,7 +1091,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
     }
     let shapes_mesh = !matches!(
         o.kind,
-        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. } | Kind::Character(_)
+        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. } | Kind::Character(_) | Kind::Tree(_) | Kind::Water(_)
     );
     if (o.subdivide > 0 || o.rounded || !o.deform.is_empty()) && !shapes_mesh {
         p.push(format!("\"{id}\": subdivide/rounded/deform gehen nur bei Formen (box, sphere, extrude, lathe, tube, text …), nicht bei diesem Typ"));
@@ -1103,8 +1135,11 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Character(_)) {
-                p.push(format!("\"{id}\": scatter.shape muss eine einfache Form sein"));
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Character(_) | Kind::Water(_)) {
+                p.push(format!("\"{id}\": scatter.shape muss eine einfache Form oder ein tree sein"));
+            }
+            if matches!(s.shape.kind, Kind::Tree(_)) && s.count > 1500 {
+                p.push(format!("\"{id}\": höchstens 1500 Bäume pro scatter"));
             }
             if s.scale_range[0] > s.scale_range[1] {
                 p.push(format!("\"{id}\": scale_range min ist größer als max"));
@@ -1196,6 +1231,8 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             }
         }
         Kind::Character(c) => c.validate(id, p),
+        Kind::Tree(t) => t.validate(id, p),
+        Kind::Water(w) => w.validate(id, p),
         Kind::Model { file } => {
             let lower = file.to_lowercase();
             if !(lower.ends_with(".glb") || lower.ends_with(".gltf")) {

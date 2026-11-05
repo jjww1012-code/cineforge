@@ -127,6 +127,11 @@
   Lippenlinie je Ausdruck, Mundöffnung mit Lippen-Sync, 6 Frisuren, 3 Statur-Typen, Umriss;
   13 Aktionen als prozedurale Posen → Keyframes (15/s) mit weichen Übergängen; `auto_walk`
   passt Schrittfrequenz an die Pfad-Geschwindigkeit an. Teile heißen `<id>/…` (Klick wählt Figur).
+- **Natur (`cf_scene::nature`):** `type: "tree"` (oak/pine/palm/birch/lollipop, Wind als
+  Keyframes, Wald über `scatter` mit Baum-Varianten), `type: "water"` (3 Wellenzüge, Mesh jedes
+  Bild aus der Zeit berechnet: `spawn::animate_water`), `environment.stars` (Stern-Mesh mit
+  Vertex-Farben, additiv; Achtung Wicklung: Vorderseite zur Kamera), `environment.moon`
+  (Richtungslicht 2500 lx bläulich + Mondscheibe).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

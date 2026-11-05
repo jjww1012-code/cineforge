@@ -17,6 +17,7 @@ pub mod particles;
 pub mod project;
 pub mod character;
 pub mod motion;
+pub mod nature;
 pub mod shaping;
 pub mod svg;
 pub mod textures;

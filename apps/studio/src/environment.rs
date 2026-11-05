@@ -76,6 +76,8 @@ fn apply_environment(
     mut main_cam: Query<(&mut Transform, Option<&mut FreeCameraState>), With<MainCamera>>,
     views: Query<Entity, With<SceneView>>,
     mut last: Local<Option<u64>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Some(new_file) = loaded.read().fold(None, |acc: Option<bool>, m| Some(acc.unwrap_or(false) | m.new_file))
     else {
@@ -166,6 +168,59 @@ fn apply_environment(
         });
     }
 
+    // Sterne: nur nachts (Sonne unter dem Horizont oder dunkler Farb-Himmel)
+    let night = match &env.sky {
+        Sky::Atmosphere => ((3.0 - env.sun.elevation) / 10.0).clamp(0.0, 1.0),
+        Sky::Color { color: c } => (1.0 - (c.r + c.g + c.b) / 1.2).clamp(0.0, 1.0),
+    };
+    if env.stars > 0.0 && night > 0.0 {
+        commands.spawn((
+            EnvEntity,
+            Name::new("Sterne"),
+            Mesh3d(star_mesh(&mut meshes, env.stars)),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::WHITE.with_alpha(night),
+                unlit: true,
+                fog_enabled: false,
+                alpha_mode: AlphaMode::Add,
+                cull_mode: None,
+                ..default()
+            })),
+            Transform::from_translation(Vec3::from_array(scene.camera.position)),
+            bevy::light::NotShadowCaster,
+            bevy::picking::Pickable::IGNORE,
+        ));
+    }
+    if let Some(m) = &env.moon {
+        let mdir = sun_direction(m.azimuth, m.elevation.max(1.0));
+        let up = if mdir.y.abs() > 0.99 { Vec3::Z } else { Vec3::Y };
+        commands.spawn((
+            EnvEntity,
+            Name::new("Mondlicht"),
+            DirectionalLight {
+                color: color(m.color),
+                illuminance: 2500.0 * m.intensity.max(0.0),
+                shadow_maps_enabled: true,
+                ..default()
+            },
+            Transform::from_translation(mdir).looking_at(Vec3::ZERO, up),
+        ));
+        let disk = 70.0 * m.size.clamp(0.1, 10.0);
+        commands.spawn((
+            EnvEntity,
+            Name::new("Mond"),
+            Mesh3d(meshes.add(Sphere::new(disk).mesh().uv(32, 16))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.97, 0.9),
+                unlit: true,
+                fog_enabled: false,
+                ..default()
+            })),
+            Transform::from_translation(Vec3::from_array(scene.camera.position) + mdir * 2800.0),
+            bevy::light::NotShadowCaster,
+            bevy::picking::Pickable::IGNORE,
+        ));
+    }
     if env.light_rays > 0.0 {
         // Dunst-Volumen um die Szene, in dem das Sonnenlicht sichtbar wird.
         let c = Vec3::from_array(scene.camera.look_at);
@@ -182,6 +237,44 @@ fn apply_environment(
     for view in &views {
         configure_view(&mut commands.entity(view), scene);
     }
+}
+
+/// Sternenhimmel: kleine leuchtende Vierecke auf einer großen Kugel (deterministisch).
+fn star_mesh(meshes: &mut Assets<Mesh>, density: f32) -> Handle<Mesh> {
+    let n = (2500.0 * density.clamp(0.0, 4.0)) as usize;
+    let mut rng = cf_scene::noise::Rng::new(4242);
+    let (mut pos, mut col, mut idx) = (Vec::new(), Vec::new(), Vec::new());
+    let r = 3000.0;
+    for i in 0..n {
+        // gleichmäßig auf der oberen Halbkugel (etwas unter den Horizont)
+        let y = rng.range(-0.08, 1.0);
+        let a = rng.range(0.0, std::f32::consts::TAU);
+        let s = (1.0 - y * y).sqrt();
+        let dir = Vec3::new(s * a.cos(), y, s * a.sin());
+        let size = rng.range(2.0, 6.5) * if rng.f32() > 0.97 { 2.2 } else { 1.0 };
+        let b = rng.range(0.35, 1.0);
+        let tint = rng.f32();
+        let c = [b * (0.85 + 0.15 * tint), b * 0.92, b * (1.0 - 0.12 * tint), 1.0];
+        let up = if dir.y.abs() > 0.95 { Vec3::X } else { Vec3::Y };
+        let t1 = dir.cross(up).normalize() * size;
+        let t2 = dir.cross(t1).normalize() * size;
+        let center = dir * r;
+        let base = (i * 4) as u32;
+        for p in [center - t1 - t2, center + t1 - t2, center + t1 + t2, center - t1 + t2] {
+            pos.push(p.to_array());
+            col.push(c);
+        }
+        // Vorderseite zur Kugelmitte (Kamera) hin
+        idx.extend([base, base + 2, base + 1, base, base + 3, base + 2]);
+    }
+    let normals = vec![[0.0, 1.0, 0.0]; pos.len()];
+    meshes.add(
+        Mesh::new(bevy::mesh::PrimitiveTopology::TriangleList, bevy::asset::RenderAssetUsages::RENDER_WORLD)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, pos)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, col)
+            .with_inserted_indices(bevy::mesh::Indices::U32(idx)),
+    )
 }
 
 /// Fokus auf ein Objekt: Schärfe-Entfernung jedes Bild nachführen.

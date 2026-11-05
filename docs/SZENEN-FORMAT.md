@@ -38,6 +38,8 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `exposure` | 0 | Belichtung in Blendenstufen (+1 = doppelt so hell) |
 | `bloom` | 0.15 | Glühen heller Stellen (0 = aus) |
 | `ao` | auto | Kontaktschatten in Ecken, Fugen, unter Objekten (wirkt sofort realistischer). Standard: an im Film-Stil, aus im Cartoon-Stil |
+| `stars` | 0 | **Sternenhimmel** (1 = normal, 2 = sehr viele) – erscheint nur nachts (Sonne unter dem Horizont, `elevation` < 0, oder dunkler Farb-Himmel) |
+| `moon` | – | **Mond**: `{"azimuth": 120, "elevation": 30, "intensity": 1, "size": 1}` – kühles Mondlicht mit Schatten + Mondscheibe (`size` 3 = Märchenmond). Für Nacht: Sonne `elevation` −10, `stars` 1, `moon`, warme `point_light`s (Fenster, Feuer) |
 | `light_rays` | 0 | Sichtbare Sonnenstrahlen im Dunst (0.3 dezent, 1 stark) – ideal bei tiefer Sonne, Wald, Ruinen |
 | `grade` | – | Farbkorrektur: `{"saturation": 1.15, "vignette": 0.35}` (Sättigung 1 = normal; Vignette = dunklere Bildränder) |
 | `look` | auto | `"film"` = natürliche, filmische Tonwerte (Farben etwas gedämpft) · `"cartoon"` = Farben **exakt** wie angegeben (Cartoons, 2D, Grafiken, Logos). Ohne Angabe: `cartoon` bei 2D-Kamera, sonst `film` |
@@ -176,6 +178,8 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `instance` | `asset` (Name in der Bibliothek), `material_override` (optional) |
 | `image` | `file` (im Ordner `Bilder/` des Projekts), `width` 1 – Bildfläche mit dem Seitenverhältnis des Bildes (PNG mit Transparenz möglich), XY-Ebene, schaut nach +Z. Für exakte Farben `"material": {"unlit": true}` |
 | `svg` | `svg` (SVG-Text direkt im Feld) **oder** `file` (SVG-Datei in `Bilder/`), `width` 1, `depth` 0, `mode` auto, `resolution` auto – **2D-Grafik**, mittig, XY-Ebene, schaut nach +Z. `mode`: `"vector"` = jede Fläche wird ein eigenes Flächenstück (in jeder Größe scharf, mit `depth` > 0 ein 3D-Relief), `"image"` = volle SVG-Darstellung wie in einem Grafikprogramm (Farbverläufe, `feGaussianBlur`-Schatten, Masken, Text mit Inter, Transparenz). `auto` wählt `image`, sobald das SVG Verläufe, Filter, Masken, Muster oder Text enthält. `resolution` = Pixel der langen Seite (Standard 400 pro Meter, 1024–4096). Siehe „Cartoons und 2D“ |
+| `tree` | `kind` (`oak`, `pine`, `palm`, `birch`, `lollipop` = Cartoon-Kugelbaum), `height` 5, `leaves` (Farbe; Herbst `#d9822b`, Blüte `#f4b6c8`), `trunk`, `wind` 0 (0.3 leichtes Wiegen), `seed`, `low_poly` – **fertiger Baum**. Wald: `scatter` mit `"shape": {"type": "tree", "kind": "pine", "height": 8}` (jeder Baum eine andere Variante, max. 1500) |
+| `water` | `size` [40,40], `wave_height` 0.15, `wavelength` 4, `speed` 1, `direction` 0, `color`, `resolution` 96 – **Wasserfläche mit laufenden Wellen** (See, Meer, Pool); etwas über den Grund legen |
 | `model` | `file` (glTF/GLB-Datei im Ordner `Modelle/`) – **3D-Modell importieren** (z. B. von Sketchfab, Blender, KI-3D-Generatoren) mit eigenen Materialien und Texturen. Größe/Lage über `position`, `rotation`, `scale` |
 
 ## Figuren (`type: "character"`) – fertige Cartoon-Figuren im Pixar-Stil
