@@ -300,7 +300,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "create_music",
-            "description": "Erzeugt einen Musik-Track (WAV in Audio/) aus Akkorden und Abschnitten – der Track kann über die Abschnitte wachsen. style: synthwave, edm, lofi, cinematic, ambient, hiphop. sections: [{\"bars\":4,\"parts\":[\"pulse\"],\"intensity\":0.5},{\"bars\":8,\"parts\":[\"pad\",\"bass\",\"drums\",\"arp\"]}] mit Instrumenten pulse, pad, bass, kick, snare, hats, drums, arp. Länge = Takte × 4 Schläge × 60/bpm.",
+            "description": "Erzeugt einen Musik-Track (WAV in Audio/). Am einfachsten: mood (happy, sad, adventure, tense, magical, calm, epic, funny, night) + film: true → Musik genau so lang wie der Film (Intro, Hauptteil, Ausklang) und gleich als Film-Musik eingetragen (volume, Standard 0.4); oder duration in Sekunden. Für volle Kontrolle: Akkorde und Abschnitte – der Track kann über die Abschnitte wachsen. style: synthwave, edm, lofi, cinematic, ambient, hiphop. sections: [{\"bars\":4,\"parts\":[\"pulse\"],\"intensity\":0.5},{\"bars\":8,\"parts\":[\"pad\",\"bass\",\"drums\",\"arp\"]}] mit Instrumenten pulse, pad, bass, kick, snare, hats, drums, arp. Länge = Takte × 4 Schläge × 60/bpm.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -310,9 +310,12 @@ pub fn definitions() -> Value {
                     "chords": {"type": "array", "items": {"type": "string"}},
                     "beats_per_chord": {"type": "integer"},
                     "sections": {"type": "array", "items": obj},
-                    "seed": {"type": "integer"}
-                },
-                "required": ["sections"]
+                    "seed": {"type": "integer"},
+                    "mood": {"type": "string", "enum": ["happy", "sad", "adventure", "tense", "magical", "calm", "epic", "funny", "night"]},
+                    "duration": {"type": "number", "description": "Länge in Sekunden (Abschnitte werden angepasst)"},
+                    "film": {"type": "boolean", "description": "so lang wie der ganze Film und als Soundtrack eintragen"},
+                    "volume": {"type": "number"}
+                }
             }
         },
         {
@@ -1139,12 +1142,58 @@ fn create_music(a: &Value, cx: &mut Ctx) -> ToolOutput {
     };
     let mut spec_json = a.clone();
     if let Some(m) = spec_json.as_object_mut() {
-        m.remove("name");
-        m.remove("agent");
+        for k in ["name", "agent", "mood", "duration", "film", "volume"] {
+            m.remove(k);
+        }
     }
-    let spec: cf_audio::music::MusicSpec = match serde_json::from_value(spec_json) {
-        Ok(s) => s,
-        Err(e) => return ToolOutput::error(format!("Ungültige Angaben: {}", cf_scene::diagnose::explain(&e.to_string()))),
+    // Länge: ganzer Film (film: true) oder duration in Sekunden
+    let for_film = a.get("film").and_then(Value::as_bool).unwrap_or(false);
+    let duration = if for_film {
+        if let Err(e) = cx.project.require() {
+            return ToolOutput::error(e);
+        }
+        let opt = match film_options(&serde_json::json!({}), cx) {
+            Ok(o) => o,
+            Err(e) => return ToolOutput::error(e),
+        };
+        match crate::film::build_plan(cx.project, cx.library, opt) {
+            Ok(plan) => Some(plan.total),
+            Err(p) => return ToolOutput::error(format!("Filmlänge nicht bestimmbar:\n- {}", p.join("\n- "))),
+        }
+    } else {
+        a.get("duration").and_then(Value::as_f64).map(|d| d as f32)
+    };
+    let seed = a.get("seed").and_then(Value::as_u64).unwrap_or(0) as u32;
+    let spec = if let Some(mood) = a.get("mood").and_then(Value::as_str) {
+        let mut s = match cf_audio::music::mood_spec(mood, duration.unwrap_or(30.0), seed) {
+            Ok(s) => s,
+            Err(e) => return ToolOutput::error(e),
+        };
+        // eigene Angaben überschreiben die Stimmung
+        if let Some(b) = a.get("bpm").and_then(Value::as_f64) {
+            s.bpm = b as f32;
+        }
+        if let Some(st) = a.get("style").and_then(|v| serde_json::from_value(v.clone()).ok()) {
+            s.style = st;
+        }
+        if let Some(ch) = a.get("chords").and_then(|v| serde_json::from_value::<Vec<String>>(v.clone()).ok()) {
+            s.chords = ch;
+        }
+        if let Some(secs) = a.get("sections").and_then(|v| serde_json::from_value(v.clone()).ok()) {
+            s.sections = secs;
+        }
+        let (bpm, len) = (s.bpm, duration.unwrap_or(s.duration()));
+        cf_audio::music::fit_sections(&mut s.sections, bpm, len);
+        s
+    } else {
+        let mut s: cf_audio::music::MusicSpec = match serde_json::from_value(spec_json) {
+            Ok(s) => s,
+            Err(e) => return ToolOutput::error(format!("Ungültige Angaben: {} (oder einfach mood angeben)", cf_scene::diagnose::explain(&e.to_string()))),
+        };
+        if let Some(d) = duration {
+            cf_audio::music::fit_sections(&mut s.sections, s.bpm, d);
+        }
+        s
     };
     if let Err(e) = spec.validate() {
         return ToolOutput::error(e);
@@ -1154,9 +1203,28 @@ fn create_music(a: &Value, cx: &mut Ctx) -> ToolOutput {
         return ToolOutput::error(format!("Speichern fehlgeschlagen: {e}"));
     }
     let file = out.file_name().unwrap_or_default().to_string_lossy().to_string();
-    cx.project.log("claude", format!("Musik erzeugt: {file}"));
+    cx.project.log(&who(a), format!("Musik erzeugt: {file}"));
+    if for_film {
+        // gleich als Film-Musik eintragen (ersetzt eine frühere Fassung derselben Datei)
+        let volume = a.get("volume").and_then(Value::as_f64).unwrap_or(0.4);
+        let clip = serde_json::json!({"file": file, "start": 0.0, "volume": volume, "fade_in": 1.0, "fade_out": 2.5});
+        match serde_json::from_value::<cf_scene::project::AudioClip>(clip) {
+            Ok(c) => {
+                cx.project.data.soundtrack.retain(|x| x.file != file);
+                cx.project.data.soundtrack.push(c);
+                let _ = cx.project.save();
+            }
+            Err(e) => return ToolOutput::error(e.to_string()),
+        }
+        return ToolOutput::text(format!(
+            "✓ Audio/{file} – {} (Musik {:.1} s, Film {:.1} s) und als Film-Musik eingetragen (Lautstärke {volume}, Ein-/Ausblenden).",
+            cf_audio::describe(&track),
+            spec.duration(),
+            duration.unwrap_or(0.0)
+        ));
+    }
     ToolOutput::text(format!(
-        "✓ Audio/{file} – {} (Musik {:.1} s + Nachhall)\nAls Film-Musik: update_plan mit \"soundtrack\": [{{\"file\": \"{file}\", \"volume\": 0.6, \"fade_out\": 3}}]",
+        "✓ Audio/{file} – {} (Musik {:.1} s + Nachhall)\nAls Film-Musik: update_plan mit \"soundtrack\": [{{\"file\": \"{file}\", \"volume\": 0.6, \"fade_out\": 3}}] – oder gleich create_music mit film: true",
         cf_audio::describe(&track),
         spec.duration()
     ))
@@ -1791,7 +1859,13 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         // (Schuss/Gegenschuss); spricht jemand zweimal hintereinander, gibt es keinen Schnitt.
         let mut speakers: Vec<&str> = Vec::new();
         let mut last: Option<&str> = None;
-        for l in &out {
+        for (k, l) in out.iter().enumerate() {
+            // Der erste Satz läuft in der Eröffnungs-Einstellung (Zuschauer sieht erst, wer wo steht)
+            if k == 0 && out.len() > 1 {
+                speakers.push(&l.who);
+                last = Some(&l.who);
+                continue;
+            }
             if !speakers.contains(&l.who.as_str()) {
                 speakers.push(&l.who);
             }

@@ -17,6 +17,13 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 *2D-Figur in einer 3D-Welt – gebaut aus der Szenen-Datei [`scenes/vorzeige.json`](scenes/vorzeige.json).*
 
+![Die Schatzsuche](docs/bilder/schatzsuche.png)
+
+*Demo-Film „Die Schatzsuche“ (20 s, 4 Shots), komplett über die Claude-Schnittstelle erzeugt: Dialog mit
+Stimmen, Lippen-Sync, Mimik und Schuss/Gegenschuss, Verfolgerkamera im Wald, Titel, Lagerfeuer-Nacht,
+Übergänge, Umgebungsgeräusche und Abenteuer-Musik passend zur Filmlänge:
+[`docs/bilder/schatzsuche.mp4`](docs/bilder/schatzsuche.mp4)*
+
 ![Kurzfilm-Test](docs/bilder/kurzfilm.png)
 
 *Kurzfilm, komplett über die Claude-Schnittstelle gebaut (Vorlagen, Figur, Stimme, Musik, 3 Shots):

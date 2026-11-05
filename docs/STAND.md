@@ -218,6 +218,11 @@
   hinten/vorn ↑ ↓ (0,25 m), ↺/↻ 15°, größer/kleiner (×1,1), Duplizieren, Verstecken/Zeigen, Löschen,
   Rückgängig – laufen als Werkzeug-Aufrufe „mensch“ (Logbuch, rückgängig machbar). Mit echten Klicks
   getestet (Xvfb + xdotool).
+- **Musik nach Stimmung und Filmlänge:** `create_music` mit `mood` (happy, sad, adventure, tense,
+  magical, calm, epic, funny, night) → Intro/Hauptteil/Ausklang; `duration` oder `film: true`
+  (Länge = Film, gleich als Soundtrack mit Ein-/Ausblenden eingetragen). `music::fit_sections`, Test.
+- **Demo-Film neu:** `docs/bilder/schatzsuche.mp4` + `.png` (Dialog mit Mimik, Zweier-Einstellung, dann
+  Schuss/Gegenschuss; Umgebung; Abenteuer-Musik). Erster Dialogsatz läuft in der Eröffnungs-Einstellung.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

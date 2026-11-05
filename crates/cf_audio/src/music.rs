@@ -61,6 +61,61 @@ pub struct MusicSpec {
 }
 
 
+/// Stimmungen für Filmmusik (ohne Notenkenntnisse): Tempo, Stil, Akkorde und Instrumente.
+pub const MOODS: &[(&str, &str)] = &[
+    ("happy", "fröhlich, beschwingt"),
+    ("sad", "traurig, langsam"),
+    ("adventure", "Abenteuer, vorwärtstreibend"),
+    ("tense", "spannend, bedrohlich"),
+    ("magical", "magisch, märchenhaft"),
+    ("calm", "ruhig, entspannt"),
+    ("epic", "episch, groß"),
+    ("funny", "lustig, verspielt"),
+    ("night", "nächtlich, still"),
+];
+
+/// Takte gleichmäßig so verteilen, dass die Musik `duration` Sekunden dauert (Abschnitts-Verhältnisse bleiben).
+pub fn fit_sections(sections: &mut [Section], bpm: f32, duration: f32) {
+    let bar = 4.0 * 60.0 / bpm.max(1.0);
+    let want = (duration / bar).round().max(sections.len() as f32) as u32;
+    let have: u32 = sections.iter().map(|s| s.bars.max(1)).sum::<u32>().max(1);
+    let mut used = 0;
+    let n = sections.len();
+    for (i, s) in sections.iter_mut().enumerate() {
+        let b = if i + 1 == n {
+            want.saturating_sub(used).max(1)
+        } else {
+            ((s.bars.max(1) as f32 * want as f32 / have as f32).round() as u32).max(1)
+        };
+        s.bars = b;
+        used += b;
+    }
+}
+
+/// Fertige Musik-Beschreibung für eine Stimmung und Länge: Intro (leise) → Hauptteil → Ausklang.
+pub fn mood_spec(mood: &str, duration: f32, seed: u32) -> Result<MusicSpec, String> {
+    let sec = |bars: u32, parts: &[&str], intensity: f32| Section { bars, parts: parts.iter().map(|p| p.to_string()).collect(), intensity };
+    let (bpm, style, chords, intro, main, outro): (f32, Style, &[&str], &[&str], &[&str], &[&str]) = match mood {
+        "happy" => (112.0, Style::Cinematic, &["C", "G", "Am", "F"], &["pad", "arp"], &["pad", "arp", "bass", "drums"], &["pad", "arp"]),
+        "sad" => (68.0, Style::Ambient, &["Am", "F", "C", "Em"], &["pad"], &["pad", "arp", "bass"], &["pad"]),
+        "adventure" => (122.0, Style::Cinematic, &["Dm", "Bb", "F", "C"], &["pulse", "pad"], &["pad", "bass", "drums", "arp"], &["pad", "pulse"]),
+        "tense" => (92.0, Style::Ambient, &["Am", "Bdim", "Am", "E"], &["pulse"], &["pulse", "pad", "bass", "kick"], &["pad"]),
+        "magical" => (84.0, Style::Ambient, &["Cmaj7", "Am7", "Fmaj7", "G"], &["pad"], &["pad", "arp", "bass"], &["arp"]),
+        "calm" => (80.0, Style::Lofi, &["Fmaj7", "Em7", "Dm7", "Cmaj7"], &["pad"], &["pad", "bass", "hats", "arp"], &["pad"]),
+        "epic" => (100.0, Style::Cinematic, &["Am", "F", "C", "G"], &["pad", "pulse"], &["pad", "bass", "drums", "arp", "pulse"], &["pad", "bass"]),
+        "funny" => (128.0, Style::Lofi, &["C", "Am", "Dm", "G7"], &["arp"], &["arp", "bass", "kick", "snare", "hats"], &["arp"]),
+        "night" => (70.0, Style::Ambient, &["Em", "Cmaj7", "G", "D"], &["pad"], &["pad", "arp"], &["pad"]),
+        other => {
+            let names: Vec<&str> = MOODS.iter().map(|(n, _)| *n).collect();
+            return Err(format!("Stimmung „{other}“ unbekannt. Vorhanden: {}", names.join(", ")));
+        }
+    };
+    let (i0, i1, i2) = if matches!(mood, "sad" | "calm" | "night" | "magical") { (0.45, 0.75, 0.4) } else { (0.5, 0.9, 0.55) };
+    let mut sections = vec![sec(2, intro, i0), sec(6, main, i1), sec(2, outro, i2)];
+    fit_sections(&mut sections, bpm, duration.max(2.0));
+    Ok(MusicSpec { bpm, style, chords: chords.iter().map(|c| c.to_string()).collect(), beats_per_chord: 4, sections, seed })
+}
+
 /// Akkord → MIDI-Noten (Grundton in Oktave 3).
 pub fn parse_chord(c: &str) -> Result<Vec<i32>, String> {
     let c = c.trim();
@@ -340,6 +395,17 @@ fn put(buf: &mut Stereo, t: f32, gain: f32, seed: u32, layer: &Layer) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn moods_fit_the_requested_length() {
+        for (m, _) in MOODS {
+            let spec = mood_spec(m, 21.0, 1).unwrap();
+            spec.validate().unwrap();
+            let bar = 240.0 / spec.bpm;
+            assert!((spec.duration() - 21.0).abs() <= bar * 0.5 + 1e-3, "{m}: {}", spec.duration());
+        }
+        assert!(mood_spec("froh", 10.0, 0).is_err());
+    }
 
     #[test]
     fn chords() {
