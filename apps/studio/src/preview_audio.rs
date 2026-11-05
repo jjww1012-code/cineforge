@@ -72,6 +72,12 @@ fn collect_clips(src: &SceneSource, project: &ActiveProject) -> Vec<Clip> {
             }
         }
     }
+    // Geräusch-Spur der Szene (vom Werkzeug foley), falls nicht eingetragen
+    if let Some(path) = rel(&format!("sfx_{current}.wav")) {
+        if !out.iter().any(|c| c.path == path) {
+            out.push(Clip { path, start: 0.0, offset: 0.0, duration: None, volume: 0.7 });
+        }
+    }
     // Lippen-Sync-Stimmen (falls nicht schon als Shot-Ton eingetragen)
     let mut talks = Vec::new();
     src.scene.walk(&mut |o| {

@@ -242,8 +242,26 @@ pub fn build_plan(project: &ActiveProject, library: &mut Library, opt: PlanOptio
         let fade_out = i + 1 == n || opt.fade_all || fade(i);
         let mut h = DefaultHasher::new();
         (CACHE_VERSION, opt.width, opt.height, fps, format!("{:?}", opt.quality), fade_in, fade_out).hash(&mut h);
+        let mut auto_audio: Vec<(String, f32)> = Vec::new();
         let (kind, duration) = match (scene, &shot.clip) {
             (Some((path, Ok((s, text)))), _) => {
+                // Stimmen sprechender Figuren und die Geräusch-Spur der Szene gehören automatisch dazu
+                s.walk(&mut |o| {
+                    if let Some(t) = o.animate.as_ref().and_then(|a| a.talk.as_ref()) {
+                        auto_audio.push((t.audio.clone(), t.start));
+                    }
+                    if let cf_scene::Kind::Character(c) = &o.kind {
+                        if let Some(t) = &c.talk {
+                            auto_audio.push((t.audio.clone(), t.start));
+                        }
+                    }
+                });
+                if let Some(stem) = path.file_stem() {
+                    let sfx = format!("sfx_{}.wav", stem.to_string_lossy());
+                    if media::resolve(project, media::AUDIO, &sfx).is_ok() {
+                        auto_audio.push((sfx, 0.0));
+                    }
+                }
                 text.hash(&mut h);
                 // Bibliotheks-Objekte gehören zum Inhalt
                 let mut refs = Vec::new();
@@ -320,6 +338,23 @@ pub fn build_plan(project: &ActiveProject, library: &mut Library, opt: PlanOptio
         for a in &shot.audio {
             match resolve_audio(project, a, film_t) {
                 Ok(m) => audio.push(m),
+                Err(e) => problems.push(format!("Shot {} Ton: {e}", shot.id)),
+            }
+        }
+        for (file, start) in auto_audio {
+            if shot.audio.iter().any(|a| a.file == file) {
+                continue; // schon eingetragen (z. B. mit eigener Lautstärke)
+            }
+            match media::resolve(project, media::AUDIO, &file) {
+                Ok(path) => audio.push(MixClip {
+                    path,
+                    start: film_t + start,
+                    offset: 0.0,
+                    duration: Some((duration - start).max(0.05)),
+                    volume: if file.starts_with("sfx_") { 0.7 } else { 1.0 },
+                    fade_in: 0.0,
+                    fade_out: 0.05,
+                }),
                 Err(e) => problems.push(format!("Shot {} Ton: {e}", shot.id)),
             }
         }
