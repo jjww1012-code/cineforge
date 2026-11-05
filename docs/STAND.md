@@ -237,6 +237,9 @@
 - **Zeitlupe/Zeitraffer:** Storyboard-Shot `speed` (0.5 = halbe Geschwindigkeit) → `Segment.speed`
   (Szenen-Zeit je Film-Sekunde); ohne `duration` läuft die ganze Szene (Länge / speed). Automatischer
   Szenenton (Stimmen, foley) entfällt bei speed ≠ 1. Ende-zu-Ende geprüft (Positionen im Video stimmen).
+- **Neue Mimik:** `laugh` (Augen zu „^ ^“ + offener Mund), `excited`, `sleepy` (halbe Lider), `wink`;
+  Lider als hautfarbene Kugeln vor dem Auge (tief genug, um Iris/Pupille zu verdecken). Menschenmengen
+  variieren jetzt auch mit lachenden/begeisterten Gesichtern.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

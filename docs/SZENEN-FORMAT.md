@@ -211,7 +211,7 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 | `build` | normal | `slim`, `normal`, `round` |
 | `hair` | short | `short`, `spiky`, `long`, `bun`, `curly`, `bald` |
 | `skin`, `hair_color`, `shirt`, `pants`, `shoes`, `eye_color` | – | Farben |
-| `expression` | happy | `neutral`, `happy`, `sad`, `angry`, `surprised` |
+| `expression` | happy | `neutral`, `happy`, `sad`, `angry`, `surprised`, `laugh` (lacht, Augen zu), `excited` (begeistert), `sleepy` (müde), `wink` (zwinkert) |
 | `outline` | false | gezeichnete Umrisslinie |
 | `blink` | true | Blinzeln |
 | `talk` | – | Lippen-Sync wie `animate.talk` (WAV aus `Audio/`) |

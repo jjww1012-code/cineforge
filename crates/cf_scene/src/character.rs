@@ -44,6 +44,14 @@ pub enum Expression {
     Sad,
     Angry,
     Surprised,
+    /// Lachen: Augen zugekniffen („^ ^“), Mund weit offen
+    Laugh,
+    /// Begeistert: große Augen, Brauen hoch, Mund offen
+    Excited,
+    /// Müde/verschlafen: Lider halb zu
+    Sleepy,
+    /// Zwinkern: rechtes Auge zu, Lächeln
+    Wink,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -496,7 +504,7 @@ pub fn vary(spec: &CharacterSpec, seed: u32) -> CharacterSpec {
     s.hair = [Hair::Short, Hair::Spiky, Hair::Long, Hair::Bun, Hair::Curly, Hair::Bald][pick(&mut r, 6)];
     s.build = [Build::Slim, Build::Normal, Build::Normal, Build::Round][pick(&mut r, 4)];
     s.height = spec.height * r.range(0.85, 1.25);
-    s.expression = [Expression::Happy, Expression::Happy, Expression::Neutral, Expression::Surprised][pick(&mut r, 4)];
+    s.expression = [Expression::Happy, Expression::Happy, Expression::Neutral, Expression::Surprised, Expression::Laugh, Expression::Excited][pick(&mut r, 6)];
     s.outfit = if s.hair == Hair::Long && pick(&mut r, 2) == 0 { Outfit::Dress } else { Outfit::Shirt };
     s.hat = [Hat::None, Hat::None, Hat::None, Hat::Cap, Hat::Beanie][pick(&mut r, 5)];
     s.glasses = pick(&mut r, 5) == 0;
@@ -602,6 +610,10 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
             Expression::Sad => (16.0, 0.13, 0.8, -0.11),
             Expression::Angry => (-22.0, 0.115, 1.0, -0.105),
             Expression::Surprised => (-4.0, 0.15, 0.6, -0.105),
+            Expression::Laugh => (-8.0, 0.14, 1.25, -0.1),
+            Expression::Excited => (-10.0, 0.152, 1.2, -0.1),
+            Expression::Sleepy => (5.0, 0.118, 0.7, -0.1),
+            Expression::Wink => (-6.0, 0.135, 1.15, -0.1),
         };
         let brow = |side: f32| {
             json!({"id": format!("{id}_braue_{side}{suffix}"), "type": "capsule", "radius": 0.011 * u, "length": 0.06 * u,
@@ -609,10 +621,11 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
               "material": {"color": spec.hair_color.to_hex(), "roughness": 0.7}})
         };
         let curve: f32 = match expr {
-            Expression::Happy => 0.035,
+            Expression::Happy | Expression::Wink => 0.035,
+            Expression::Laugh | Expression::Excited => 0.045,
             Expression::Sad => -0.03,
             Expression::Angry => -0.012,
-            Expression::Neutral | Expression::Surprised => 0.004,
+            Expression::Neutral | Expression::Surprised | Expression::Sleepy => 0.004,
         };
         let half_w = 0.07 * u * mouth_w.min(1.3);
         let lip_points: Vec<[f32; 3]> = (0..=8)
@@ -625,6 +638,40 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
             })
             .collect();
         let mut parts = vec![brow(-1.0), brow(1.0)];
+        // Lider in Hautfarbe über dem Auge: ganz zu (mit Bogen „^“) oder halb zu (verschlafen)
+        let eye_c = |side: f32| [side * eye_x, 0.035 * u, 0.19 * u];
+        let closed_eye = |side: f32, parts: &mut Vec<Value>| {
+            let c = eye_c(side);
+            // tief genug nach vorn, damit Iris, Pupille und Glanzpunkt (stehen vor dem Augapfel) verdeckt sind
+            parts.push(json!({"id": format!("{id}_lid_{side}{suffix}"), "type": "sphere", "radius": 0.074 * u, "position": c, "scale": [1.05, 1.22, 1.1], "material": skin_plain}));
+            let arc: Vec<[f32; 3]> = (0..=6)
+                .map(|i| {
+                    let k = -1.0 + 2.0 * i as f32 / 6.0;
+                    [c[0] + k * 0.052 * u, c[1] - 0.004 * u + 0.022 * u * (1.0 - k * k), c[2] + 0.079 * u - 0.012 * u * k * k]
+                })
+                .collect();
+            parts.push(json!({"id": format!("{id}_lidbogen_{side}{suffix}"), "type": "tube", "path": arc, "radius": 0.008 * u, "segments": 6, "material": {"color": "#2a1a14", "roughness": 0.6}}));
+        };
+        match expr {
+            Expression::Laugh => {
+                closed_eye(-1.0, &mut parts);
+                closed_eye(1.0, &mut parts);
+            }
+            Expression::Wink => closed_eye(1.0, &mut parts),
+            Expression::Sleepy => {
+                for side in [-1.0f32, 1.0] {
+                    let c = eye_c(side);
+                    parts.push(json!({"id": format!("{id}_lid_{side}{suffix}"), "type": "sphere", "radius": 0.074 * u,
+                        "position": [c[0], c[1] + 0.045 * u, c[2]], "scale": [1.06, 0.95, 1.1], "material": skin_plain}));
+                }
+            }
+            _ => {}
+        }
+        if matches!(expr, Expression::Laugh | Expression::Excited) {
+            // offener, lachender Mund unter der Lippenlinie
+            parts.push(json!({"id": format!("{id}_lachmund{suffix}"), "type": "sphere", "radius": 0.05 * u,
+                "position": [0.0, (mouth_y - 0.008) * u + curve * u * 0.3, 0.198 * u], "scale": [1.15, 0.6, 0.42], "material": {"color": "#4a1018", "roughness": 0.6}}));
+        }
         if expr == Expression::Surprised {
             parts.push(json!({"id": format!("{id}_o_mund{suffix}"), "type": "sphere", "radius": 0.04 * u,
                 "position": [0.0, (mouth_y - 0.01) * u, 0.205 * u], "scale": [0.8, 1.0, 0.45], "material": {"color": "#4a1018", "roughness": 0.6}}));

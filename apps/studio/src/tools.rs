@@ -118,7 +118,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "dialogue",
-            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Oh nein!\", \"expression\": \"surprised\", \"action\": \"scared\", \"pause\": 0.3}] (expression je Zeile: neutral, happy, sad, angry, surprised). Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. camera_cuts: true setzt automatisch Schnitte (Nahaufnahme auf den Sprecher, Schuss/Gegenschuss). Ersetzt einen früheren Dialog derselben Szene.",
+            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Oh nein!\", \"expression\": \"surprised\", \"action\": \"scared\", \"pause\": 0.3}] (expression je Zeile: neutral, happy, sad, angry, surprised, laugh, excited, sleepy, wink). Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. camera_cuts: true setzt automatisch Schnitte (Nahaufnahme auf den Sprecher, Schuss/Gegenschuss). Ersetzt einen früheren Dialog derselben Szene.",
             "inputSchema": {"type": "object", "properties": {"lines": {"type": "array", "items": obj}, "start": {"type": "number"}, "gap": {"type": "number"}, "subtitles": {"type": "boolean"}, "camera_cuts": {"type": "boolean"}, "voices": obj, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["lines"]}
         },
         {
@@ -1746,7 +1746,7 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         let expression = l.get("expression").or_else(|| l.get("mood")).and_then(Value::as_str).map(String::from);
         if let Some(e) = &expression {
             if serde_json::from_value::<cf_scene::character::Expression>(Value::String(e.clone())).is_err() {
-                return Err(format!("lines[{i}]: Ausdruck „{e}“ unbekannt (neutral, happy, sad, angry, surprised)"));
+                return Err(format!("lines[{i}]: Ausdruck „{e}“ unbekannt (neutral, happy, sad, angry, surprised, laugh, excited, sleepy, wink)"));
             }
         }
         out.push(Line { who, text, at: t, samples, action: l.get("action").and_then(Value::as_str).map(String::from), expression });
