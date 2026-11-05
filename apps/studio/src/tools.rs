@@ -1832,32 +1832,20 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         // die alle Sprecher zeigt (klassische Eröffnung eines Dialogs).
         let default_cam = cf_scene::CameraSpec::default();
         let untouched = scene.camera.position == default_cam.position && scene.camera.look_at == default_cam.look_at && scene.camera.animate.is_none();
-        let (mut cam_pos, mut cam_look) = (scene.camera.position, scene.camera.look_at);
-        let pts: Vec<[f32; 3]> = {
-            let mut ids: Vec<&str> = out.iter().map(|l| l.who.as_str()).collect();
-            ids.sort();
-            ids.dedup();
-            ids.iter().filter_map(|id| cf_scene::motion::world_position(&scene, id, 0.0)).collect()
-        };
-        if untouched && !pts.is_empty() {
-            let n = pts.len() as f32;
-            let c = [pts.iter().map(|p| p[0]).sum::<f32>() / n, pts.iter().map(|p| p[1]).sum::<f32>() / n, pts.iter().map(|p| p[2]).sum::<f32>() / n];
-            let span = pts.iter().flat_map(|a| pts.iter().map(move |b| ((a[0] - b[0]).powi(2) + (a[2] - b[2]).powi(2)).sqrt())).fold(0.0_f32, f32::max);
-            // Blickrichtung senkrecht zur Linie zwischen den Sprechern, auf der Seite der bisherigen Kamera
-            let (mut dx, mut dz) = if pts.len() >= 2 { (-(pts[1][2] - pts[0][2]), pts[1][0] - pts[0][0]) } else { (0.0, 1.0) };
-            let len = (dx * dx + dz * dz).sqrt().max(1e-4);
-            (dx, dz) = (dx / len, dz / len);
-            if dx * (scene.camera.position[0] - c[0]) + dz * (scene.camera.position[2] - c[2]) < 0.0 {
-                (dx, dz) = (-dx, -dz);
+        let mut ids: Vec<String> = out.iter().map(|l| l.who.clone()).collect();
+        ids.dedup();
+        let mut uniq: Vec<String> = Vec::new();
+        for id in ids {
+            if !uniq.contains(&id) {
+                uniq.push(id);
             }
-            let fov = scene.camera.fov.clamp(20.0, 90.0);
-            let width = (span + 1.4).max(2.2); // etwas Luft links und rechts
-            // horizontaler Bildwinkel bei 16:9: tan(h/2) = tan(v/2) · 16/9
-            let dist = (width / 2.0) / ((fov.to_radians() / 2.0).tan() * 16.0 / 9.0).max(0.1);
-            cam_pos = [c[0] + dx * dist, c[1] + 1.05, c[2] + dz * dist];
-            cam_look = [c[0], c[1] + 0.7, c[2]];
         }
-        let mut cuts = vec![serde_json::json!({"t": 0.0, "position": cam_pos, "look_at": cam_look})];
+        // Eröffnung: eingerichtete Szenen-Kamera, sonst Gruppen-Einstellung mit allen Sprechern (frame.with)
+        let mut cuts = if untouched && !uniq.is_empty() {
+            vec![serde_json::json!({"t": 0.0, "frame": {"target": uniq[0], "shot": "full", "with": uniq[1..], "tilt": 6.0}})]
+        } else {
+            vec![serde_json::json!({"t": 0.0, "position": scene.camera.position, "look_at": scene.camera.look_at})]
+        };
         // Seite je Sprecher (nicht je Satz): so bleibt die Kamera auf einer Seite der Blickachse
         // (Schuss/Gegenschuss); spricht jemand zweimal hintereinander, gibt es keinen Schnitt.
         let mut speakers: Vec<&str> = Vec::new();
