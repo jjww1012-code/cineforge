@@ -61,6 +61,17 @@ fn main() -> AppExit {
     crash::install();
     if args.screenshot.is_none() {
         library::install_starter_library();
+        // Ist der letzte Start abgestürzt? Dann sicherer Modus mit der Demo-Szene.
+        let startup = args.scene.clone().or_else(|| project::startup_scene().ok());
+        if let Some(reason) = crash::check_last_start(startup.as_deref()) {
+            crash::SAFE_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
+            crash::note(&format!("Sicherer Modus: {reason}"));
+            let mut s = source::SceneSource::fallback(&reason);
+            s.notice = Some(format!(
+                "{reason} Sicherer Modus: Demo-Szene, ohne Kino-Effekte (Kontaktschatten, Tiefenschärfe, Bewegungsunschärfe, Lichtstrahlen). Details: Dokumente/CineForge/absturz.txt. Beim nächsten Start ist alles wieder normal."
+            ));
+            return run_app(args, s);
+        }
     }
     let source = match source::SceneSource::open(args.scene.clone()) {
         Ok(s) => s,
@@ -77,6 +88,11 @@ fn main() -> AppExit {
         }
     };
 
+    run_app(args, source)
+}
+
+fn run_app(args: Args, source: source::SceneSource) -> AppExit {
+    crash::set_current_scene(&source.path);
     let (w, h) = args.size;
     let mut app = App::new();
     // Dateien im CineForge-Ordner (z. B. 3D-Modelle) als Asset-Quelle „cineforge://“.
@@ -139,9 +155,22 @@ fn main() -> AppExit {
             control::ControlPlugin { port: args.port },
             claude_setup::ClaudeSetupPlugin,
         ));
+        app.insert_resource(studio_ui::Selection { id: args.select.clone() });
+        app.add_systems(Update, confirm_startup);
     }
 
-    app.run()
+    let exit = app.run();
+    // Normal beendet (auch schneller als 8 s): kein Absturz
+    crash::startup_ok();
+    exit
+}
+
+/// Nach 8 Sekunden ohne Absturz gilt der Start als gelungen (Start-Markierung weg).
+fn confirm_startup(time: Res<Time<Real>>, mut done: Local<bool>) {
+    if !*done && time.elapsed_secs() > 8.0 {
+        *done = true;
+        crash::startup_ok();
+    }
 }
 
 #[derive(Component)]

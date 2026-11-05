@@ -106,6 +106,7 @@ impl SceneSource {
     /// Öffnet eine andere Szenen-Datei (Verlauf beginnt neu).
     pub fn open_file(&mut self, path: PathBuf, out: &mut MessageWriter<SceneLoaded>) -> Result<(), String> {
         let (scene, modified) = read_scene(&path)?;
+        crate::crash::set_current_scene(&path);
         self.path = path;
         self.scene = scene;
         self.modified = modified;

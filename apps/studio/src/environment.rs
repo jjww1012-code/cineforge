@@ -368,14 +368,16 @@ pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
         cam.remove::<(AtmosphereSettings, AtmosphereEnvironmentMapLight)>()
             .insert(Exposure { ev100: Exposure::EV100_SUNLIGHT - env.exposure + cartoon_shift });
     }
+    // Sicherer Modus (nach Absturz): keine aufwendigen Effekte
+    let safe = crate::crash::safe_mode();
     // Kontaktschatten (SSAO) brauchen MSAA aus; dann glättet SMAA die Kanten.
-    if scene.ao_enabled() {
+    if scene.ao_enabled() && !safe {
         cam.insert((Msaa::Off, ScreenSpaceAmbientOcclusion::default(), Smaa::default()));
     } else {
         cam.remove::<(ScreenSpaceAmbientOcclusion, Smaa)>().insert(Msaa::Sample4);
     }
     let camspec = &scene.camera;
-    match &camspec.dof {
+    match camspec.dof.as_ref().filter(|_| !safe) {
         Some(d) => {
             let distance = match &d.focus {
                 cf_scene::Focus::Distance(x) => *x,
@@ -400,7 +402,7 @@ pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
             cam.remove::<(DepthOfField, FocusOn)>();
         }
     }
-    match camspec.motion_blur {
+    match camspec.motion_blur.filter(|_| !safe) {
         Some(s) if s > 0.0 => {
             cam.insert(MotionBlur { shutter_angle: s, ..default() });
         }
@@ -408,7 +410,7 @@ pub fn configure_view(cam: &mut EntityCommands, scene: &cf_scene::Scene) {
             cam.remove::<MotionBlur>();
         }
     }
-    if env.light_rays > 0.0 {
+    if env.light_rays > 0.0 && !safe {
         cam.insert(VolumetricFog { ambient_intensity: 0.0, ..default() });
     } else {
         cam.remove::<VolumetricFog>();

@@ -223,6 +223,11 @@
   (Länge = Film, gleich als Soundtrack mit Ein-/Ausblenden eingetragen). `music::fit_sections`, Test.
 - **Demo-Film neu:** `docs/bilder/schatzsuche.mp4` + `.png` (Dialog mit Mimik, Zweier-Einstellung, dann
   Schuss/Gegenschuss; Umgebung; Abenteuer-Musik). Erster Dialogsatz läuft in der Eröffnungs-Einstellung.
+- **Sicherer Modus nach Absturz (`crash.rs`):** Start-Markierung `.start_laeuft` (wird nach 8 s bzw.
+  bei normalem Beenden gelöscht) und `.absturz_szene` (vom Panic-Hook geschrieben). Ist der letzte
+  Start abgestürzt oder stürzte die Startszene ab → Demo-Szene, ohne SSAO/Tiefenschärfe/
+  Bewegungsunschärfe/Lichtstrahlen, roter Hinweis mit Grund. Mit Xvfb getestet. `--select` wirkt
+  jetzt auch im normalen Start.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
