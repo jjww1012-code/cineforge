@@ -215,7 +215,11 @@ fn drive_jobs(
         ph.playing = false;
         let (w, h) = match &req {
             JobRequest::Still { width, height, .. } | JobRequest::Sheet { width, height, .. } => (*width, *height),
-            JobRequest::Export { width, height, .. } => (*width, *height),
+            // Qualität „best“: doppelt so groß rendern, ffmpeg verkleinert weich
+            JobRequest::Export { width, height, quality, .. } => {
+                let ss = quality.supersample(*width, *height);
+                (*width * ss, *height * ss)
+            }
         };
         let (camera, image) = spawn_camera(&mut commands, &mut images, &src.scene, w, h);
         let mut saved_present = None;
@@ -250,7 +254,8 @@ fn drive_jobs(
                 let seg_frames: Vec<u32> = segments.iter().map(|s| ((s.duration * fps as f32).round() as u32).max(1)).collect();
                 let frames: u32 = seg_frames.iter().sum();
                 let (tx, rx) = std::sync::mpsc::sync_channel(8);
-                match video::start_writer(output, width, height, fps, frames, quality, rx) {
+                let ss = quality.supersample(width, height);
+                match video::start_writer(output, width * ss, height * ss, (width, height), fps, frames, quality, rx) {
                     Ok(progress) => {
                         queue.export = Some(progress);
                         queue.export_started = Some(Instant::now());

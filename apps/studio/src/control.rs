@@ -295,7 +295,7 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
                  10) Jede Szene mit screenshot oder contact_sheet prüfen und verbessern (Komposition, Größenverhältnisse, Lesbarkeit).\n\
                  11) Ton: create_music (Stil passend, als soundtrack mit volume 0.3–0.5); je Szene foley aufrufen (Geräusche automatisch zur Handlung), einzelne Effekte mit create_sound.\n\
                  12) Titel und Abspann mit overlays (effect pop/typewriter, shadow).\n\
-                 13) check_film, dann export_film. Shots und Aufgaben abhaken.\n\
+                 13) check_film, dann export_film (zum Prüfen quality draft, für das fertige Video quality best). Shots und Aufgaben abhaken.\n\
                  Setze vor jedem größeren Schritt next_step, damit nach einer Unterbrechung nahtlos weitergearbeitet werden kann."
             )
         }

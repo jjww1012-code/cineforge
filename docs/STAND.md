@@ -170,6 +170,8 @@
 - **Foley-Werkzeug (`foley`):** analysiert die geöffnete Szene (Figuren/Tiere: walk/run/jump/fly,
   Pfade mit Schrittfrequenz aus Tempo; Partikel fire/rain/snow/explosion; Titel pop/typewriter/
   slide_up) → `sfx_<szene>.wav` (normalisiert), im Shot eingetragen.
+- **Export-Qualität `best`:** Supersampling ×2 (bis 4096 px Renderbreite), ffmpeg verkleinert mit
+  Lanczos; auch für `export_film` (eigener Cache-Ordner je Qualität).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

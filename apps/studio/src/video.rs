@@ -21,6 +21,8 @@ pub enum Quality {
     Draft,
     Standard,
     High,
+    /// Wie High, aber in doppelter Auflösung gerendert und weich verkleinert (glattere Kanten).
+    Best,
 }
 
 impl Quality {
@@ -29,7 +31,17 @@ impl Quality {
             "draft" | "entwurf" => Ok(Quality::Draft),
             "standard" => Ok(Quality::Standard),
             "high" | "hoch" => Ok(Quality::High),
-            other => Err(format!("Unbekannte Qualität \"{other}\" (draft, standard, high)")),
+            "best" | "beste" => Ok(Quality::Best),
+            other => Err(format!("Unbekannte Qualität \"{other}\" (draft, standard, high, best)")),
+        }
+    }
+
+    /// Supersampling-Faktor: bei Best doppelt so groß rendern (solange die GPU-Grenze 4096 hält).
+    pub fn supersample(self, w: u32, h: u32) -> u32 {
+        if self == Quality::Best && w * 2 <= 4096 && h * 2 <= 4096 {
+            2
+        } else {
+            1
         }
     }
 }
@@ -112,6 +124,7 @@ pub fn encoder_args(enc: &str, w: u32, h: u32, fps: u32, q: Quality) -> Vec<Stri
         Quality::Draft => 0.05,
         Quality::Standard => 0.12,
         Quality::High => 0.25,
+        Quality::Best => 0.3,
     };
     let kbps = ((w as f64 * h as f64 * fps as f64 * factor) / 1000.0).clamp(500.0, 200_000.0) as u64;
     let mut a: Vec<String> = vec!["-c:v".into(), enc.into()];
@@ -121,6 +134,7 @@ pub fn encoder_args(enc: &str, w: u32, h: u32, fps: u32, q: Quality) -> Vec<Stri
                 Quality::Draft => ("28", "veryfast"),
                 Quality::Standard => ("20", "medium"),
                 Quality::High => ("16", "slow"),
+                Quality::Best => ("14", "slow"),
             };
             a.extend(["-crf", crf, "-preset", preset].map(String::from));
         }
@@ -146,6 +160,7 @@ pub fn start_writer(
     output: PathBuf,
     w: u32,
     h: u32,
+    out_size: (u32, u32),
     fps: u32,
     total: u32,
     quality: Quality,
@@ -157,7 +172,13 @@ pub fn start_writer(
             let child = Command::new(&ff)
                 .args(["-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba"])
                 .args(["-s", &format!("{w}x{h}"), "-framerate", &fps.to_string(), "-i", "-"])
-                .args(encoder_args(&enc, w, h, fps, quality))
+                // Supersampling: groß gerendert, hier weich auf die Zielgröße verkleinert
+                .args(if out_size != (w, h) {
+                    vec!["-vf".to_string(), format!("scale={}:{}:flags=lanczos", out_size.0, out_size.1)]
+                } else {
+                    Vec::new()
+                })
+                .args(encoder_args(&enc, out_size.0, out_size.1, fps, quality))
                 .arg(&output)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
@@ -267,7 +288,7 @@ mod tests {
         let out = dir.join("test.mp4");
         let (tx, rx) = std::sync::mpsc::sync_channel(4);
         let (w, h, n) = (64u32, 48u32, 12u32);
-        let prog = start_writer(out.clone(), w, h, 24, n, Quality::Draft, rx).unwrap();
+        let prog = start_writer(out.clone(), w, h, (w, h), 24, n, Quality::Draft, rx).unwrap();
         // absichtlich nicht in Reihenfolge senden
         for i in (0..n).rev() {
             let v = (i * 20) as u8;
