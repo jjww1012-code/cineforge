@@ -26,18 +26,25 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 ## Was Claude damit kann
 
-- **Ganze Filme**: Storyboard mit Shots, Szenen aus 12 fertigen Vorlagen (Wiese, Dorf, Wald, Strand,
-  Nacht, Studio, Weltraum, Zimmer, Cartoon-2D, Schloss, Unterwasser, Stadt), Export bis 4K und 1 Stunde+,
-  Übergänge (Schnitt, Abblende, Überblendung, Wisch-, Schiebe-, Kreisblende), Qualität „best“ mit Supersampling.
+- **Ganze Filme**: Storyboard mit Shots – alle Szenen in einem Schritt aus 12 fertigen Vorlagen (Wiese,
+  Dorf, Wald, Strand, Nacht, Studio, Weltraum, Zimmer, Cartoon-2D, Schloss, Unterwasser, Stadt), Export bis
+  4K und 1 Stunde+, Übergänge (Schnitt, Abblende, Überblendung, Wisch-, Schiebe-, Kreisblende), Qualität
+  „best“ mit Supersampling. **Film-Übersicht**: alle Shots in einem Bild; **Bildkontrolle** rechnet nach,
+  ob Figuren im Bild sind, wenn sie handeln oder sprechen.
 - **Figuren im Pixar-Stil** aus einer Zeile: Frisur, Farben, Statur, Kleid, Hut, Brille, Schal, Rucksack,
-  Gegenstände in der Hand; Aktionen (gehen, rennen, winken, springen, tanzen, sprechen …), Mimik im
-  Zeitverlauf, Blickkontakt, Lippen-Sync, Blinzeln, Atmen. Menschenmengen mit lauter Varianten.
+  Gegenstände in der Hand; 21 Aktionen (gehen, rennen, winken, springen, tanzen, sprechen, klatschen,
+  verbeugen, lachen, erschrecken, Schultern zucken, traurig, aufgeregt hüpfen …) mit Zeichentrick-Prinzipien
+  (Ausholen, Stauchen & Strecken), Mimik im Zeitverlauf, Blickkontakt, Lippen-Sync, Blinzeln, Atmen.
+  Menschenmengen mit lauter Varianten.
 - **Tiere**: Hund, Katze, Hase, Vogel, Fisch – laufen, wedeln, fliegen, schwimmen.
-- **Dialoge in einem Schritt**: Stimmen, Timing, Lippen-Sync, Gesten, Untertitel, Schuss/Gegenschuss.
+- **Dialoge in einem Schritt**: Stimmen, Timing, Lippen-Sync, Gesten, Mimik je Satz, Untertitel,
+  Zweier-Einstellung und Schuss/Gegenschuss nach der 180°-Regel mit sanftem Heranfahren.
 - **Ton**: eigene Musik und Geräusche (Synthese, kein KI-Klang), automatische Geräusche zur Handlung
-  (Schritte, Sprünge, Flügel, Feuer, Regen), Sprecher mit Systemstimmen, Ton in der Vorschau.
-- **Kamera wie im Film**: Einstellungsgrößen (Totale bis Großaufnahme), folgen, umkreisen, Schnitte
-  in der Szene, Tiefenschärfe, Bewegungsunschärfe, Handkamera.
+  (Schritte, Sprünge, Flügel, Feuer, Regen) und passende Umgebung (Vögel, Grillen, Meer, Bach, Stadt,
+  Unterwasser), Sprecher mit Systemstimmen, Ton in der Vorschau, Wellenformen in der Zeitleiste.
+- **Kamera wie im Film**: Einstellungsgrößen (Totale bis Großaufnahme), Kamerafahrten ohne Rechnen
+  (Heranfahren, Bogen, Kran, Push-in), folgen, umkreisen, Schnitte in der Szene, Tiefenschärfe,
+  Bewegungsunschärfe, Handkamera.
 - **Welten**: Gelände, Bäume (5 Arten, Wind, Wälder), Wasser mit Wellen, Sternenhimmel, Mond,
   Lichtstrahlen, Nebel, Partikel (Feuer, Rauch, Funken, Regen, Schnee, Explosion, Magie), 12 fertige
   Bibliotheks-Objekte (Haus, Auto, Laterne, Brunnen …).
@@ -53,18 +60,19 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 Aufgebaut wie ein Schnittprogramm (ähnlich CapCut):
 
-- **Oben:** Projekt › Szene, Knöpfe **Szene exportieren**, **Film exportieren**, **Abbrechen**,
-  **Export-Ordner** (öffnet den Ordner mit den fertigen Videos) und ob Claude verbunden ist.
+- **Oben:** Projekt › Szene, Knöpfe **Szene exportieren**, **Film exportieren**, **Abbrechen** (während
+  eines Exports), **Export-Ordner** (öffnet den Ordner mit den fertigen Videos) und ob Claude verbunden ist.
 - **Links:** *Szenen* (Storyboard, Klick öffnet die Szene), *Objekte* (alle Teile der Szene,
   Klick wählt aus), *Medien* (Audio, Clips, Bilder, 3D-Modelle des Projekts).
 - **Mitte:** die Vorschau. Ein Klick auf ein Objekt wählt es aus und rahmt es ein –
   Claude weiß dann, was du mit „das hier“ meinst. Darunter Abspielen, Zeit, Schleife,
   Szenen-/freie Kamera und 16:9 / 9:16 (Hochformat für TikTok/Reels). Beim Abspielen hört man
   den Ton des Shots (Stimmen, Geräusche, Musik) synchron zum Bild. Exporte übernehmen das gewählte Format.
-- **Rechts:** *Eigenschaften* des ausgewählten Objekts (oder der Szene) und *Was passiert* –
-  was Claude gerade gemacht hat und der nächste Schritt.
+- **Rechts:** *Eigenschaften* des ausgewählten Objekts (oder der Szene) mit Knöpfen zum Selbst-Bearbeiten:
+  Farbpalette, verschieben, drehen, größer/kleiner, duplizieren, verstecken, löschen, rückgängig.
+  Darunter *Was passiert* – was Claude gerade gemacht hat und der nächste Schritt.
 - **Unten:** die Zeitleiste. Oben alle Shots des Films (mit Vorschaubild), darunter die Spuren der geöffneten
-  Szene: Kamera, Texte, Ton und jedes animierte Objekt mit seinen Keyframes (◆).
+  Szene: Kamera, Texte, Ton (mit Wellenform) und jedes animierte Objekt mit seinen Aktionen und Keyframes (◆).
   Klicken oder Ziehen springt an die Stelle.
 
 ## Ausprobieren

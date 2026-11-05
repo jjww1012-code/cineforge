@@ -2,7 +2,7 @@
 """Testet CineForge wie Claude Desktop: startet `cineforge mcp` und spricht JSON-RPC über stdio.
 
 Aufruf: tools/mcp_test_client.py BINARY OUTDIR [steps.json]   (TRUNC=2000 für längere Texte)
-steps.json: Liste von {"tool": name, "args": {...}}; Bilder werden als step_N.jpg gespeichert.
+steps.json: Liste von {"tool": name, "args": {...}} oder {"sleep": Sekunden}; Bilder werden als step_N.jpg gespeichert.
 """
 import base64, json, subprocess, sys, time
 
@@ -32,6 +32,8 @@ tools = rpc("tools/list")["result"]["tools"]
 print("tools:", [t["name"] for t in tools])
 
 for i, step in enumerate(steps):
+    if "sleep" in step:  # {"sleep": Sekunden} – z. B. auf einen Export warten
+        time.sleep(step["sleep"]); continue
     t0 = time.time()
     r = rpc("tools/call", {"name": step["tool"], "arguments": step.get("args", {})})
     if "error" in r:

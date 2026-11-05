@@ -83,7 +83,7 @@ Arbeitsweise:
 5. Nach jeder sichtbaren Änderung screenshot aufrufen und das Bild kritisch prüfen (Komposition, Licht, Größenverhältnisse, Überschneidungen). Dann verbessern.
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
-8. Vor dem Export: contact_sheet mit film: true zeigt alle Shots des Films in EINEM Bild – Anschlüsse, Farben, Figuren und Reihenfolge prüfen.
+8. Vor dem Export: contact_sheet mit film: true zeigt alle Shots des Films in EINEM Bild – Anschlüsse, Farben, Figuren und Reihenfolge prüfen. check_film prüft zusätzlich rechnerisch, ob Figuren im Bild sind, wenn sie handeln oder sprechen.
 9. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
 Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}; Kamerabewegung mit frame.to {shot, angle, tilt, zoom} (Heranfahren, Bogen, Kran, Push-in).
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
@@ -1237,9 +1237,25 @@ fn check_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
         Ok(o) => o,
         Err(e) => return ToolOutput::error(e),
     };
+    // Rechnerische Bildkontrolle je Shot: Figuren im Bild? Kamera in einer Figur?
+    let mut framing = Vec::new();
+    if let Ok(dir) = cx.project.scenes_dir() {
+        for (i, shot) in cx.project.data.storyboard.iter().enumerate() {
+            let Some(name) = &shot.scene else { continue };
+            let Ok(scene) = std::fs::read_to_string(dir.join(format!("{name}.json"))).map_err(|e| e.to_string()).and_then(|t| Scene::from_json(&t).map_err(|e| e.to_string())) else { continue };
+            for w in cf_scene::motion::framing_report(&scene) {
+                framing.push(format!("Shot {} ({name}): {w}", i + 1));
+            }
+        }
+    }
+    let framing_text = if framing.is_empty() {
+        "\nBildkontrolle: ✓ alle Figuren und Tiere sind im Bild, wenn sie handeln oder sprechen.".to_string()
+    } else {
+        format!("\nBildkontrolle (rechnerisch, bitte mit contact_sheet film: true prüfen):\n- {}", framing.join("\n- "))
+    };
     match crate::film::build_plan(cx.project, cx.library, opt) {
-        Ok(plan) => ToolOutput::text(format!("✓ Film ist exportierbar.\n{}", crate::film::describe_plan(&plan))),
-        Err(problems) => ToolOutput::error(format!("Noch nicht exportierbar:\n- {}", problems.join("\n- "))),
+        Ok(plan) => ToolOutput::text(format!("✓ Film ist exportierbar.\n{}{framing_text}", crate::film::describe_plan(&plan))),
+        Err(problems) => ToolOutput::error(format!("Noch nicht exportierbar:\n- {}{framing_text}", problems.join("\n- "))),
     }
 }
 

@@ -507,9 +507,122 @@ fn camera_shot_base(scene: &Scene, cam: &crate::model::CameraSpec, t: f32, span:
     (pos, look, fov)
 }
 
+/// Rechnerische Bildkontrolle einer Szene (ohne Rendern): Figuren und Tiere, die nie im Bild sind,
+/// Aktionen oder Sätze außerhalb des Bildes, Kamera in einer Figur. Liefert verständliche Hinweise.
+pub fn framing_report(scene: &Scene) -> Vec<String> {
+    let mut out = Vec::new();
+    if scene.camera.orthographic.is_some() || scene.duration <= 0.0 {
+        return out;
+    }
+    // Darsteller sammeln: (id, Höhe, Handlungen (Name, von, bis), spricht (von, bis))
+    struct Actor {
+        id: String,
+        h: f32,
+        acts: Vec<(String, f32, f32)>,
+        talk: Vec<(f32, f32)>,
+    }
+    let mut actors: Vec<Actor> = Vec::new();
+    scene.walk(&mut |o| match &o.kind {
+        Kind::Character(c) => {
+            let mut acts = Vec::new();
+            let mut talk = Vec::new();
+            for a in &c.actions {
+                let end = a.end.unwrap_or(a.start + 2.0);
+                let name = serde_json::to_value(a.kind).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default();
+                if name == "talk" {
+                    talk.push((a.start, end));
+                } else if name != "idle" {
+                    acts.push((name, a.start, end));
+                }
+            }
+            actors.push(Actor { id: o.id.clone(), h: c.height * o.scale.to_array()[1], acts, talk });
+        }
+        Kind::Animal(a) => {
+            let acts = a
+                .actions
+                .iter()
+                .map(|x| (serde_json::to_value(x.kind).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(), x.start, x.end.unwrap_or(x.start + 2.0)))
+                .filter(|(n, _, _)| n != "idle")
+                .collect();
+            actors.push(Actor { id: o.id.clone(), h: a.size.unwrap_or(0.6) * 0.7 * o.scale.to_array()[1], acts, talk: vec![] });
+        }
+        _ => {}
+    });
+    if actors.is_empty() {
+        return out;
+    }
+    let n = ((scene.duration * 4.0).ceil() as usize).clamp(4, 400);
+    let times: Vec<f32> = (0..=n).map(|i| scene.duration * i as f32 / n as f32).collect();
+    let cams: Vec<([f32; 3], [f32; 3], f32)> = times.iter().map(|&t| camera_shot(scene, t)).collect();
+    let sub = |a: [f32; 3], b: [f32; 3]| [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    let dot = |a: [f32; 3], b: [f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let norm = |a: [f32; 3]| {
+        let l = dot(a, a).sqrt().max(1e-6);
+        [a[0] / l, a[1] / l, a[2] / l]
+    };
+    let cross = |a: [f32; 3], b: [f32; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    for actor in &actors {
+        let mut visible = vec![false; times.len()];
+        let mut inside_at: Option<f32> = None;
+        for (i, &t) in times.iter().enumerate() {
+            let Some(p) = world_position(scene, &actor.id, t) else { continue };
+            let c = [p[0], p[1] + actor.h * 0.55, p[2]];
+            let (pos, look, fov) = cams[i];
+            let f = norm(sub(look, pos));
+            let r = norm(cross(f, [0.0, 1.0, 0.0]));
+            let u = cross(r, f);
+            let d = sub(c, pos);
+            let z = dot(d, f);
+            if dot(d, d).sqrt() < actor.h * 0.3 && inside_at.is_none() {
+                inside_at = Some(t);
+            }
+            if z < 0.05 {
+                continue;
+            }
+            let tv = (fov.to_radians() / 2.0).tan();
+            let (x, y) = (dot(d, r) / z, dot(d, u) / z);
+            visible[i] = x.abs() <= tv * 16.0 / 9.0 && y.abs() <= tv * 1.05;
+        }
+        let share = |a: f32, b: f32| {
+            let idx: Vec<usize> = (0..times.len()).filter(|&i| times[i] >= a - 1e-3 && times[i] <= b + 1e-3).collect();
+            if idx.is_empty() { 1.0 } else { idx.iter().filter(|&&i| visible[i]).count() as f32 / idx.len() as f32 }
+        };
+        if let Some(t) = inside_at {
+            out.push(format!("Kamera steckt bei {t:.1} s (fast) in „{}“ – weiter weg stellen", actor.id));
+        }
+        if !visible.iter().any(|v| *v) {
+            out.push(format!("„{}“ ist in der ganzen Szene nicht im Bild", actor.id));
+            continue;
+        }
+        for (name, a, b) in &actor.acts {
+            if share(*a, *b) < 0.5 {
+                out.push(format!("„{}“ macht „{name}“ ({a:.1}–{b:.1} s) meist außerhalb des Bildes", actor.id));
+            }
+        }
+        let (talk_total, talk_vis) = actor.talk.iter().fold((0.0, 0.0), |(tt, tv), (a, b)| (tt + (b - a), tv + (b - a) * share(*a, *b)));
+        if talk_total > 0.5 && talk_vis / talk_total < 0.4 {
+            out.push(format!("„{}“ spricht meist, ohne im Bild zu sein (nur {:.0} % sichtbar) – gewollt? Sonst Schnitt auf den Sprecher", actor.id, 100.0 * talk_vis / talk_total));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn framing_report_finds_offscreen_actors() {
+        let s = Scene::from_json(r#"{"duration": 4, "objects": [
+            {"id": "max", "type": "character", "actions": [{"type": "wave", "start": 0, "end": 2}]},
+            {"id": "weg", "type": "character", "position": [0, 0, 40], "actions": [{"type": "jump", "start": 1}]}],
+            "camera": {"position": [0, 1, 5], "look_at": [0, 0.7, 0]}}"#).unwrap();
+        let r = framing_report(&s);
+        assert!(r.iter().any(|x| x.contains("„weg“ ist in der ganzen Szene nicht im Bild")), "{r:?}");
+        assert!(!r.iter().any(|x| x.contains("„max“")), "max ist sichtbar: {r:?}");
+        let close = Scene::from_json(r#"{"duration": 2, "objects": [{"id": "max", "type": "character"}], "camera": {"position": [0, 0.7, 0.1], "look_at": [0, 0.7, -5]}}"#).unwrap();
+        assert!(framing_report(&close).iter().any(|x| x.contains("Kamera steckt")), "{:?}", framing_report(&close));
+    }
 
     #[test]
     fn path_moves_evenly_and_faces_direction() {
