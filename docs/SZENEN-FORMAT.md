@@ -216,6 +216,11 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 | `actions` | – | `idle`, `walk`, `run`, `wave`, `jump`, `cheer`, `dance`, `point`, `nod`, `shake_head`, `talk` (Gesten beim Sprechen), `sit`, `think` – je mit `start`, `end`, `speed` |
 | `auto_walk` | true | Läuft die Figur einen `animate.path` entlang, bewegen sich Beine und Arme automatisch im passenden Tempo (schnell ⇒ rennen) |
 
+**Dialoge in einem Schritt:** Werkzeug `dialogue` mit
+`{"lines": [{"who": "max", "text": "Hallo Lena!", "action": "wave"}, {"who": "lena", "text": "Hi Max!", "pause": 0.3}], "voices": {"lena": "Anna"}}`
+– erzeugt die Stimmen, legt die Sätze hintereinander, gibt jeder Figur ihre Tonspur (Lippen-Sync +
+Sprech-Gesten), setzt Untertitel und trägt den Ton im Storyboard-Shot ein (Szene wird bei Bedarf länger).
+
 Tipps: Gesichtsausdruck je Shot wählen (zwei Fassungen derselben Figur in verschiedenen Szenen),
 Kamera mit `follow`/`target` auf die Figur, `dof` mit `focus` = Figur. Aktionen dürfen sich
 überlappen (z. B. `walk` + `wave`). Übergänge zwischen Aktionen werden automatisch weich.

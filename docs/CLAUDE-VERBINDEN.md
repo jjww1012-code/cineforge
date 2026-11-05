@@ -101,6 +101,7 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `check_film` | Film vor dem Export prüfen: Länge, fehlende Dateien, Cache-Stand |
 | `list_shots` | Storyboard seitenweise (für lange Filme) |
 | `list_media`, `generate_voice` | Medien (Audio/, Clips/, Bilder/, Modelle/) anzeigen, Sprechertext vertonen |
+| `dialogue` | Dialog in einem Schritt: Stimmen, Timing, Lippen-Sync, Gesten, Untertitel, Shot-Ton |
 | `create_sound` | Eigene Geräusche erzeugen (Vorlagen oder Rezept aus Klangschichten) |
 | `create_music` | Eigene Musik erzeugen (Stil, Tempo, Akkorde, Abschnitte) |
 | `save_asset`, `list_assets`, `get_asset` | Objekt-Bibliothek |

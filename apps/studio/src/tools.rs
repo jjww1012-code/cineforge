@@ -87,6 +87,7 @@ Arbeitsweise:
 Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
+Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
 Cartoon-Figuren leben lassen: Mund mit animate.talk (Lippen-Sync zur Stimme aus generate_voice), Augen mit animate.blink, Körper mit animate.breathe.
 Qualität: Für Kino-/Pixar-Look den Abschnitt „Kino-Qualität“ aus get_guide befolgen (Licht, dof, motion_blur, light_rays, grade, rounded-Formen, Bewegung mit out_back). Detaillierte 2D-Figuren als SVG mit Verläufen, weichen Schatten und Konturen; in 3D-Welten mit billboard, 3D-Objekte mit material.outline passend zum Cartoon-Stil.
@@ -112,6 +113,11 @@ pub fn definitions() -> Value {
             "name": "claim_task",
             "description": "Für mehrere Agenten gleichzeitig: übernimmt die nächste freie Aufgabe (status open, ohne Besitzer) für agent und setzt sie auf in_progress. So arbeiten nie zwei Agenten an derselben Aufgabe.",
             "inputSchema": {"type": "object", "properties": {"agent": {"type": "string"}}, "required": ["agent"]}
+        },
+        {
+            "name": "dialogue",
+            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Hi Max!\", \"pause\": 0.3}]. Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. Ersetzt einen früheren Dialog derselben Szene.",
+            "inputSchema": {"type": "object", "properties": {"lines": {"type": "array", "items": obj}, "start": {"type": "number"}, "gap": {"type": "number"}, "subtitles": {"type": "boolean"}, "voices": obj, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["lines"]}
         },
         {
             "name": "get_selection",
@@ -461,6 +467,7 @@ fn describe(name: &str, a: &Value) -> String {
         "set_scene" => "Szene komplett neu gesetzt".into(),
         "batch" => format!("{} Änderungen in einem Schritt", a.get("operations").and_then(Value::as_array).map(|l| l.len()).unwrap_or(0)),
         "duplicate_object" => format!("Objekt dupliziert: {}", a.get("id").and_then(Value::as_str).unwrap_or("?")),
+        "dialogue" => format!("Dialog mit {} Sätzen vertont", a.get("lines").and_then(Value::as_array).map(|l| l.len()).unwrap_or(0)),
         other => other.into(),
     }
 }
@@ -478,7 +485,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     let is_mutation = matches!(
         call.name.as_str(),
         "set_scene" | "add_objects" | "update_object" | "remove_objects" | "update_scene_settings" | "batch" | "duplicate_object"
-            | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project"
+            | "dialogue" | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project"
     );
     if is_mutation && cx.jobs.export_running() {
         let _ = call.reply.send(ToolOutput::error(format!(
@@ -570,6 +577,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             None => Err("ids muss eine Liste sein".into()),
         }),
         "update_scene_settings" => Some(ops::update_settings(&base_scene, a.get("changes").unwrap_or(&Value::Null))),
+        "dialogue" => Some(dialogue(&base_scene, a, &target_name, cx)),
         _ => None,
     };
 
@@ -1503,6 +1511,136 @@ fn new_scene(a: &Value, cx: &mut Ctx) -> ToolOutput {
         }
         Err(e) => ToolOutput::error(e),
     }
+}
+
+/// Dialog: Stimmen erzeugen, Sätze hintereinander legen, je Sprecher eine Tonspur (für Lippen-Sync),
+/// Sprech-Gesten, Untertitel, Shot-Ton im Storyboard. Liefert die geänderte Szene.
+fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<Scene, String> {
+    cx.project.require()?;
+    let lines = a.get("lines").and_then(Value::as_array).filter(|l| !l.is_empty()).ok_or("lines fehlt: [{\"who\": \"max\", \"text\": \"Hallo!\"}, …]")?;
+    let start = a.get("start").and_then(Value::as_f64).unwrap_or(0.5) as f32;
+    let gap = a.get("gap").and_then(Value::as_f64).unwrap_or(0.35) as f32;
+    let subtitles = a.get("subtitles").and_then(Value::as_bool).unwrap_or(true);
+    let voices = a.get("voices").cloned().unwrap_or(Value::Null);
+    let audio_dir = cx.project.dir.as_ref().map(|d| d.join(crate::media::AUDIO)).ok_or("Kein Projekt")?;
+    std::fs::create_dir_all(&audio_dir).map_err(|e| e.to_string())?;
+    let scene_key = safe_name(scene_name).unwrap_or_else(|_| "szene".into());
+    const SR: u32 = 48_000;
+    // 1. Jede Zeile vertonen und zeitlich einordnen
+    struct Line {
+        who: String,
+        text: String,
+        at: f32,
+        samples: Vec<f32>,
+        action: Option<String>,
+    }
+    let mut out: Vec<Line> = Vec::new();
+    let mut t = start;
+    for (i, l) in lines.iter().enumerate() {
+        let who = l.get("who").and_then(Value::as_str).ok_or(format!("lines[{i}]: who fehlt (id der Figur)"))?.to_string();
+        let text = l.get("text").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).ok_or(format!("lines[{i}]: text fehlt"))?.to_string();
+        if ops::find(base, &who).is_none() {
+            return Err(format!("lines[{i}]: Objekt „{who}“ gibt es nicht in der Szene"));
+        }
+        let voice = l.get("voice").and_then(Value::as_str).or_else(|| voices.get(&who).and_then(Value::as_str));
+        let rate = l.get("rate").and_then(Value::as_u64).map(|r| r as u32);
+        let file = audio_dir.join(format!("dlg_{scene_key}_{i:02}.wav"));
+        crate::media::synthesize(&text, voice, rate, &file)?;
+        let bytes = std::fs::read(&file).map_err(|e| e.to_string())?;
+        let (sr, mono) = cf_audio::read_wav(&bytes)?;
+        // auf 48 kHz umrechnen (linear)
+        let n = (mono.len() as f64 * SR as f64 / sr as f64) as usize;
+        let samples: Vec<f32> = (0..n)
+            .map(|k| {
+                let x = k as f64 * sr as f64 / SR as f64;
+                let i0 = x.floor() as usize;
+                let f = (x - i0 as f64) as f32;
+                let a0 = mono.get(i0).copied().unwrap_or(0.0);
+                let a1 = mono.get(i0 + 1).copied().unwrap_or(a0);
+                a0 + (a1 - a0) * f
+            })
+            .collect();
+        t += l.get("pause").and_then(Value::as_f64).unwrap_or(0.0) as f32;
+        let dur = samples.len() as f32 / SR as f32;
+        out.push(Line { who, text, at: t, samples, action: l.get("action").and_then(Value::as_str).map(String::from) });
+        t += dur + gap;
+    }
+    let end = t;
+    // 2. Je Sprecher eine Tonspur
+    let mut speakers: Vec<String> = out.iter().map(|l| l.who.clone()).collect();
+    speakers.dedup();
+    speakers.sort();
+    speakers.dedup();
+    let mut scene = base.clone();
+    let mut tracks = Vec::new();
+    for who in &speakers {
+        let len = ((end + 0.5) * SR as f32) as usize;
+        let mut track = vec![0.0f32; len];
+        for l in out.iter().filter(|l| &l.who == who) {
+            let off = (l.at * SR as f32) as usize;
+            for (k, s) in l.samples.iter().enumerate() {
+                if let Some(v) = track.get_mut(off + k) {
+                    *v += s;
+                }
+            }
+        }
+        let fname = format!("dlg_{scene_key}_{}.wav", safe_name(who).unwrap_or_else(|_| who.clone()));
+        cf_audio::write_wav(&audio_dir.join(&fname), &(track.clone(), track)).map_err(|e| e.to_string())?;
+        tracks.push(fname.clone());
+        // 3. Figur: Lippen-Sync + Sprech-Gesten
+        let obj = ops::find(&scene, who).ok_or("Objekt verschwunden")?.clone();
+        let talk = serde_json::json!({"audio": fname, "start": 0.0, "gain": 1.3});
+        let changes = match &obj.kind {
+            cf_scene::Kind::Character(c) => {
+                let mut actions: Vec<Value> = c
+                    .actions
+                    .iter()
+                    .filter(|x| x.kind != cf_scene::character::ActionKind::Talk)
+                    .map(|x| serde_json::to_value(x).unwrap_or(Value::Null))
+                    .collect();
+                for l in out.iter().filter(|l| &l.who == who) {
+                    let d = l.samples.len() as f32 / SR as f32;
+                    actions.push(serde_json::json!({"type": "talk", "start": l.at, "end": l.at + d}));
+                    if let Some(act) = &l.action {
+                        actions.push(serde_json::json!({"type": act, "start": l.at, "end": l.at + d.min(2.5)}));
+                    }
+                }
+                serde_json::json!({"talk": talk, "actions": actions})
+            }
+            _ => serde_json::json!({"animate": {"talk": talk}}),
+        };
+        scene = ops::update_object(&scene, who, &changes)?;
+    }
+    // 4. Untertitel (ersetzt frühere Dialog-Untertitel) und Szenenlänge
+    let mut overlays: Vec<Value> = scene
+        .overlays
+        .iter()
+        .filter(|o| !(o.background.is_some() && (o.y + 0.82).abs() < 1e-3))
+        .map(|o| serde_json::to_value(o).unwrap_or(Value::Null))
+        .collect();
+    if subtitles {
+        for l in &out {
+            let d = l.samples.len() as f32 / SR as f32;
+            let name = ops::find(&scene, &l.who).and_then(|o| o.name.clone()).unwrap_or_else(|| {
+                let mut c = l.who.chars();
+                c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+            });
+            overlays.push(serde_json::json!({"text": format!("{name}: {}", l.text), "y": -0.82, "size": 0.042,
+                "background": "#000000", "background_opacity": 0.55, "start": l.at, "end": l.at + d + 0.25, "fade": 0.12}));
+        }
+    }
+    let duration = scene.duration.max(end + 0.8);
+    scene = ops::update_settings(&scene, &serde_json::json!({"overlays": overlays, "duration": duration}))?;
+    // 5. Storyboard: Ton und Länge des Shots
+    if let Some(shot) = cx.project.data.storyboard.iter_mut().find(|s| s.scene.as_deref() == Some(scene_name)) {
+        shot.audio.retain(|c| !c.file.starts_with(&format!("dlg_{scene_key}_")));
+        for f in &tracks {
+            shot.audio.push(serde_json::from_value(serde_json::json!({"file": f, "start": 0.0})).map_err(|e: serde_json::Error| e.to_string())?);
+        }
+        shot.duration = shot.duration.max(duration);
+        let _ = cx.project.save();
+    }
+    Ok(scene)
 }
 
 /// Hilfs-Query für die aktuelle Fenster-Kamera.

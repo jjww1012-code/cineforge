@@ -152,6 +152,9 @@
 - **Kurzfilm Ende-zu-Ende über MCP** (new_project → generate_voice → create_music → new_scene mit
   Vorlagen → batch mit character/path/follow/frame/dof → update_plan mit Ton → check_film →
   export_film): 3 Shots, 9 s, Ton ok, 2:42 auf Software-Rendering. Ergebnis `docs/bilder/kurzfilm.mp4`.
+- **Dialog-Werkzeug (`dialogue`):** Zeilen → Stimmen (synthesize, auf 48 kHz umgerechnet), Timing
+  (start, gap, pause), je Sprecher `dlg_<szene>_<id>.wav`, Figuren: talk + talk-Aktionen (+ action),
+  andere Objekte: animate.talk; Untertitel (y −0.82 + Box, ersetzt frühere), Szenenlänge, Shot-Ton.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in
