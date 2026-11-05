@@ -3,3 +3,4 @@
 !docs/**/*.png
 .DS_Store
 /dist
+/cineforge-main.zip
