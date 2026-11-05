@@ -231,7 +231,7 @@ pub fn definitions() -> Value {
                     "fps": {"type": "integer"},
                     "start": {"type": "number"},
                     "end": {"type": "number"},
-                    "quality": {"type": "string", "enum": ["draft", "standard", "high"]}
+                    "quality": {"type": "string", "enum": ["draft", "standard", "high", "best"]}
                 }
             }
         },
@@ -245,7 +245,7 @@ pub fn definitions() -> Value {
                     "width": {"type": "integer"},
                     "height": {"type": "integer"},
                     "fps": {"type": "integer"},
-                    "quality": {"type": "string", "enum": ["draft", "standard", "high"]},
+                    "quality": {"type": "string", "enum": ["draft", "standard", "high", "best"]},
                     "transition": {"type": "string", "enum": ["cut", "fade"]}
                 }
             }
