@@ -286,17 +286,22 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
                  1) get_guide lesen (besonders „Figuren“, „Kino-Qualität“, „Schnellstart mit Vorlagen“).\n\
                  2) Geschichte: kurze Handlung mit Anfang, Problem, Höhepunkt, Ende; Figuren mit Namen, Aussehen, Charakter.\n\
                  3) new_project mit Ziel und Stil (Farben, Stimmung, Look film oder cartoon).\n\
-                 4) update_plan: Storyboard – je Shot Titel, Beschreibung, Dauer (3–8 s), Szene s01, s02 …; update_tasks mit Aufgaben.\n\
-                 5) Je Shot: new_scene mit passendem template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt).\n\
-                 6) Figuren als type \"character\" (immer gleiche Farben/Frisur je Figur in allen Szenen!), Tiere als type \"animal\"; \
-                 Handlung mit actions (walk, wave, jump, talk …), Wege mit animate.path, Mimik mit expressions, look_at zum Gesprächspartner.\n\
-                 7) Dialoge mit dialogue (Stimmen, Lippen-Sync, Untertitel; camera_cuts: true für Schuss/Gegenschuss).\n\
-                 8) Kamera wie im Film: camera.frame (wide zum Einführen, medium/close für Gefühle), follow für Bewegung, cuts innerhalb der Szene, \
-                 dof mit focus auf die Hauptfigur, langsame Fahrten.\n\
+                 4) update_plan: Storyboard – je Shot Titel, Beschreibung, Dauer (3–8 s), transition; mit template (wiese, dorf, wald, strand, nacht, studio, \
+                 weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt, bauernhof, winter) bzw. copy_scene (gleicher Drehort) entstehen alle Szenen in EINEM Schritt; \
+                 update_tasks mit Aufgaben.\n\
+                 5) Je Shot die Szene öffnen (open_scene) und ausbauen.\n\
+                 6) Figuren als type \"character\" (immer gleiche Farben/Frisur je Figur in allen Szenen!), Tiere als type \"animal\" (auch Kuh, Schwein, Schaf, Pferd, Huhn); \
+                 Handlung mit actions (walk, wave, jump, clap, bow, laugh, scared, shrug, sad, excited …), Wege mit animate.path, Mimik mit expressions \
+                 (auch laugh, excited, sleepy, wink), look_at zum Gesprächspartner.\n\
+                 7) Dialoge mit dialogue (Stimmen, Lippen-Sync, Mimik je Zeile mit expression, Untertitel; camera_cuts: true für Zweier-Einstellung + Schuss/Gegenschuss).\n\
+                 8) Kamera wie im Film: camera.frame (wide zum Einführen, medium/close für Gefühle), Kamerafahrten mit frame.to (Heranfahren, Bogen, Kran, Push-in), \
+                 follow für Bewegung, cuts innerhalb der Szene, dof mit focus auf die Hauptfigur; Zeitlupe für große Momente (speed 0.5 im Storyboard).\n\
                  9) Licht und Look: Tageszeit passend zur Stimmung, light_rays/fog für Atmosphäre, grade (saturation 1.1, vignette 0.3).\n\
-                 10) Jede Szene mit screenshot oder contact_sheet prüfen und verbessern (Komposition, Größenverhältnisse, Lesbarkeit).\n\
-                 11) Ton: create_music (Stil passend, als soundtrack mit volume 0.3–0.5); je Szene foley aufrufen (Geräusche automatisch zur Handlung), einzelne Effekte mit create_sound.\n\
-                 12) Titel und Abspann mit overlays (effect pop/typewriter, shadow).\n\
+                 10) Jede Szene mit screenshot oder contact_sheet prüfen und verbessern (Komposition, Größenverhältnisse, Lesbarkeit). \
+                 Danach contact_sheet mit film: true (ganzer Film in einem Bild) und check_film (rechnerische Bildkontrolle) – Hinweise beheben.\n\
+                 11) Ton: je Szene foley (Geräusche zur Handlung + Umgebung wie Vögel, Meer, Grillen); Musik mit create_music mood (happy, sad, adventure, tense, magical, \
+                 calm, epic, funny, night) und film: true – passt sich der Filmlänge an und wird als Soundtrack eingetragen.\n\
+                 12) Titel mit overlays (effect pop/typewriter, shadow), Abspann als letzter Shot mit effect scroll.\n\
                  13) check_film, dann export_film (zum Prüfen quality draft, für das fertige Video quality best). Shots und Aufgaben abhaken.\n\
                  Setze vor jedem größeren Schritt next_step, damit nach einer Unterbrechung nahtlos weitergearbeitet werden kann."
             )
