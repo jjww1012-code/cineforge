@@ -110,7 +110,7 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `get_selection`, `select_object` | Was der Mensch im Fenster angeklickt hat / ein Objekt für den Menschen markieren |
 | `list_scenes`, `open_scene`, `new_scene` | Szenen-Dateien im Projekt verwalten |
 | `resume` | Kompletter Projekt-Stand zum Weitermachen |
-| `update_plan` | Ziel, Stil, Storyboard, nächster Schritt |
+| `update_plan` | Ziel, Stil, Storyboard, nächster Schritt; mit `template`/`copy_scene` je Shot werden alle Szenen in einem Schritt angelegt |
 | `update_tasks`, `add_note` | Aufgaben abhaken, Entscheidungen festhalten |
 | `batch` | Viele Änderungen in einem Schritt (alles oder nichts) |
 | `duplicate_object` | Objekte mehrfach kopieren und versetzen |

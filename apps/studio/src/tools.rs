@@ -77,7 +77,7 @@ WICHTIG – Fortsetzung nach Unterbrechungen:
 
 Arbeitsweise:
 1. Beim ersten Mal get_guide lesen (Szenen-Format mit allen Objekt-Typen und Feldern).
-2. Für einen Film: new_project (Ziel + Stil), dann update_plan mit Storyboard (Shots), dann Aufgaben anlegen und Shot für Shot bauen (je Shot eine Szene mit new_scene). Shots können auch fertige Video-Clips sein (clip, Ordner Clips/). Ton: soundtrack + audio je Shot (Ordner Audio/, Sprecher mit generate_voice). Einblendungen über overlays in der Szene. Vor dem Export check_film, dann export_film (Shot-Cache: Änderungen rendern nur betroffene Shots neu, auch bei 1-Stunden-Filmen).
+2. Für einen Film: new_project (Ziel + Stil), dann update_plan mit Storyboard (Shots; mit template/copy_scene je Shot entstehen alle Szenen in einem Schritt), dann Aufgaben anlegen und Shot für Shot bauen (je Shot eine Szene mit new_scene). Shots können auch fertige Video-Clips sein (clip, Ordner Clips/). Ton: soundtrack + audio je Shot (Ordner Audio/, Sprecher mit generate_voice). Einblendungen über overlays in der Szene. Vor dem Export check_film, dann export_film (Shot-Cache: Änderungen rendern nur betroffene Shots neu, auch bei 1-Stunden-Filmen).
 3. list_objects / get_scene zeigen den aktuellen Stand der geöffneten Szene.
 4. Ändern mit add_objects, update_object, remove_objects, update_scene_settings – oder set_scene für komplett neue Szenen.
 5. Nach jeder sichtbaren Änderung screenshot aufrufen und das Bild kritisch prüfen (Komposition, Licht, Größenverhältnisse, Überschneidungen). Dann verbessern.
@@ -373,7 +373,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "update_plan",
-            "description": "Ändert das Projekt-Logbuch: name, goal (Ziel/Idee), style (Stil-Vorgaben), next_step (Übergabe-Notiz: wo geht es weiter?) und storyboard. Storyboard-Einträge (Shots) werden per id zusammengeführt: {\"id\":\"s01\",\"title\":…,\"description\":…,\"scene\":\"s01\",\"duration\":6,\"status\":\"open|in_progress|done|blocked\"}; neue ids werden angehängt (oder mit position eingefügt), {\"id\":…,\"remove\":true} löscht.",
+            "description": "Ändert das Projekt-Logbuch: name, goal (Ziel/Idee), style (Stil-Vorgaben), next_step (Übergabe-Notiz: wo geht es weiter?) und storyboard. Storyboard-Einträge (Shots) werden per id zusammengeführt: {\"id\":\"s01\",\"title\":…,\"description\":…,\"scene\":\"s01\",\"duration\":6,\"status\":\"open|in_progress|done|blocked\"}; neue ids werden angehängt (oder mit position eingefügt), {\"id\":…,\"remove\":true} löscht. Ganzen Film in EINEM Schritt anlegen: je Shot template (z. B. \"dorf\") oder copy_scene (Name einer Szene: gleicher Drehort, z. B. für Gegenschuss) – dann wird die Szene (Name = scene oder id, Länge = duration) gleich mit angelegt; vorhandene Szenen bleiben unverändert.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1397,11 +1397,82 @@ fn update_plan(a: &Value, project: &mut ActiveProject) -> ToolOutput {
             Err(e) => return ToolOutput::error(format!("Ungültiger Soundtrack: {e}")),
         }
     }
+    // Szenen gleich mit anlegen: template (Vorlage) oder copy_scene (gleicher Drehort wie ein anderer Shot)
+    let mut to_create: Vec<(String, Scene)> = Vec::new();
     if let Some(list) = a.get("storyboard").and_then(Value::as_array) {
-        match data.update_storyboard(list) {
+        let mut list = list.clone();
+        for ch in list.iter_mut() {
+            let Some(m) = ch.as_object_mut() else { continue };
+            let template = m.remove("template");
+            let copy = m.remove("copy_scene");
+            if template.is_none() && copy.is_none() {
+                continue;
+            }
+            let id = m.get("id").and_then(Value::as_str).unwrap_or("shot").to_string();
+            let name = match m.get("scene").and_then(Value::as_str) {
+                Some(n) => n.to_string(),
+                None => {
+                    m.insert("scene".into(), Value::String(id.clone()));
+                    id.clone()
+                }
+            };
+            let path = match scene_path(project, &name) {
+                Ok(p) => p,
+                Err(e) => return ToolOutput::error(format!("Shot {id}: {e}")),
+            };
+            if path.exists() || to_create.iter().any(|(n, _)| *n == name) {
+                continue; // vorhandene Szenen nie überschreiben
+            }
+            let value = match (template.as_ref().and_then(Value::as_str), copy.as_ref().and_then(Value::as_str)) {
+                (_, Some(src)) => {
+                    let from = to_create.iter().find(|(n, _)| n == src).map(|(_, s)| serde_json::to_value(s).unwrap_or(Value::Null));
+                    match from {
+                        Some(v) => v,
+                        None => match scene_path(project, src).and_then(|p| std::fs::read_to_string(&p).map_err(|e| format!("Szene \"{src}\": {e}"))) {
+                            Ok(t) => serde_json::from_str(&t).unwrap_or(Value::Null),
+                            Err(e) => return ToolOutput::error(format!("Shot {id}: copy_scene – {e}")),
+                        },
+                    }
+                }
+                (Some(t), None) => match cf_scene::templates::template(t) {
+                    Some(v) => v,
+                    None => {
+                        let names: Vec<&str> = cf_scene::templates::TEMPLATES.iter().map(|(n, _)| *n).collect();
+                        let hint = cf_scene::diagnose::suggest(t, names.iter().copied()).map(|s| format!(" Meintest du „{s}“?")).unwrap_or_default();
+                        return ToolOutput::error(format!("Shot {id}: Vorlage „{t}“ gibt es nicht.{hint} Vorhanden: {}", names.join(", ")));
+                    }
+                },
+                (None, None) => continue,
+            };
+            let mut scene = match serde_json::from_value::<Scene>(value) {
+                Ok(s) => s,
+                Err(e) => return ToolOutput::error(format!("Shot {id}: Szene nicht lesbar ({e})")),
+            };
+            if let Some(d) = m.get("duration").and_then(Value::as_f64).filter(|d| *d > 0.0) {
+                scene.duration = d as f32;
+            }
+            if let Some(t) = m.get("title").and_then(Value::as_str) {
+                scene.name = t.to_string();
+            }
+            to_create.push((name, scene));
+        }
+        match data.update_storyboard(&list) {
             Ok(r) => report.extend(r),
             Err(e) => return ToolOutput::error(format!("Nicht übernommen: {e}")),
         }
+    }
+    for (name, scene) in &to_create {
+        let Ok(path) = scene_path(project, name) else { continue };
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if let Err(e) = std::fs::write(&path, scene.to_json_pretty()) {
+            return ToolOutput::error(format!("Konnte Szene {name} nicht anlegen: {e}"));
+        }
+    }
+    if !to_create.is_empty() {
+        let names: Vec<&str> = to_create.iter().map(|(n, _)| n.as_str()).collect();
+        report.push(format!("{} Szene(n) angelegt: {} (öffnen mit open_scene)", names.len(), names.join(", ")));
     }
     if report.is_empty() {
         return ToolOutput::error("Nichts zu ändern (name, goal, style, next_step, storyboard oder soundtrack angeben)");

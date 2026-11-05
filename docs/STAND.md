@@ -191,13 +191,17 @@
   (`look_at`) nicht – Kamera stand hinter dem Kopf. Jetzt `motion::facing_yaw`/`look_yaw`
   (gemeinsam für Vorschau und Framing); Dialog-Schnitte: Seite je Sprecher (180°-Regel),
   kein Schnitt, wenn dieselbe Person weiterspricht. Wald: 8 Baum-Varianten im Wechsel (schneller).
+- **Film-Übersicht:** `contact_sheet` mit `film: true` öffnet nacheinander alle Storyboard-Szenen und
+  legt je Shot ein Bild (oder mehrere, `at: [0.1, 0.9]`) in einen Kontaktabzug; Wartezeit dafür 10 min.
+- **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
+  oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.
 2. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen
    umsortieren, Wellenform in der Ton-Spur.
-3. Schneller ganze Filme anlegen (mehrere Shots in einem Schritt), Film-Kontaktbogen zur Kontrolle.
+3. Weitere Regie-Hilfen (z. B. Musik passend zur Stimmung je Shot, Kamerafahrten-Vorlagen).
 
 ## Offene Punkte / Wissenswertes
 
