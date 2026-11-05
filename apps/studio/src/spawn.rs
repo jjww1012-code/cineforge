@@ -601,18 +601,7 @@ impl Builder<'_, '_, '_> {
             }
             Kind::Character(spec) => {
                 // Figur als Gruppe aus Grundformen; Teile heißen „<id>/…“ (Klick wählt die Figur).
-                let look_yaw = spec
-                    .look_at
-                    .as_ref()
-                    .and_then(|target| {
-                        let me = cf_scene::motion::world_position(self.scene, &o.id, 0.0)?;
-                        let other = cf_scene::motion::world_position(self.scene, target, 0.0)?;
-                        let (dx, dz) = (other[0] - me[0], other[2] - me[2]);
-                        let world = dx.atan2(dz).to_degrees();
-                        let (_, rot, _) = cf_scene::motion::local_state(o, 0.0);
-                        Some(((world - rot[1] + 540.0) % 360.0) - 180.0)
-                    })
-                    .unwrap_or(0.0);
+                let look_yaw = cf_scene::motion::look_yaw(self.scene, o);
                 let figure = cf_scene::character::build_looking(o, spec, look_yaw);
                 let child_prefix = format!("{full_id}/");
                 self.spawn_object(&figure, entity, mat_override, depth + 1, &child_prefix);
@@ -797,7 +786,9 @@ impl Builder<'_, '_, '_> {
                     // Wald: jeder Baum eine eigene Variante (seed), an seiner Position.
                     for (i, inst) in instances.iter().enumerate() {
                         let mut t = tree.clone();
-                        t.seed = tree.seed.wrapping_add(i as u32 * 7 + 1);
+                        // 8 Varianten im Wechsel: gleiche Formen werden gebündelt gezeichnet (schnell),
+                        // Drehung und Größe der Verteilung sorgen trotzdem für Abwechslung.
+                        t.seed = tree.seed.wrapping_add((i % 8) as u32 * 7 + 1);
                         let holder = self
                             .commands
                             .spawn((
@@ -810,7 +801,7 @@ impl Builder<'_, '_, '_> {
                                 ChildOf(entity),
                             ))
                             .id();
-                        let fake = Object { id: format!("{}_{i}", o.id), kind: Kind::Tree(t.clone()), ..o.clone() };
+                        let fake = Object { id: format!("{}_{}", o.id, i % 8), kind: Kind::Tree(t.clone()), ..o.clone() };
                         let built = cf_scene::nature::build_tree(&fake, &t, self.scene.duration);
                         let child_prefix = format!("{full_id}/");
                         self.spawn_object(&built, holder, None, depth + 1, &child_prefix);

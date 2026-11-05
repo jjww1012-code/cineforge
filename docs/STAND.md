@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-05 · 3D-Verformen, 2D in voller Qualität, 2D/3D mischen, Kino-Look, Lippen-Sync, Vorzeige-Szene
+**Zuletzt aktualisiert:** 2026-11-05 · Demo-Film, Dialog-Kamera folgt der Blickrichtung
 
 ## Fertig
 
@@ -185,14 +185,19 @@
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in
   `Dokumente/CineForge/absturz.txt` (`crash.rs`, Panic-Hook mit Aufrufliste). Anlass: Nutzer
   konnte die neue Version auf dem Mac nicht öffnen (Ursache dort noch nicht bestätigt).
+- **Demo-Film „Die Schatzsuche“** (4 Shots: Dorf-Dialog mit Schnitten + Hund, Wald mit
+  Verfolgerkamera + Vogel, Schloss mit Titel, Lagerfeuer-Nacht) per MCP komplett erzeugt und
+  exportiert (20 s). Dabei gefunden und behoben: Nahaufnahmen beachteten die Blickrichtung
+  (`look_at`) nicht – Kamera stand hinter dem Kopf. Jetzt `motion::facing_yaw`/`look_yaw`
+  (gemeinsam für Vorschau und Framing); Dialog-Schnitte: Seite je Sprecher (180°-Regel),
+  kein Schnitt, wenn dieselbe Person weiterspricht. Wald: 8 Baum-Varianten im Wechsel (schneller).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.
-2. **Cartoon-Werkzeuge:** Figuren aus SVG-Teilen mit Gelenken (Vorlagen), Lippen-Sync zur Stimme.
-3. **Ton-Vorschau in der App** (synchron zur Zeitleiste, Wellenform in der Ton-Spur).
-4. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen
-   umsortieren, Vorschaubilder der Shots in der Film-Leiste.
+2. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen
+   umsortieren, Wellenform in der Ton-Spur.
+3. Schneller ganze Filme anlegen (mehrere Shots in einem Schritt), Film-Kontaktbogen zur Kontrolle.
 
 ## Offene Punkte / Wissenswertes
 

@@ -314,13 +314,12 @@ fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32) -> Option<([f32; 3], [f32;
         ShotSize::Wide => (h * 4.0, h * 0.5),
         ShotSize::Full => (h * 1.35, h * 0.5),
         ShotSize::Medium => (h * 0.95, h * 0.66),
-        ShotSize::Close => (h * 0.62, h * 0.74),
+        ShotSize::Close => (h * 0.7, h * 0.73),
         ShotSize::ExtremeClose => (h * 0.42, h * 0.8),
     };
     let dist = (view / 2.0) / (fov.to_radians() / 2.0).tan().max(0.05);
     // Blickrichtung des Objekts (Gier) berücksichtigen: „von vorne“ heißt vor seinem Gesicht.
-    let (_, rot, _) = local_state(obj, t);
-    let yaw = (rot[1] + f.angle).to_radians();
+    let yaw = (facing_yaw(scene, obj, t) + f.angle).to_radians();
     let tilt = f.tilt.to_radians();
     let look = [p[0], p[1] + look_y, p[2]];
     let pos = [
@@ -329,6 +328,32 @@ fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32) -> Option<([f32; 3], [f32;
         look[2] + dist * tilt.cos() * yaw.cos(),
     ];
     Some((pos, look))
+}
+
+/// Wohin eine Figur schaut, relativ zu ihrer eigenen Drehung (Grad, −80…80):
+/// bei `look_at` dreht sie Kopf und Oberkörper zum Ziel (Stand am Szenenanfang).
+pub fn look_yaw(scene: &Scene, obj: &Object) -> f32 {
+    let Kind::Character(c) = &obj.kind else { return 0.0 };
+    c.look_at
+        .as_ref()
+        .and_then(|target| {
+            let me = world_position(scene, &obj.id, 0.0)?;
+            let other = world_position(scene, target, 0.0)?;
+            let (dx, dz) = (other[0] - me[0], other[2] - me[2]);
+            if dx.abs() + dz.abs() < 1e-5 {
+                return None;
+            }
+            let world = dx.atan2(dz).to_degrees();
+            let (_, rot, _) = local_state(obj, 0.0);
+            Some((((world - rot[1] + 540.0) % 360.0) - 180.0).clamp(-80.0, 80.0))
+        })
+        .unwrap_or(0.0)
+}
+
+/// Blickrichtung in der Welt (Gier in Grad): eigene Drehung plus Blick zum `look_at`-Ziel.
+pub fn facing_yaw(scene: &Scene, obj: &Object, t: f32) -> f32 {
+    let (_, rot, _) = local_state(obj, t);
+    rot[1] + look_yaw(scene, obj)
 }
 
 /// Mittelwert der Objekt-Position im Zeitfenster [t − smooth, t] (deterministisches Nachziehen).
@@ -471,11 +496,20 @@ mod tests {
         let s = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character", "height": 1.2, "position": [2, 0, 0]}],
             "camera": {"fov": 40, "frame": {"target": "max", "shot": "close"}}}"#).unwrap();
         let (pos, look, _) = camera_shot(&s, 0.0);
-        assert!((look[1] - 0.888).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
+        assert!((look[1] - 0.876).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
         assert!(pos[2] > 0.5 && pos[2] < 1.5 && (pos[0] - 2.0).abs() < 1e-3, "nah vor dem Gesicht: {pos:?}");
         let wide = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character"}], "camera": {"frame": {"target": "max", "shot": "wide", "angle": 90}}}"#).unwrap();
         let (p2, _, _) = camera_shot(&wide, 0.0);
         assert!(p2[0] > 3.0, "von rechts und weit weg: {p2:?}");
+    }
+
+    #[test]
+    fn close_up_faces_the_look_at_direction() {
+        // Max schaut nach rechts zu Lena → „von vorne“ heißt rechts von Max
+        let s = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character", "look_at": "lena"}, {"id": "lena", "type": "character", "position": [3, 0, 0]}],
+            "camera": {"frame": {"target": "max", "shot": "close"}}}"#).unwrap();
+        let (pos, _, _) = camera_shot(&s, 0.0);
+        assert!(pos[0] > 0.5 && pos[2].abs() < 0.2, "Kamera vor Max' Gesicht (rechts): {pos:?}");
     }
 
     #[test]

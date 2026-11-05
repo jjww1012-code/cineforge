@@ -1644,9 +1644,21 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
     // Automatische Schnitte: Halbtotale am Anfang, dann Nahaufnahme auf den, der spricht
     if a.get("camera_cuts").and_then(Value::as_bool).unwrap_or(false) {
         let mut cuts = vec![serde_json::json!({"t": 0.0, "position": scene.camera.position, "look_at": scene.camera.look_at})];
-        for (k, l) in out.iter().enumerate() {
-            let side = if k % 2 == 0 { -25.0 } else { 25.0 };
-            cuts.push(serde_json::json!({"t": (l.at - 0.15).max(0.0), "frame": {"target": l.who, "shot": "close", "angle": side}}));
+        // Seite je Sprecher (nicht je Satz): so bleibt die Kamera auf einer Seite der Blickachse
+        // (Schuss/Gegenschuss); spricht jemand zweimal hintereinander, gibt es keinen Schnitt.
+        let mut speakers: Vec<&str> = Vec::new();
+        let mut last: Option<&str> = None;
+        for l in &out {
+            if !speakers.contains(&l.who.as_str()) {
+                speakers.push(&l.who);
+            }
+            if last == Some(l.who.as_str()) {
+                continue;
+            }
+            last = Some(&l.who);
+            let k = speakers.iter().position(|w| *w == l.who).unwrap_or(0);
+            let side = if k % 2 == 0 { -28.0 } else { 28.0 };
+            cuts.push(serde_json::json!({"t": (l.at - 0.15).max(0.0), "frame": {"target": l.who, "shot": "close", "angle": side, "tilt": 4.0}}));
         }
         settings["camera"] = serde_json::json!({"cuts": cuts});
     }
