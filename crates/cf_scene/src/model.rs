@@ -70,7 +70,41 @@ pub struct Overlay {
     /// Ein-/Ausblendzeit (s).
     #[serde(default = "default_overlay_fade")]
     pub fade: f32,
+    /// Auftritt: "fade" (Standard), "pop" (ploppt auf), "slide_up" (gleitet von unten herein),
+    /// "typewriter" (erscheint Buchstabe für Buchstabe).
+    #[serde(default, skip_serializing_if = "OverlayEffect::is_fade")]
+    pub effect: OverlayEffect,
+    /// Weicher dunkler Schatten hinter der Schrift (besser lesbar auf hellen Bildern).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub shadow: bool,
+    /// Hintergrund-Box (z. B. für Untertitel): Farbe.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<Rgb>,
+    /// Deckkraft der Hintergrund-Box (Standard 0.6).
+    #[serde(default = "default_bg_opacity")]
+    pub background_opacity: f32,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayEffect {
+    #[default]
+    Fade,
+    Pop,
+    SlideUp,
+    Typewriter,
+}
+
+impl OverlayEffect {
+    pub fn is_fade(&self) -> bool {
+        *self == OverlayEffect::Fade
+    }
+}
+
+fn default_bg_opacity() -> f32 {
+    0.6
+}
+
 
 fn default_overlay_y() -> f32 {
     -0.8

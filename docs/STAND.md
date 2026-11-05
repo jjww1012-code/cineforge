@@ -132,6 +132,8 @@
   Bild aus der Zeit berechnet: `spawn::animate_water`), `environment.stars` (Stern-Mesh mit
   Vertex-Farben, additiv; Achtung Wicklung: Vorderseite zur Kamera), `environment.moon`
   (Richtungslicht 2500 lx bläulich + Mondscheibe).
+- **Einblendungs-Effekte:** `effect` pop/slide_up/typewriter (Präfix-Meshes, links an der fertigen
+  Zeile ausgerichtet), `shadow`, `background` (+Deckkraft); Ebenen über z-Versatz sortiert.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in
