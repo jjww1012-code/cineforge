@@ -290,7 +290,8 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
                  weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt, bauernhof, winter) bzw. copy_scene (gleicher Drehort) entstehen alle Szenen in EINEM Schritt; \
                  update_tasks mit Aufgaben.\n\
                  5) Je Shot die Szene öffnen (open_scene) und ausbauen.\n\
-                 6) Figuren als type \"character\" (immer gleiche Farben/Frisur je Figur in allen Szenen!), Tiere als type \"animal\" (auch Kuh, Schwein, Schaf, Pferd, Huhn); \
+                 6) Figuren erst mit cast in die Besetzung (Aussehen einmal festlegen), dann in jeder Szene {{\"id\": \"max\", \"cast\": \"max\", \"position\": …}} – \
+                 so bleiben sie in allen Shots gleich; Tiere ebenso (type \"animal\", auch Kuh, Schwein, Schaf, Pferd, Huhn); \
                  Handlung mit actions (walk, wave, jump, clap, bow, laugh, scared, shrug, sad, excited …), Wege mit animate.path, Mimik mit expressions \
                  (auch laugh, excited, sleepy, wink), look_at zum Gesprächspartner.\n\
                  7) Dialoge mit dialogue (Stimmen, Lippen-Sync, Mimik je Zeile mit expression, Untertitel; camera_cuts: true für Zweier-Einstellung + Schuss/Gegenschuss).\n\

@@ -78,6 +78,9 @@ pub struct AnimalSpec {
     /// Auf einem `path` automatisch laufen/fliegen/schwimmen.
     #[serde(default = "yes")]
     pub auto_move: bool,
+    /// Name in der Besetzungsliste des Projekts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cast: Option<String>,
 }
 
 impl AnimalSpec {

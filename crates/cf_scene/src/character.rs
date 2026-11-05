@@ -208,6 +208,9 @@ pub struct CharacterSpec {
     /// Hält ein Objekt in der linken Hand.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hold_left: Option<Box<Object>>,
+    /// Name in der Besetzungsliste des Projekts (Aussehen kommt von dort, gleich in allen Szenen).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cast: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]

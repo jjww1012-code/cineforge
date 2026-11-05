@@ -90,6 +90,7 @@ Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wol
 Tiere: type \"animal\" (dog, cat, bunny, bird, fish, cow, pig, sheep, horse, chicken; actions walk/run/wag/jump/sit/fly/swim).
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
 Abspann: Einblendung mit effect \"scroll\" (mehrzeiliger Text läuft von start bis end durchs Bild). Geräusche zur Handlung: foley (je Szene, nach dem Bauen). Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
+Besetzung: Aussehen jeder Figur einmal mit cast festlegen, in Szenen dann {\"id\": \"max\", \"cast\": \"max\", \"position\": …} – gleich in allen Shots.
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk/clap/bow/laugh/scared/look_around/shrug/sad/excited, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
 Cartoon-Figuren leben lassen: Mund mit animate.talk (Lippen-Sync zur Stimme aus generate_voice), Augen mit animate.blink, Körper mit animate.breathe.
 Licht in einem Wort: update_scene_settings mit lighting (morning, noon, golden_hour, sunset, blue_hour, night, overcast, magic, spooky).
@@ -126,6 +127,11 @@ pub fn definitions() -> Value {
             "name": "foley",
             "description": "Erzeugt automatisch Geräusche zur Handlung der geöffneten Szene: Schritte im Lauftempo der Figuren und Tiere, Sprünge (Whoosh + Landung), Flügelschlag, Jubel, Feuer/Regen/Wind passend zu Partikeln, Pop/Tippen/Wisch zu Titel-Effekten, dazu passende Umgebung (Vögel bei Bäumen am Tag, Grillen nachts, Meer bei Wasser, Plätschern am Brunnen, Stadt bei Autos/Häusern, Blubbern unter Wasser, sonst leiser Wind; ambience: false schaltet ab, ambience_volume Standard 0.35). Ergebnis: eine Tonspur sfx_<szene>.wav, im Storyboard-Shot eingetragen (volume, Standard 0.7). Nach Änderungen der Handlung erneut aufrufen.",
             "inputSchema": {"type": "object", "properties": {"volume": {"type": "number"}, "ambience": {"type": "boolean"}, "ambience_volume": {"type": "number"}, "agent": {"type": "string"}}}
+        },
+        {
+            "name": "cast",
+            "description": "Besetzungsliste des Projekts: Aussehen jeder Figur (und jedes Tiers) EINMAL festlegen – in Szenen dann nur {\"id\": \"max\", \"type\": \"character\", \"cast\": \"max\", \"position\": [...], \"actions\": [...]}. So sieht jede Figur in allen Shots gleich aus. set: {\"max\": {\"type\": \"character\", \"hair\": \"spiky\", \"shirt\": \"#e63946\", \"height\": 1.2, \"description\": \"mutiger Junge\"}, \"bello\": {\"type\": \"animal\", \"kind\": \"dog\"}} legt an bzw. ändert – Änderungen werden in ALLEN Szenen übernommen. remove: [\"name\"]. Ohne Angaben: Liste.",
+            "inputSchema": {"type": "object", "properties": {"set": obj, "remove": {"type": "array", "items": {"type": "string"}}, "agent": {"type": "string"}}}
         },
         {
             "name": "get_selection",
@@ -488,7 +494,38 @@ fn describe(name: &str, a: &Value) -> String {
 
 /// Führt einen Aufruf aus. Screenshots antworten später (siehe capture_tick).
 pub fn execute(call: ToolCall, cx: &mut Ctx) {
-    let a = &call.args;
+    // Besetzung: Objekte mit "cast" bekommen beim Einsetzen das Aussehen aus dem Projekt
+    let expanded;
+    let a = if matches!(call.name.as_str(), "add_objects" | "set_scene" | "update_object" | "batch") && !cx.project.data.cast.is_empty() {
+        let mut v = call.args.clone();
+        let cast = &cx.project.data.cast;
+        let mut res = Ok(0);
+        for key in ["objects", "changes"] {
+            if let Some(x) = v.get_mut(key) {
+                res = res.and_then(|n| ops::apply_cast(x, cast, false).map(|m| n + m));
+            }
+        }
+        if let Some(x) = v.get_mut("scene").and_then(|s| s.get_mut("objects")) {
+            res = res.and_then(|n| ops::apply_cast(x, cast, false).map(|m| n + m));
+        }
+        if let Some(Value::Array(list)) = v.get_mut("operations") {
+            for op in list.iter_mut() {
+                for key in ["objects", "changes"] {
+                    if let Some(x) = op.get_mut(key) {
+                        res = res.and_then(|n| ops::apply_cast(x, cast, false).map(|m| n + m));
+                    }
+                }
+            }
+        }
+        if let Err(e) = res {
+            let _ = call.reply.send(ToolOutput::error(e));
+            return;
+        }
+        expanded = v;
+        &expanded
+    } else {
+        &call.args
+    };
     let str_arg = |k: &str| a.get(k).and_then(Value::as_str);
     let scene_file = cx.src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
 
@@ -499,7 +536,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     let is_mutation = matches!(
         call.name.as_str(),
         "set_scene" | "add_objects" | "update_object" | "remove_objects" | "update_scene_settings" | "batch" | "duplicate_object"
-            | "dialogue" | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project"
+            | "dialogue" | "undo" | "open_scene" | "new_scene" | "open_project" | "new_project" | "cast"
     );
     if is_mutation && cx.jobs.export_running() {
         let _ = call.reply.send(ToolOutput::error(format!(
@@ -902,6 +939,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
         "generate_voice" => generate_voice(a, cx),
         "create_sound" => create_sound(a, cx),
         "create_music" => create_music(a, cx),
+        "cast" => cast_tool(a, cx),
         "foley" => foley(a, cx),
         "export_status" => ToolOutput::text(cx.jobs.export_summary().unwrap_or_else(|| "Es wurde noch kein Export gestartet.".into())),
         "cancel_export" => {
@@ -1882,6 +1920,106 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         let _ = cx.project.save();
     }
     Ok(scene)
+}
+
+/// Besetzung pflegen und Änderungen in alle Szenen des Projekts übernehmen.
+fn cast_tool(a: &Value, cx: &mut Ctx) -> ToolOutput {
+    if let Err(e) = cx.project.require() {
+        return ToolOutput::error(e);
+    }
+    let mut changed: std::collections::BTreeMap<String, Value> = Default::default();
+    if let Some(set) = a.get("set").and_then(Value::as_object) {
+        for (name, spec) in set {
+            if safe_name(name).is_err() {
+                return ToolOutput::error(format!("Name „{name}“: bitte nur Buchstaben, Ziffern, _ und -"));
+            }
+            let Some(m) = spec.as_object() else { return ToolOutput::error(format!("„{name}“: Angaben als Objekt, z. B. {{\"hair\": \"spiky\"}}")) };
+            let mut m = m.clone();
+            for k in ["id", "position", "rotation", "actions", "talk", "animate", "cast", "children"] {
+                if m.remove(k).is_some() && k != "cast" {
+                    return ToolOutput::error(format!("„{name}“: {k} gehört in die Szene, nicht in die Besetzung (nur Aussehen: Frisur, Farben, Größe, Kleidung …)"));
+                }
+            }
+            m.entry("type").or_insert_with(|| Value::String("character".into()));
+            // Probe: ergibt das ein gültiges Objekt?
+            let mut probe = Value::Object(m.clone());
+            probe["id"] = Value::String("probe".into());
+            probe.as_object_mut().map(|o| o.remove("description"));
+            if let Err(e) = Scene::from_json(&serde_json::json!({"objects": [probe]}).to_string()) {
+                return ToolOutput::error(format!("„{name}“: {e}"));
+            }
+            changed.insert(name.clone(), Value::Object(m));
+        }
+    }
+    let mut removed = Vec::new();
+    for r in a.get("remove").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
+        if cx.project.data.cast.remove(r).is_some() {
+            removed.push(r.to_string());
+        }
+    }
+    for (k, v) in &changed {
+        cx.project.data.cast.insert(k.clone(), v.clone());
+    }
+    let mut report = Vec::new();
+    if !changed.is_empty() {
+        // In alle Szenen übernehmen (die Besetzung gewinnt)
+        let dir = match cx.project.scenes_dir() {
+            Ok(d) => d,
+            Err(e) => return ToolOutput::error(e),
+        };
+        let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+            .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).collect())
+            .unwrap_or_default();
+        files.sort();
+        for path in files {
+            let Ok(text) = std::fs::read_to_string(&path) else { continue };
+            let Ok(mut v) = serde_json::from_str::<Value>(&text) else { continue };
+            let Some(objs) = v.get_mut("objects") else { continue };
+            match ops::apply_cast(objs, &changed, true) {
+                Ok(0) => continue,
+                Ok(n) => match Scene::from_json(&v.to_string()) {
+                    Ok(scene) if scene.validate().is_empty() => {
+                        let name = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+                        if path == cx.src.path {
+                            if let Err(e) = cx.src.commit(scene, cx.out) {
+                                report.push(format!("{name}: {e}"));
+                                continue;
+                            }
+                        } else if let Err(e) = std::fs::write(&path, scene.to_json_pretty()) {
+                            report.push(format!("{name}: {e}"));
+                            continue;
+                        }
+                        report.push(format!("{name}: {n} Objekt(e) angepasst"));
+                    }
+                    Ok(scene) => report.push(format!("{}: nicht übernommen ({})", path.display(), scene.validate().join("; "))),
+                    Err(e) => report.push(format!("{}: nicht übernommen ({e})", path.display())),
+                },
+                Err(_) => continue,
+            }
+        }
+    }
+    if !changed.is_empty() || !removed.is_empty() {
+        let _ = cx.project.save();
+        cx.project.log(&who(a), format!("Besetzung: {}", changed.keys().chain(removed.iter()).cloned().collect::<Vec<_>>().join(", ")));
+    }
+    let list: Vec<String> = cx
+        .project
+        .data
+        .cast
+        .iter()
+        .map(|(k, v)| {
+            let kind = v.get("type").and_then(Value::as_str).unwrap_or("character");
+            let desc = v.get("description").and_then(Value::as_str).map(|d| format!(" – {d}")).unwrap_or_default();
+            format!("- {k} ({kind}){desc}")
+        })
+        .collect();
+    ToolOutput::text(format!(
+        "Besetzung ({}):\n{}{}{}\nIn Szenen einsetzen: {{\"id\": \"<name>\", \"type\": \"character\", \"cast\": \"<name>\", \"position\": [x, 0, z]}}",
+        list.len(),
+        if list.is_empty() { "(leer)".to_string() } else { list.join("\n") },
+        if removed.is_empty() { String::new() } else { format!("\nEntfernt: {}", removed.join(", ")) },
+        if report.is_empty() { String::new() } else { format!("\nSzenen: {}", report.join("; ")) }
+    ))
 }
 
 /// Film-Übersicht: je Storyboard-Shot (Szene) ein oder mehrere Bilder in einem Kontaktabzug.

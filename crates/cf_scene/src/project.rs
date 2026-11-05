@@ -33,6 +33,9 @@ pub struct Project {
     pub next_step: String,
     /// Automatisches Protokoll (neueste zuletzt, begrenzt).
     pub log: Vec<LogEntry>,
+    /// Besetzung: Aussehen jeder Figur/jedes Tiers einmal festgelegt, in Szenen per `"cast": "<name>"`.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub cast: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -272,6 +275,15 @@ impl Project {
         s += &format!("## Stil\n{}\n\n", or_dash(&self.style));
         s += &format!("## Nächster Schritt (Übergabe-Notiz)\n{}\n\n", or_dash(&self.next_step));
 
+        if !self.cast.is_empty() {
+            s += "## Besetzung (in Szenen: \"cast\": \"<name>\")\n";
+            for (name, spec) in &self.cast {
+                let kind = spec.get("type").and_then(|v| v.as_str()).unwrap_or("character");
+                let desc = spec.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                s += &format!("- {name} ({kind}){}\n", if desc.is_empty() { String::new() } else { format!(": {desc}") });
+            }
+            s += "\n";
+        }
         if !self.storyboard.is_empty() {
             let total: f32 = self.storyboard.iter().map(|x| x.duration).sum();
             let done = self.storyboard.iter().filter(|x| x.status == Status::Done).count();

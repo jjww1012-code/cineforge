@@ -7,6 +7,16 @@ optional und hat sinnvolle Standardwerte. **Einheiten:** Meter, Grad, Sekunden.
 Die App lädt die Datei bei jeder Änderung automatisch neu. Ist die neue Fassung
 fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 
+## Besetzung (gleiche Figuren in allen Szenen)
+
+Mit dem Werkzeug `cast` legt Claude das Aussehen jeder Figur einmal im Projekt fest:
+`{"set": {"max": {"hair": "spiky", "shirt": "#e63946", "height": 1.2, "description": "mutiger Junge"},
+"bello": {"type": "animal", "kind": "dog"}}}`. In Szenen genügt dann
+`{"id": "max", "cast": "max", "position": [0, 0, 2], "actions": [...]}` – fehlende Angaben kommen aus der
+Besetzung (eigene Angaben im Objekt gehen vor). Wird die Besetzung geändert, übernimmt CineForge die
+Änderung automatisch in **alle** Szenen des Projekts. In die Besetzung gehört nur das Aussehen
+(keine `position`, `actions`, `talk`).
+
 ## Licht-Stimmungen
 
 `update_scene_settings` mit `{"changes": {"lighting": "golden_hour"}}` setzt eine fertige Stimmung:

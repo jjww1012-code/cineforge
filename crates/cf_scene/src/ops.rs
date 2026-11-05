@@ -331,6 +331,32 @@ fn unknown_id(scene: &Scene, id: &str) -> String {
 }
 
 #[cfg(test)]
+mod cast_tests {
+    use super::*;
+
+    #[test]
+    fn cast_fills_and_overwrites() {
+        let mut cast = std::collections::BTreeMap::new();
+        cast.insert("max".to_string(), serde_json::json!({"type": "character", "hair": "spiky", "shirt": "#ff0000", "description": "Held"}));
+        let mut objs = serde_json::json!([{"id": "max", "cast": "max", "position": [1, 0, 0], "hair": "curly"}]);
+        assert_eq!(apply_cast(&mut objs, &cast, false).unwrap(), 1);
+        assert_eq!(objs[0]["hair"], "curly", "eigene Angabe gewinnt beim Einsetzen");
+        assert_eq!(objs[0]["shirt"], "#ff0000");
+        assert!(objs[0].get("description").is_none());
+        apply_cast(&mut objs, &cast, true).unwrap();
+        assert_eq!(objs[0]["hair"], "spiky", "geänderte Besetzung gewinnt");
+        let s = Scene::from_json(&serde_json::json!({"objects": objs}).to_string()).unwrap();
+        assert!(s.validate().is_empty());
+        // andere Namen stören beim Übernehmen nicht
+        let mut mixed = serde_json::json!([{"id": "lena", "cast": "lena"}, {"id": "max", "cast": "max", "hair": "curly"}]);
+        assert_eq!(apply_cast(&mut mixed, &cast, true).unwrap(), 1);
+        assert_eq!(mixed[1]["hair"], "spiky");
+        let mut bad = serde_json::json!([{"id": "x", "cast": "maxx"}]);
+        assert!(apply_cast(&mut bad, &cast, false).unwrap_err().contains("Meintest du „max“"));
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -429,4 +455,52 @@ mod tests {
         assert!(o.contains("- g [group (1 Kinder)]"), "{o}");
         assert!(o.contains("  - cube [box"), "{o}");
     }
+}
+
+
+/// Besetzung anwenden: Objekte mit `"cast": "<name>"` bekommen das Aussehen aus der Besetzungsliste.
+/// `overwrite = false`: eigene Angaben des Objekts gehen vor (beim Einsetzen);
+/// `overwrite = true`: die Besetzung gewinnt (wenn sie geändert wurde). Liefert die Zahl der Objekte.
+pub fn apply_cast(v: &mut Value, cast: &std::collections::BTreeMap<String, Value>, overwrite: bool) -> Result<usize, String> {
+    let mut n = 0;
+    match v {
+        Value::Array(list) => {
+            for o in list {
+                n += apply_cast(o, cast, overwrite)?;
+            }
+        }
+        Value::Object(m) => {
+            if let Some(name) = m.get("cast").and_then(Value::as_str).map(String::from) {
+                // Beim Übernehmen geänderter Besetzung (overwrite) andere Namen einfach überspringen
+                let spec = cast.get(&name);
+                if spec.is_none() && overwrite {
+                    if let Some(ch) = m.get_mut("children") {
+                        n += apply_cast(ch, cast, overwrite)?;
+                    }
+                    return Ok(n);
+                }
+                let Some(spec) = spec else {
+                    let names: Vec<&str> = cast.keys().map(String::as_str).collect();
+                    let hint = crate::diagnose::suggest(&name, names.iter().copied()).map(|s| format!(" Meintest du „{s}“?")).unwrap_or_default();
+                    return Err(format!("„{name}“ steht nicht in der Besetzung (Werkzeug cast).{hint} Vorhanden: {}", if names.is_empty() { "–".into() } else { names.join(", ") }));
+                };
+                if let Some(sm) = spec.as_object() {
+                    for (k, val) in sm {
+                        if k == "description" {
+                            continue;
+                        }
+                        if overwrite || !m.contains_key(k) {
+                            m.insert(k.clone(), val.clone());
+                        }
+                    }
+                }
+                n += 1;
+            }
+            if let Some(ch) = m.get_mut("children") {
+                n += apply_cast(ch, cast, overwrite)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(n)
 }

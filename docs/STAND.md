@@ -253,6 +253,11 @@
   die Gruppe schaut; bei Blickkontakt Seite der Szenen-Kamera), Abstand mit Perspektive je Mitglied.
 - **Shots umsortieren per Klick:** Reiter „Szenen“ zeigt beim geöffneten Shot ↑ ↓ (update_plan mit
   remove + position, als „mensch“); Shot-Längen ohne Eintrag = Szenenlänge, Zeitlupe als „×0.5“. Getestet.
+- **Besetzung (`cast`):** Projekt-Feld `cast` (Name → Aussehen), Objekte mit `"cast": "<name>"`
+  bekommen beim Einsetzen (add_objects/set_scene/update_object/batch) fehlende Felder aus der Besetzung
+  (`ops::apply_cast`); Änderungen der Besetzung werden in alle Szenen übernommen (Besetzung gewinnt,
+  andere Figuren unberührt), geöffnete Szene über `commit` (rückgängig machbar). Tippfehler mit Vorschlag,
+  Ortsangaben in der Besetzung werden abgelehnt. Ende-zu-Ende getestet. Logbuch-Übersicht zeigt die Besetzung.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
