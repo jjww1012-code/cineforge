@@ -193,14 +193,20 @@
   kein Schnitt, wenn dieselbe Person weiterspricht. Wald: 8 Baum-Varianten im Wechsel (schneller).
 - **Film-Übersicht:** `contact_sheet` mit `film: true` öffnet nacheinander alle Storyboard-Szenen und
   legt je Shot ein Bild (oder mehrere, `at: [0.1, 0.9]`) in einen Kontaktabzug; Wartezeit dafür 10 min.
+- **Oberfläche aufgeräumt:** Tonspuren mit Wellenform (WAV, zwischengespeichert), überlappende
+  Balken in Unter-Zeilen (Figur: Stimme / Aktionen), Ton-Spur zeigt auch die foley-Geräusche,
+  Eigenschaften mit deutschen Namen, Farbfeldern, „ja/nein“ und übersetzten Werten, „Was passiert“
+  mit kurzen Pfaden und zusammengefassten Wiederholungen, „Abbrechen“ nur während eines Exports,
+  Film-Leiste nutzt die Szenenlänge bei Shots ohne Dauer. Layout-Fehler behoben: die Objektliste
+  bzw. die Vorschau bestimmten die Mindesthöhe der Mitte → Zeitleiste rutschte aus dem Fenster
+  (jetzt `flex_basis: 0`/`min_height: 0`, Vorschau absolut positioniert, Spurenbereich scrollbar).
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.
-2. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen
-   umsortieren, Wellenform in der Ton-Spur.
+2. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen umsortieren.
 3. Weitere Regie-Hilfen (z. B. Musik passend zur Stimmung je Shot, Kamerafahrten-Vorlagen).
 
 ## Offene Punkte / Wissenswertes

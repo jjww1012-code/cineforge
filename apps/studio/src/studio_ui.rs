@@ -150,6 +150,8 @@ struct ClaudeText;
 #[derive(Component)]
 struct JobText;
 #[derive(Component)]
+struct CancelButton;
+#[derive(Component)]
 struct LeftList;
 #[derive(Component)]
 struct PropsBody;
@@ -289,9 +291,15 @@ fn setup(
                     (Action::CancelExport, "Abbrechen", PANEL_2),
                     (Action::OpenExportFolder, "Export-Ordner", PANEL_2),
                 ] {
-                    top.spawn(button(action, bg, pill_node())).with_children(|b| {
+                    let cancel = matches!(action, Action::CancelExport);
+                    let mut e = top.spawn(button(action, bg, pill_node()));
+                    e.with_children(|b| {
                         b.spawn(txt(f, label, 12.0, TEXT, true));
                     });
+                    if cancel {
+                        // nur sichtbar, solange ein Export läuft
+                        e.insert(CancelButton);
+                    }
                 }
                 top.spawn((pill_node(), BackgroundColor(PANEL_2))).with_children(|p| {
                     p.spawn((
@@ -304,13 +312,14 @@ fn setup(
             });
 
             // ---------------- Mitte ----------------
-            root.spawn(Node { flex_grow: 1.0, min_height: px(0), flex_direction: FlexDirection::Row, ..default() })
+            root.spawn(Node { flex_grow: 1.0, flex_basis: px(0), min_height: px(0), flex_direction: FlexDirection::Row, ..default() })
                 .with_children(|mid| {
                     // Links: Szenen / Objekte / Medien
                     mid.spawn((
                         Node {
                             width: px(270),
                             flex_shrink: 0.0,
+                            min_height: px(0),
                             flex_direction: FlexDirection::Column,
                             border: UiRect::right(px(1)),
                             ..default()
@@ -344,6 +353,7 @@ fn setup(
                             ScrollPosition::default(),
                             Node {
                                 flex_grow: 1.0,
+                                flex_basis: px(0),
                                 min_height: px(0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect::axes(px(8), px(4)),
@@ -355,7 +365,7 @@ fn setup(
                     });
 
                     // Mitte: Vorschau + Wiedergabe
-                    mid.spawn(Node { flex_grow: 1.0, min_width: px(0), flex_direction: FlexDirection::Column, ..default() })
+                    mid.spawn(Node { flex_grow: 1.0, min_width: px(0), min_height: px(0), flex_direction: FlexDirection::Column, ..default() })
                         .with_children(|center| {
                             center
                                 .spawn((
@@ -441,6 +451,7 @@ fn setup(
                         Node {
                             width: px(320),
                             flex_shrink: 0.0,
+                            min_height: px(0),
                             flex_direction: FlexDirection::Column,
                             border: UiRect::left(px(1)),
                             ..default()
@@ -513,8 +524,13 @@ fn setup(
                         });
                     row.spawn((FilmLane, Node { flex_grow: 1.0, flex_direction: FlexDirection::Row, column_gap: px(2), overflow: Overflow::clip(), ..default() }));
                 });
-                // Szene: Lineal + Spuren
-                tl.spawn(Node { flex_direction: FlexDirection::Row, ..default() }).with_children(|row| {
+                // Szene: Lineal + Spuren (bei vielen Spuren scrollbar, Mausrad)
+                tl.spawn((
+                    Scrollable,
+                    ScrollPosition::default(),
+                    Node { flex_direction: FlexDirection::Row, align_items: AlignItems::FlexStart, max_height: px(222), overflow: Overflow::scroll_y(), ..default() },
+                ))
+                .with_children(|row| {
                     row.spawn((TrackLabels, Node { width: px(LABEL_W), flex_shrink: 0.0, flex_direction: FlexDirection::Column, ..default() }));
                     row.spawn((
                         LanesArea,
@@ -560,10 +576,16 @@ fn fit_preview(
     let (aw, ah) = (avail.x - 2.0 * margin, avail.y - 2.0 * margin);
     let (w, h) = if aw / ah > aspect { (ah * aspect, ah) } else { (aw, aw / aspect) };
     let (w, h) = (w.floor().max(16.0), h.floor().max(9.0));
+    // Absolut positioniert: die Vorschau bestimmt nicht die Größe ihres Bereichs (sonst könnte der
+    // Bereich nie kleiner werden und die Zeitleiste würde aus dem Fenster geschoben).
+    let (left, top) = (((avail.x - w) / 2.0).floor(), ((avail.y - h) / 2.0).floor());
     for mut n in &mut node {
-        if n.width != px(w) || n.height != px(h) {
+        if n.width != px(w) || n.height != px(h) || n.left != px(left) || n.top != px(top) {
+            n.position_type = PositionType::Absolute;
             n.width = px(w);
             n.height = px(h);
+            n.left = px(left);
+            n.top = px(top);
         }
     }
     for mut a in &mut cams {
@@ -1112,6 +1134,108 @@ fn prop_row(p: &mut ChildSpawnerCommands, f: &UiFonts, key: &str, value: impl In
         });
 }
 
+/// Deutsche Bezeichnung für ein Feld des Szenen-Formats (unbekannte bleiben, wie sie sind).
+fn field_label(k: &str) -> &str {
+    match k {
+        "height" => "Körpergröße",
+        "build" => "Statur",
+        "skin" => "Haut",
+        "hair" => "Frisur",
+        "hair_color" => "Haarfarbe",
+        "shirt" => "Oberteil",
+        "pants" => "Hose",
+        "shoes" => "Schuhe",
+        "eye_color" => "Augen",
+        "expression" => "Ausdruck",
+        "expressions" => "Mimik",
+        "outline" => "Umriss",
+        "blink" => "Blinzeln",
+        "auto_walk" => "Läuft auf Pfad",
+        "auto_move" => "Bewegt sich",
+        "look_at" => "Schaut zu",
+        "hat" => "Hut",
+        "hat_color" => "Hutfarbe",
+        "glasses" => "Brille",
+        "outfit" => "Kleidung",
+        "scarf" => "Schal",
+        "backpack" => "Rucksack",
+        "hold" => "Hält rechts",
+        "hold_left" => "Hält links",
+        "size" => "Maße",
+        "radius" => "Radius",
+        "kind" => "Art",
+        "color" => "Farbe",
+        "color2" => "Zweitfarbe",
+        "leaves" => "Blätter",
+        "trunk" => "Stamm",
+        "wind" => "Wind",
+        "seed" => "Variante",
+        "low_poly" => "Low-Poly",
+        "text" => "Text",
+        "file" => "Datei",
+        "asset" => "Vorlage",
+        "count" => "Anzahl",
+        "wave_height" => "Wellenhöhe",
+        "wavelength" => "Wellenlänge",
+        "speed" => "Tempo",
+        "direction" => "Richtung",
+        "resolution" => "Auflösung",
+        "width" => "Breite",
+        "depth" => "Tiefe",
+        "mode" => "Modus",
+        "segments" => "Segmente",
+        "intensity" => "Stärke",
+        "range" => "Reichweite",
+        "angle" => "Winkel",
+        "preset" => "Voreinstellung",
+        "rate" => "Rate",
+        "points" => "Punkte",
+        "holes" => "Löcher",
+        "taper" => "Verjüngung",
+        "font_size" => "Schriftgröße",
+        _ => k,
+    }
+}
+
+/// Deutsche Wörter für häufige Aufzählungswerte (Ausdruck, Frisur, Statur, Hut, Tierart …).
+fn value_label(v: &str) -> Option<&'static str> {
+    Some(match v {
+        "happy" => "fröhlich",
+        "sad" => "traurig",
+        "angry" => "wütend",
+        "surprised" => "überrascht",
+        "neutral" => "neutral",
+        "slim" => "schlank",
+        "normal" => "normal",
+        "round" => "rund",
+        "short" => "kurz",
+        "spiky" => "stachelig",
+        "long" => "lang",
+        "bun" => "Dutt",
+        "curly" => "lockig",
+        "bald" => "Glatze",
+        "none" => "keiner",
+        "cap" => "Kappe",
+        "beanie" => "Mütze",
+        "top_hat" => "Zylinder",
+        "crown" => "Krone",
+        "party" => "Partyhut",
+        "shirt" => "Shirt und Hose",
+        "dress" => "Kleid",
+        "dog" => "Hund",
+        "cat" => "Katze",
+        "bunny" => "Hase",
+        "bird" => "Vogel",
+        "fish" => "Fisch",
+        "oak" => "Eiche",
+        "pine" => "Tanne",
+        "palm" => "Palme",
+        "birch" => "Birke",
+        "lollipop" => "Lolli-Baum",
+        _ => return None,
+    })
+}
+
 fn rebuild_props(
     mut commands: Commands,
     mut loaded: MessageReader<SceneLoaded>,
@@ -1206,6 +1330,20 @@ fn object_props(p: &mut ChildSpawnerCommands, f: &UiFonts, o: &Object) {
                 }
                 continue;
             }
+            // Farben mit Farbfeld, Ja/Nein statt true/false, deutsche Namen
+            if let Some(hex) = v.as_str().filter(|s| s.starts_with('#') && (s.len() == 7 || s.len() == 4)) {
+                let swatch = cf_scene::Rgb::parse_hex(hex).map(crate::environment::color);
+                prop_row(p, f, field_label(&k), hex.to_string(), swatch);
+                continue;
+            }
+            if let Some(b) = v.as_bool() {
+                prop_row(p, f, field_label(&k), if b { "ja" } else { "nein" }, None);
+                continue;
+            }
+            if let Some(word) = v.as_str().and_then(value_label) {
+                prop_row(p, f, field_label(&k), word, None);
+                continue;
+            }
             let val = match &v {
                 serde_json::Value::Number(n) => n.as_f64().map(num).unwrap_or_else(|| n.to_string()),
                 serde_json::Value::Array(a) if a.len() <= 4 && a.iter().all(|x| x.is_number()) => {
@@ -1218,7 +1356,7 @@ fn object_props(p: &mut ChildSpawnerCommands, f: &UiFonts, o: &Object) {
                     if s.chars().count() > 60 { format!("{}…", s.chars().take(57).collect::<String>()) } else { s }
                 }
             };
-            prop_row(p, f, &k, val.trim_matches('"').to_string(), None);
+            prop_row(p, f, field_label(&k), val.trim_matches('"').to_string(), None);
         }
     }
     if let Some(r) = &o.repeat {
@@ -1334,20 +1472,49 @@ fn rebuild_activity(
         if !d.tasks.is_empty() {
             p.spawn(txt(f, format!("Aufgaben: {} erledigt, {open} offen", d.tasks.len() - open), 12.0, DIM, false));
         }
-        for e in d.log.iter().rev().take(40) {
+        // Pfade im Projekt kurz zeigen („Export/Film.mp4“ statt des ganzen Pfads)
+        let mut prefixes: Vec<String> = project
+            .dir
+            .iter()
+            .flat_map(|d| [d.display().to_string(), d.canonicalize().map(|c| c.display().to_string()).unwrap_or_default()])
+            .filter(|p| !p.is_empty())
+            .collect();
+        prefixes.sort_by_key(|p| std::cmp::Reverse(p.len())); // längster zuerst
+        let shorten = |text: &str| -> String {
+            let mut t = text.to_string();
+            for prefix in &prefixes {
+                t = t.replace(&format!("{prefix}/"), "").replace(&format!("{prefix}\\"), "").replace(prefix.as_str(), "Projektordner");
+            }
+            t
+        };
+        // Gleiche Einträge direkt hintereinander zusammenfassen („×3“)
+        let mut entries: Vec<(&cf_scene::project::LogEntry, usize)> = Vec::new();
+        for e in d.log.iter().rev() {
+            match entries.last_mut() {
+                Some((last, n)) if last.action == e.action && last.actor == e.actor => *n += 1,
+                _ => entries.push((e, 1)),
+            }
+            if entries.len() > 40 {
+                entries.pop();
+                break;
+            }
+        }
+        for (e, n) in entries {
             let time = e.time.get(11..16).unwrap_or(&e.time).to_string();
             let who = match e.actor.as_str() {
                 "claude" => "Claude".to_string(),
                 "mensch" => "Du".to_string(),
+                "system" => "System".to_string(),
                 other => other.to_string(),
             };
+            let action = if n > 1 { format!("{} (×{n})", shorten(&e.action)) } else { shorten(&e.action) };
             p.spawn(Node { flex_direction: FlexDirection::Row, column_gap: px(8), flex_shrink: 0.0, ..default() }).with_children(|r| {
                 r.spawn(Node { width: px(40), flex_shrink: 0.0, ..default() }).with_children(|t| {
                     t.spawn(txt(f, time, 11.0, DIM, false));
                 });
                 r.spawn(Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, min_width: px(0), ..default() }).with_children(|c| {
                     c.spawn(txt(f, who, 11.0, if e.actor == "mensch" { AMBER } else { ACCENT }, true));
-                    c.spawn(txt(f, e.action.clone(), 12.0, TEXT, false));
+                    c.spawn(txt(f, action, 12.0, TEXT, false));
                 });
             });
         }
@@ -1362,27 +1529,98 @@ fn rebuild_activity(
 struct Track {
     label: String,
     color: Color,
-    bars: Vec<(f32, f32, String)>,
+    bars: Vec<Bar>,
     keys: Vec<f32>,
+}
+
+/// Ein Balken in einer Spur; Tonspuren tragen ihre Wellenform (Spitzenwerte über die ganze Datei).
+struct Bar {
+    a: f32,
+    b: f32,
+    label: String,
+    wave: Option<Wave>,
+}
+
+fn bar(a: f32, b: f32, label: impl Into<String>) -> Bar {
+    Bar { a, b, label: label.into(), wave: None }
+}
+
+/// Wellenform einer WAV-Datei: Länge in Sekunden und Spitzenwerte (0–1) in 50 Abschnitten je Sekunde.
+#[derive(Clone)]
+struct Wave {
+    seconds: f32,
+    peaks: std::sync::Arc<Vec<f32>>,
+}
+
+/// Wellenformen werden je Datei + Änderungszeit zwischengespeichert.
+#[derive(Default)]
+struct WaveCache(std::collections::HashMap<String, Option<Wave>>);
+
+impl WaveCache {
+    fn get(&mut self, project: &ActiveProject, file: &str) -> Option<Wave> {
+        let path = crate::media::resolve(project, crate::media::AUDIO, file).ok()?;
+        let stamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok().map(|t| format!("{t:?}")).unwrap_or_default();
+        let key = format!("{}|{stamp}", path.display());
+        self.0
+            .entry(key)
+            .or_insert_with(|| {
+                let bytes = std::fs::read(&path).ok()?;
+                let (sr, mono) = cf_audio::read_wav(&bytes).ok()?;
+                let hop = (sr as usize / 50).max(1);
+                let mut peaks: Vec<f32> = mono.chunks(hop).map(|c| c.iter().fold(0.0_f32, |m, x| m.max(x.abs()))).collect();
+                let max = peaks.iter().copied().fold(1e-4_f32, f32::max);
+                for p in &mut peaks {
+                    *p = (*p / max).sqrt(); // leise Stellen besser sichtbar
+                }
+                Some(Wave { seconds: mono.len() as f32 / sr.max(1) as f32, peaks: std::sync::Arc::new(peaks) })
+            })
+            .clone()
+    }
+}
+
+/// Verteilt überlappende Balken auf Unter-Zeilen (gierig nach Startzeit). Liefert Zeile je Balken und Anzahl.
+fn assign_lanes(bars: &[Bar]) -> (Vec<usize>, usize) {
+    let mut order: Vec<usize> = (0..bars.len()).collect();
+    order.sort_by(|&i, &j| bars[i].a.total_cmp(&bars[j].a));
+    let mut ends: Vec<f32> = Vec::new();
+    let mut lane = vec![0; bars.len()];
+    for i in order {
+        let slot = ends.iter().position(|&e| e <= bars[i].a + 1e-3);
+        let l = match slot {
+            Some(l) => l,
+            None => {
+                ends.push(f32::MIN);
+                ends.len() - 1
+            }
+        };
+        ends[l] = bars[i].b;
+        lane[i] = l;
+    }
+    (lane, ends.len().max(1))
+}
+
+fn track_height(lanes: usize) -> f32 {
+    if lanes <= 1 { ROW_H } else { 4.0 + 19.0 * lanes as f32 }
 }
 
 fn key_times<T>(k: &[cf_scene::animation::Key<T>]) -> impl Iterator<Item = f32> + '_ {
     k.iter().map(|k| k.t)
 }
 
-fn object_tracks(objs: &[Object], prefix: &str, out: &mut Vec<Track>, duration: f32) {
+fn object_tracks(objs: &[Object], prefix: &str, out: &mut Vec<Track>, duration: f32, waves: &mut WaveCache, project: &ActiveProject) {
     for o in objs {
         let id = format!("{prefix}{}", o.id);
         if let Kind::Character(c) = &o.kind {
-            let mut bars: Vec<(f32, f32, String)> =
-                c.actions.iter().map(|a| (a.start, a.end.unwrap_or(a.start + 2.0), action_name(a.kind).to_string())).collect();
+            let mut bars: Vec<Bar> = c.actions.iter().map(|a| bar(a.start, a.end.unwrap_or(a.start + 2.0), action_name(a.kind))).collect();
             if let Some(p) = o.animate.as_ref().and_then(|a| a.path.as_ref()) {
                 if c.auto_walk && !c.actions.iter().any(|a| matches!(a.kind, cf_scene::character::ActionKind::Walk | cf_scene::character::ActionKind::Run)) {
-                    bars.push((p.start, p.end, "geht den Weg".into()));
+                    bars.push(bar(p.start, p.end, "geht den Weg"));
                 }
             }
             if let Some(t) = &c.talk {
-                bars.push((t.start, duration, format!("♪ {}", t.audio)));
+                let wave = waves.get(project, &t.audio);
+                let end = wave.as_ref().map(|w| t.start + w.seconds).unwrap_or(duration);
+                bars.push(Bar { a: t.start, b: end, label: "♪ Stimme".into(), wave });
             }
             out.push(Track { label: id.clone(), color: Color::srgb(1.0, 0.62, 0.3), bars, keys: vec![] });
             continue;
@@ -1402,25 +1640,28 @@ fn object_tracks(objs: &[Object], prefix: &str, out: &mut Vec<Track>, duration: 
             keys.dedup_by(|a, b| (*a - *b).abs() < 1e-3);
             let mut bars = Vec::new();
             if let Some(p) = &a.path {
-                bars.push((p.start, p.end, "Weg".to_string()));
+                bars.push(bar(p.start, p.end, "Weg"));
                 keys.extend([p.start, p.end]);
             }
-            if a.talk.is_some() || a.blink.is_some() || a.breathe != 0.0 {
-                let what = if a.talk.is_some() { "spricht" } else if a.blink.is_some() { "blinzelt" } else { "atmet" };
-                bars.push((a.talk.as_ref().map(|t| t.start).unwrap_or(0.0), duration, what.to_string()));
+            if let Some(t) = &a.talk {
+                let wave = waves.get(project, &t.audio);
+                let end = wave.as_ref().map(|w| t.start + w.seconds).unwrap_or(duration);
+                bars.push(Bar { a: t.start, b: end, label: "♪ spricht".into(), wave });
+            } else if a.blink.is_some() || a.breathe != 0.0 {
+                bars.push(bar(0.0, duration, if a.blink.is_some() { "blinzelt" } else { "atmet" }));
             }
             if a.spin != [0.0; 3] || a.flicker > 0.0 {
-                bars.push((0.0, duration, if a.spin != [0.0; 3] { "dreht sich" } else { "flackert" }.to_string()));
+                bars.push(bar(0.0, duration, if a.spin != [0.0; 3] { "dreht sich" } else { "flackert" }));
             } else if keys.len() >= 2 && bars.is_empty() {
-                bars.push((keys[0], *keys.last().unwrap_or(&0.0), String::new()));
+                bars.push(bar(keys[0], *keys.last().unwrap_or(&0.0), ""));
             }
             out.push(Track { label: id.clone(), color: VIOLET, bars, keys });
         } else if let Kind::Particles(p) = &o.kind {
             let end = p.end.unwrap_or(duration);
-            out.push(Track { label: id.clone(), color: AMBER, bars: vec![(p.start, end, format!("{:?}", p.preset).to_lowercase())], keys: vec![] });
+            out.push(Track { label: id.clone(), color: AMBER, bars: vec![bar(p.start, end, format!("{:?}", p.preset).to_lowercase())], keys: vec![] });
         }
         if let Kind::Group { children } = &o.kind {
-            object_tracks(children, &format!("{id}/"), out, duration);
+            object_tracks(children, &format!("{id}/"), out, duration, waves, project);
         }
     }
 }
@@ -1437,6 +1678,7 @@ fn rebuild_tracks(
     film: Query<Entity, With<FilmLane>>,
     mut first: Local<bool>,
     mut thumbs: ResMut<crate::thumbs::ShotThumbs>,
+    mut waves: Local<WaveCache>,
 ) {
     let Some(f) = fonts else { return };
     if loaded.read().count() == 0 && !project.is_changed() && *first && !thumbs.changed {
@@ -1460,8 +1702,23 @@ fn rebuild_tracks(
             });
             return;
         }
+        let dir = project.scenes_dir().ok();
         for s in shots {
             let is_cur = s.scene.as_deref() == Some(current.as_str());
+            // Ohne eingetragene Dauer: so lang wie die Szene (wie beim Film-Export)
+            let len = if s.duration > 0.0 {
+                s.duration
+            } else if is_cur {
+                scene.duration
+            } else {
+                s.scene
+                    .as_ref()
+                    .zip(dir.as_ref())
+                    .and_then(|(sc, d)| std::fs::read_to_string(d.join(format!("{sc}.json"))).ok())
+                    .and_then(|t| cf_scene::Scene::from_json(&t).ok())
+                    .map(|sc| sc.duration)
+                    .unwrap_or(1.0)
+            };
             let base = if s.clip.is_some() { AMBER.with_alpha(0.35) } else if is_cur { ACCENT.with_alpha(0.55) } else { PANEL_2 };
             let action = match &s.scene {
                 Some(sc) => Action::OpenScene(sc.clone()),
@@ -1471,7 +1728,7 @@ fn rebuild_tracks(
                 action,
                 base,
                 Node {
-                    flex_grow: s.duration.max(0.1),
+                    flex_grow: len.max(0.1),
                     flex_basis: px(0),
                     min_width: px(4),
                     padding: UiRect::axes(px(6), px(0)),
@@ -1513,27 +1770,39 @@ fn rebuild_tracks(
     let mut cam_keys = cam_keys;
     cam_keys.extend(scene.camera.cuts.iter().map(|c| c.t));
     let cam_bar = match (cam_keys.first(), cam_keys.last()) {
-        (Some(a), Some(b)) if b > a => vec![(*a, *b, "Kamerafahrt".to_string())],
+        (Some(a), Some(b)) if b > a => vec![bar(*a, *b, if scene.camera.cuts.is_empty() { "Kamerafahrt" } else { "Kamera mit Schnitten" })],
         (Some(_), _) => vec![],
-        _ => vec![(0.0, dur, "feste Kamera".to_string())],
+        _ => vec![bar(0.0, dur, "feste Kamera")],
     };
     tracks.push(Track { label: "Kamera".into(), color: ACCENT, bars: cam_bar, keys: cam_keys });
     if !scene.overlays.is_empty() {
-        let bars = scene.overlays.iter().map(|o| (o.start, o.end.unwrap_or(dur), o.text.replace('\n', " / "))).collect();
+        let bars = scene.overlays.iter().map(|o| bar(o.start, o.end.unwrap_or(dur), o.text.replace('\n', " / "))).collect();
         tracks.push(Track { label: "Text".into(), color: Color::srgb(0.95, 0.55, 0.75), bars, keys: vec![] });
     }
     if let Some(shot) = project.data.storyboard.iter().find(|s| s.scene.as_deref() == Some(current.as_str())) {
-        if !shot.audio.is_empty() {
-            let bars = shot
-                .audio
-                .iter()
-                .map(|a| (a.start, a.duration.map(|d| a.start + d).unwrap_or(dur).min(dur), a.file.clone()))
-                .collect();
+        let mut bars: Vec<Bar> = shot
+            .audio
+            .iter()
+            .filter(|a| !a.file.starts_with("dlg_")) // Dialog-Stimmen stehen bei den Figuren
+            .map(|a| {
+                let wave = waves.get(&project, &a.file);
+                let len = a.duration.or(wave.as_ref().map(|w| (w.seconds - a.offset).max(0.0))).unwrap_or(dur);
+                Bar { a: a.start, b: (a.start + len).min(dur), label: format!("♪ {}", a.file), wave }
+            })
+            .collect();
+        // Geräusch-Spur vom Werkzeug foley (nimmt der Film automatisch mit)
+        let sfx = format!("sfx_{current}.wav");
+        if !shot.audio.iter().any(|a| a.file == sfx) {
+            if let Some(w) = waves.get(&project, &sfx) {
+                bars.push(Bar { a: 0.0, b: w.seconds.min(dur), label: "♪ Geräusche".into(), wave: Some(w) });
+            }
+        }
+        if !bars.is_empty() {
             tracks.push(Track { label: "Ton".into(), color: Color::srgb(0.35, 0.65, 1.0), bars, keys: vec![] });
         }
     }
     let mut objs = Vec::new();
-    object_tracks(&scene.objects, "", &mut objs, dur);
+    object_tracks(&scene.objects, "", &mut objs, dur, &mut waves, &project);
     let extra = objs.len().saturating_sub(MAX_OBJECT_TRACKS);
     tracks.extend(objs.into_iter().take(MAX_OBJECT_TRACKS));
 
@@ -1545,7 +1814,8 @@ fn rebuild_tracks(
             n.spawn(txt(f, "Szene", 11.0, DIM, true));
         });
         for t in &tracks {
-            l.spawn(Node { height: px(ROW_H), padding: UiRect::left(px(14)), align_items: AlignItems::Center, overflow: Overflow::clip(), ..default() })
+            let h = track_height(assign_lanes(&t.bars).1);
+            l.spawn(Node { height: px(h), margin: UiRect::vertical(px(1)), padding: UiRect::left(px(14)), align_items: AlignItems::Center, overflow: Overflow::clip(), ..default() })
                 .with_children(|n| {
                     n.spawn((txt(f, t.label.clone(), 12.0, TEXT, false), TextLayout::no_wrap()));
                 });
@@ -1578,33 +1848,67 @@ fn rebuild_tracks(
             }
         });
         for t in &tracks {
+            let (lane_of, lanes) = assign_lanes(&t.bars);
+            let h = track_height(lanes);
+            let lane_h = if lanes <= 1 { ROW_H - 6.0 } else { 17.0 };
             l.spawn((
-                Node { height: px(ROW_H), margin: UiRect::vertical(px(1)), border_radius: BorderRadius::all(px(4)), ..default() },
+                Node { height: px(h), margin: UiRect::vertical(px(1)), border_radius: BorderRadius::all(px(4)), ..default() },
                 BackgroundColor(PANEL_2),
                 Pickable::IGNORE,
             ))
             .with_children(|r| {
-                for (a, b, label) in &t.bars {
-                    let (a, b) = (a.clamp(0.0, dur), b.clamp(0.0, dur));
+                for (i, b) in t.bars.iter().enumerate() {
+                    let (a, e) = (b.a.clamp(0.0, dur), b.b.clamp(0.0, dur));
+                    if e <= a {
+                        continue;
+                    }
+                    let top = 3.0 + lane_of[i] as f32 * 19.0;
                     r.spawn((
                         Node {
                             position_type: PositionType::Absolute,
                             left: percent(a / dur * 100.0),
-                            width: percent(((b - a) / dur * 100.0).max(0.4)),
-                            top: px(3),
-                            bottom: px(3),
+                            width: percent(((e - a) / dur * 100.0).max(0.4)),
+                            top: px(top),
+                            height: px(lane_h),
                             padding: UiRect::left(px(6)),
                             align_items: AlignItems::Center,
                             overflow: Overflow::clip(),
                             border_radius: BorderRadius::all(px(3)),
                             ..default()
                         },
-                        BackgroundColor(t.color.with_alpha(0.35)),
+                        BackgroundColor(t.color.with_alpha(if b.wave.is_some() { 0.18 } else { 0.35 })),
                         Pickable::IGNORE,
                     ))
-                    .with_children(|bar| {
-                        if !label.is_empty() {
-                            bar.spawn((txt(f, label.clone(), 11.0, TEXT, false), TextLayout::no_wrap()));
+                    .with_children(|node| {
+                        // Wellenform: senkrechte Striche, mittig, Höhe = Lautstärke
+                        if let Some(w) = &b.wave {
+                            let visible = (e - a).max(0.01);
+                            let cols = ((visible / dur * 220.0).round() as usize).clamp(4, 220);
+                            for c in 0..cols {
+                                let t0 = (c as f32 / cols as f32) * visible;
+                                let t1 = ((c + 1) as f32 / cols as f32) * visible;
+                                let (i0, i1) = ((t0 * 50.0) as usize, ((t1 * 50.0) as usize).max((t0 * 50.0) as usize + 1));
+                                let v = w.peaks.get(i0..i1.min(w.peaks.len())).map(|s| s.iter().copied().fold(0.0_f32, f32::max)).unwrap_or(0.0);
+                                if v < 0.03 {
+                                    continue;
+                                }
+                                let hh = (v * 100.0).max(6.0);
+                                node.spawn((
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        left: percent(c as f32 / cols as f32 * 100.0),
+                                        width: percent(100.0 / cols as f32 * 0.6),
+                                        top: percent((100.0 - hh) / 2.0),
+                                        height: percent(hh),
+                                        ..default()
+                                    },
+                                    BackgroundColor(t.color.with_alpha(0.75)),
+                                    Pickable::IGNORE,
+                                ));
+                            }
+                        }
+                        if !b.label.is_empty() {
+                            node.spawn((txt(f, b.label.clone(), 11.0, TEXT, false), TextLayout::no_wrap()));
                         }
                     });
                 }
@@ -1656,7 +1960,15 @@ fn update_topbar(
     mut claude: Query<&mut Text, (With<ClaudeText>, Without<TopTitle>, Without<JobText>)>,
     mut job: Query<&mut Text, (With<JobText>, Without<TopTitle>, Without<ClaudeText>)>,
     mut dot: Query<&mut BackgroundColor, With<ClaudeDot>>,
+    mut cancel: Query<&mut Node, With<CancelButton>>,
 ) {
+    let running = jobs.as_ref().is_some_and(|j| j.export_running());
+    for mut n in &mut cancel {
+        let want = if running { Display::Flex } else { Display::None };
+        if n.display != want {
+            n.display = want;
+        }
+    }
     let scene_name = if src.scene.name.is_empty() {
         src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()
     } else {
