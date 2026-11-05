@@ -93,6 +93,8 @@ pub enum OverlayEffect {
     Pop,
     SlideUp,
     Typewriter,
+    /// Läuft von unten nach oben durchs Bild (Abspann), von `start` bis `end`.
+    Scroll,
 }
 
 impl OverlayEffect {

@@ -228,6 +228,8 @@
   Start abgestürzt oder stürzte die Startszene ab → Demo-Szene, ohne SSAO/Tiefenschärfe/
   Bewegungsunschärfe/Lichtstrahlen, roter Hinweis mit Grund. Mit Xvfb getestet. `--select` wirkt
   jetzt auch im normalen Start.
+- **Abspann:** Einblendungs-Effekt `scroll` (mehrzeiliger Text läuft von `start` bis `end` von unten
+  nach oben durchs Bild). Getestet.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

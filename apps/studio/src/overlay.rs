@@ -239,6 +239,14 @@ fn place_overlays(
                 let u = (local / 0.5).clamp(0.0, 1.0);
                 y -= h * 0.12 * (1.0 - u).powi(3);
             }
+            cf_scene::OverlayEffect::Scroll => {
+                // Erste Zeile startet knapp unter dem Bild, letzte Zeile verlässt es oben genau zum Ende
+                let lines = o.text.lines().count().max(1) as f32;
+                let dur = (o.end.unwrap_or(o.start + 2.0 + lines * 0.8) - o.start).max(0.5);
+                let u = (local / dur).clamp(0.0, 1.0);
+                let (y0, y1) = (-h - size * 0.3, h + size * (lines * 1.2 + 0.3));
+                y = y0 + (y1 - y0) * u;
+            }
             cf_scene::OverlayEffect::Typewriter if !item.prefixes.is_empty() => {
                 let n = item.prefixes.len() - 1;
                 let k = ((local.max(0.0) * 22.0) as usize).min(n);

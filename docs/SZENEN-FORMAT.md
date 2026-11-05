@@ -308,7 +308,7 @@ Daten wie „06:14 · Noah, 17 · Rating 1232“). Sie passen sich 16:9 und 9:16
 | `size` | 0.05 | Anteil der **kürzeren** Bildseite |
 | `color`, `weight`, `italic`, `align` | weiß, regular, false, center | |
 | `start`, `end`, `fade` | 0, Ende, 0.3 | Sichtbarkeit (s) mit weichem Ein-/Ausblenden |
-| `effect` | fade | Auftritt: `pop` (ploppt federnd auf – Titel), `slide_up` (gleitet herein), `typewriter` (Buchstabe für Buchstabe, 22 pro Sekunde) |
+| `effect` | fade | Auftritt: `pop` (ploppt federnd auf – Titel), `slide_up` (gleitet herein), `typewriter` (Buchstabe für Buchstabe, 22 pro Sekunde), `scroll` (läuft von `start` bis `end` von unten nach oben durchs Bild – **Abspann**: mehrzeiliger Text mit `\n`, z. B. `"Regie\nClaude\n\nMusik\nCineForge"`, `size` 0.04, Hintergrund schwarz) |
 | `shadow` | false | Weicher dunkler Schatten – lesbar auf hellen Bildern |
 | `background`, `background_opacity` | –, 0.6 | Box hinter dem Text, z. B. Untertitel: `"background": "#000000"` |
 
