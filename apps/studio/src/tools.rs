@@ -470,7 +470,7 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
     let scene_file = cx.src.path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
 
     // Agent-Name fürs Protokoll (mehrere Claude-Sitzungen gleichzeitig).
-    let actor = str_arg("agent").map(|a| format!("claude/{a}")).unwrap_or_else(|| "claude".into());
+    let actor = who(a);
 
     // Während eines Exports darf sich die Szene nicht ändern.
     let is_mutation = matches!(
@@ -985,6 +985,15 @@ fn vec3_arg(a: &Value, k: &str) -> Option<Vec3> {
     Some(Vec3::new(arr[0].as_f64()? as f32, arr[1].as_f64()? as f32, arr[2].as_f64()? as f32))
 }
 
+/// Wer handelt? Claude, ein benannter Agent (claude/agent-2) oder der Mensch über die Oberfläche.
+fn who(a: &Value) -> String {
+    match a.get("agent").and_then(Value::as_str) {
+        Some("mensch") => "mensch".into(),
+        Some(name) => format!("claude/{name}"),
+        None => "claude".into(),
+    }
+}
+
 fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
     if cx.jobs.export_running() {
         return ToolOutput::error(format!("Es läuft schon ein Export.\n{}", cx.jobs.export_summary().unwrap_or_default()));
@@ -1030,7 +1039,7 @@ fn export_video(a: &Value, cx: &mut Ctx) -> ToolOutput {
         .unwrap_or_else(|| "keiner – ffmpeg nicht gefunden, es werden PNG-Bilder gespeichert".into());
     let segments = vec![crate::render::Segment { path: None, start, duration: end - start, fade_in: false, fade_out: false }];
     cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, segments, quality });
-    cx.project.log("claude", format!("Video-Export gestartet: {} ({width}×{height}, {fps} fps, {frames} Bilder)", output.display()));
+    cx.project.log(&who(a), format!("Video-Export gestartet: {} ({width}×{height}, {fps} fps, {frames} Bilder)", output.display()));
     ToolOutput::text(format!(
         "Export gestartet: {frames} Bilder ({width}×{height}, {fps} fps, {:.1}–{:.1} s) → {}\nEncoder: {encoder}\nFortschritt mit export_status abfragen. Solange der Export läuft, ist die Szene gesperrt.",
         start,
@@ -1217,7 +1226,7 @@ fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
         return match crate::film::build_plan(cx.project, cx.library, opt) {
             Ok(plan) => {
                 let text = crate::film::describe_plan(&plan);
-                cx.project.log("claude", format!("Film-Export gestartet: {}", plan.output.display()));
+                cx.project.log(&who(a), format!("Film-Export gestartet: {}", plan.output.display()));
                 cx.jobs.film = Some(plan);
                 ToolOutput::text(format!(
                     "Film-Export gestartet.\n{text}\nJeder Shot wird einzeln gerendert und zwischengespeichert; bei Abbruch geht ein neuer export_film dort weiter. Fortschritt mit export_status."
@@ -1302,7 +1311,7 @@ fn export_film(a: &Value, cx: &mut Ctx) -> ToolOutput {
     let total: f32 = segments.iter().map(|s| s.duration).sum();
     let count = segments.len();
     cx.jobs.push(crate::render::JobRequest::Export { output: output.clone(), width, height, fps, segments, quality });
-    cx.project.log("claude", format!("Film-Export gestartet: {count} Shots, {total:.1} s → {}", output.display()));
+    cx.project.log(&who(a), format!("Film-Export gestartet: {count} Shots, {total:.1} s → {}", output.display()));
     ToolOutput::text(format!(
         "Film-Export gestartet: {count} Shots, {total:.1} s, {width}×{height}, {fps} fps → {}\nÜbergänge: {}. Fortschritt mit export_status.",
         output.display(),

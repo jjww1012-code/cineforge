@@ -39,6 +39,20 @@ pub struct ControlStatus {
 #[derive(Resource)]
 struct Inbox(Mutex<Receiver<ToolCall>>);
 
+/// Sender für Befehle aus der Oberfläche (gleiche Werkzeuge wie Claude, Logbuch: „mensch“).
+#[derive(Resource)]
+pub struct UiCommands(Mutex<Sender<ToolCall>>);
+
+impl UiCommands {
+    pub fn send(&self, name: &str, mut args: Value) {
+        args["agent"] = Value::String("mensch".into());
+        let (reply, _) = mpsc::channel();
+        if let Ok(tx) = self.0.lock() {
+            let _ = tx.send(ToolCall { name: name.into(), args, reply });
+        }
+    }
+}
+
 pub struct ControlPlugin {
     pub port: u16,
 }
@@ -46,6 +60,8 @@ pub struct ControlPlugin {
 impl Plugin for ControlPlugin {
     fn build(&self, app: &mut App) {
         let (tx, rx) = mpsc::channel::<ToolCall>();
+        // Die Oberfläche schickt ihre Befehle (z. B. Export-Knopf) auf demselben Weg wie Claude.
+        app.insert_resource(UiCommands(Mutex::new(tx.clone())));
         let mut status = ControlStatus::default();
         match tiny_http::Server::http(("127.0.0.1", self.port)) {
             Ok(server) => {

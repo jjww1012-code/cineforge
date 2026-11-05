@@ -181,6 +181,10 @@ enum Action {
     Loop,
     CameraView,
     Portrait,
+    ExportScene,
+    ExportFilm,
+    CancelExport,
+    OpenExportFolder,
 }
 
 /// Hintergrundfarbe je nach Zustand (normal / Maus darüber).
@@ -277,6 +281,16 @@ fn setup(
                 top.spawn((TopTitle, txt(f, "", 14.0, TEXT, false)));
                 top.spawn(Node { flex_grow: 1.0, ..default() });
                 top.spawn((JobText, txt(f, "", 13.0, AMBER, false)));
+                for (action, label, bg) in [
+                    (Action::ExportScene, "Szene exportieren", PANEL_2),
+                    (Action::ExportFilm, "Film exportieren", ACCENT.with_alpha(0.25)),
+                    (Action::CancelExport, "Abbrechen", PANEL_2),
+                    (Action::OpenExportFolder, "Export-Ordner", PANEL_2),
+                ] {
+                    top.spawn(button(action, bg, pill_node())).with_children(|b| {
+                        b.spawn(txt(f, label, 12.0, TEXT, true));
+                    });
+                }
                 top.spawn((pill_node(), BackgroundColor(PANEL_2))).with_children(|p| {
                     p.spawn((
                         ClaudeDot,
@@ -633,6 +647,7 @@ fn clicks(
     mut src: ResMut<SceneSource>,
     project: Res<ActiveProject>,
     mut out: MessageWriter<SceneLoaded>,
+    ui_cmd: Option<Res<crate::control::UiCommands>>,
 ) {
     let mut todo: Vec<Action> = Vec::new();
     for c in clicks.read() {
@@ -693,6 +708,36 @@ fn clicks(
             Action::Loop => ph.looping = !ph.looping,
             Action::CameraView => ph.camera_view = !ph.camera_view,
             Action::Portrait => state.portrait = !state.portrait,
+            Action::ExportScene => {
+                if let Some(c) = &ui_cmd {
+                    let (w, h) = if state.portrait { (1080, 1920) } else { (1920, 1080) };
+                    c.send("export_video", serde_json::json!({"width": w, "height": h}));
+                }
+            }
+            Action::ExportFilm => {
+                if let Some(c) = &ui_cmd {
+                    let (w, h) = if state.portrait { (1080, 1920) } else { (1920, 1080) };
+                    c.send("export_film", serde_json::json!({"width": w, "height": h}));
+                }
+            }
+            Action::CancelExport => {
+                if let Some(c) = &ui_cmd {
+                    c.send("cancel_export", serde_json::json!({}));
+                }
+            }
+            Action::OpenExportFolder => {
+                if let Ok(dir) = project.export_dir() {
+                    let _ = std::fs::create_dir_all(&dir);
+                    let opener = if cfg!(target_os = "macos") {
+                        "open"
+                    } else if cfg!(target_os = "windows") {
+                        "explorer"
+                    } else {
+                        "xdg-open"
+                    };
+                    let _ = std::process::Command::new(opener).arg(&dir).spawn();
+                }
+            }
             _ => {}
         }
     }
@@ -802,6 +847,25 @@ fn kind_name(k: &Kind) -> &'static str {
         Kind::Character(_) => "Figur",
         Kind::Tree(_) => "Baum",
         Kind::Water(_) => "Wasser",
+    }
+}
+
+fn action_name(k: cf_scene::character::ActionKind) -> &'static str {
+    use cf_scene::character::ActionKind as A;
+    match k {
+        A::Idle => "steht",
+        A::Walk => "geht",
+        A::Run => "rennt",
+        A::Wave => "winkt",
+        A::Jump => "springt",
+        A::Cheer => "jubelt",
+        A::Dance => "tanzt",
+        A::Point => "zeigt",
+        A::Nod => "nickt",
+        A::ShakeHead => "schüttelt den Kopf",
+        A::Talk => "spricht",
+        A::Sit => "sitzt",
+        A::Think => "denkt nach",
     }
 }
 
@@ -1087,7 +1151,10 @@ fn object_props(p: &mut ChildSpawnerCommands, f: &UiFonts, o: &Object) {
         prop_row(p, f, "Sichtbar", "nein (versteckt)", None);
     }
     let m = &o.material;
-    if !matches!(o.kind, Kind::Group { .. } | Kind::Model { .. } | Kind::Svg { .. } | Kind::Particles(_) | Kind::Instance { .. }) {
+    if !matches!(
+        o.kind,
+        Kind::Group { .. } | Kind::Model { .. } | Kind::Svg { .. } | Kind::Particles(_) | Kind::Instance { .. } | Kind::Character(_) | Kind::Tree(_) | Kind::Water(_)
+    ) {
         prop_row(p, f, "Farbe", m.color.to_hex(), Some(crate::environment::color(m.color)));
         let mut look = vec![format!("rau {:.2}", m.roughness)];
         if m.metallic > 0.0 {
@@ -1117,6 +1184,23 @@ fn object_props(p: &mut ChildSpawnerCommands, f: &UiFonts, o: &Object) {
     if let Ok(serde_json::Value::Object(map)) = serde_json::to_value(&o.kind) {
         for (k, v) in map {
             if matches!(k.as_str(), "type" | "children" | "shape") {
+                continue;
+            }
+            if k == "actions" {
+                if let Kind::Character(c) = &o.kind {
+                    for a in &c.actions {
+                        let end = a.end.unwrap_or(a.start + 2.0);
+                        prop_row(p, f, "Aktion", format!("{} · {:.1}–{:.1} s", action_name(a.kind), a.start, end), None);
+                    }
+                }
+                continue;
+            }
+            if k == "talk" {
+                if let Kind::Character(c) = &o.kind {
+                    if let Some(t) = &c.talk {
+                        prop_row(p, f, "Spricht", format!("{} ab {:.1} s", t.audio, t.start), None);
+                    }
+                }
                 continue;
             }
             let val = match &v {
@@ -1286,6 +1370,20 @@ fn key_times<T>(k: &[cf_scene::animation::Key<T>]) -> impl Iterator<Item = f32> 
 fn object_tracks(objs: &[Object], prefix: &str, out: &mut Vec<Track>, duration: f32) {
     for o in objs {
         let id = format!("{prefix}{}", o.id);
+        if let Kind::Character(c) = &o.kind {
+            let mut bars: Vec<(f32, f32, String)> =
+                c.actions.iter().map(|a| (a.start, a.end.unwrap_or(a.start + 2.0), action_name(a.kind).to_string())).collect();
+            if let Some(p) = o.animate.as_ref().and_then(|a| a.path.as_ref()) {
+                if c.auto_walk && !c.actions.iter().any(|a| matches!(a.kind, cf_scene::character::ActionKind::Walk | cf_scene::character::ActionKind::Run)) {
+                    bars.push((p.start, p.end, "geht den Weg".into()));
+                }
+            }
+            if let Some(t) = &c.talk {
+                bars.push((t.start, duration, format!("♪ {}", t.audio)));
+            }
+            out.push(Track { label: id.clone(), color: Color::srgb(1.0, 0.62, 0.3), bars, keys: vec![] });
+            continue;
+        }
         if let Some(a) = &o.animate {
             let mut keys: Vec<f32> = key_times(&a.position)
                 .chain(key_times(&a.rotation))

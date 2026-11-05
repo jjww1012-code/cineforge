@@ -134,6 +134,14 @@
   (Richtungslicht 2500 lx bläulich + Mondscheibe).
 - **Einblendungs-Effekte:** `effect` pop/slide_up/typewriter (Präfix-Meshes, links an der fertigen
   Zeile ausgerichtet), `shadow`, `background` (+Deckkraft); Ebenen über z-Versatz sortiert.
+- **Ton in der Vorschau (`preview_audio.rs`):** Shot-Ton, Soundtrack-Ausschnitt (Film-Zeit −
+  Shot-Beginn) und talk-Stimmen; Start beim Abspielen, Neustart bei Sprung (> 0,2 s Abweichung);
+  Bevy-Features `wav`, `mp3`.
+- **Export aus der Oberfläche:** Knöpfe Szene/Film exportieren, Abbrechen, Export-Ordner öffnen;
+  laufen über denselben Werkzeug-Kanal wie Claude (`control::UiCommands`, Logbuch-Akteur „mensch“).
+- **Figuren in der Oberfläche:** Aktionen lesbar (rechts) und als Balken in der Zeitleiste.
+- Hinweis Entwicklung: `target/debug/deps/cineforge-*` (je ~2 GB) sammeln sich an – alte löschen,
+  wenn der Platz knapp wird (siehe CLAUDE.md).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

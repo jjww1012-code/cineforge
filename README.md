@@ -23,12 +23,14 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 Aufgebaut wie ein Schnittprogramm (ähnlich CapCut):
 
-- **Oben:** Projekt › Szene und ob Claude verbunden ist (mit der letzten Aktion).
+- **Oben:** Projekt › Szene, Knöpfe **Szene exportieren**, **Film exportieren**, **Abbrechen**,
+  **Export-Ordner** (öffnet den Ordner mit den fertigen Videos) und ob Claude verbunden ist.
 - **Links:** *Szenen* (Storyboard, Klick öffnet die Szene), *Objekte* (alle Teile der Szene,
   Klick wählt aus), *Medien* (Audio, Clips, Bilder, 3D-Modelle des Projekts).
 - **Mitte:** die Vorschau. Ein Klick auf ein Objekt wählt es aus und rahmt es ein –
   Claude weiß dann, was du mit „das hier“ meinst. Darunter Abspielen, Zeit, Schleife,
-  Szenen-/freie Kamera und 16:9 / 9:16 (Hochformat für TikTok/Reels).
+  Szenen-/freie Kamera und 16:9 / 9:16 (Hochformat für TikTok/Reels). Beim Abspielen hört man
+  den Ton des Shots (Stimmen, Geräusche, Musik) synchron zum Bild. Exporte übernehmen das gewählte Format.
 - **Rechts:** *Eigenschaften* des ausgewählten Objekts (oder der Szene) und *Was passiert* –
   was Claude gerade gemacht hat und der nächste Schritt.
 - **Unten:** die Zeitleiste. Oben alle Shots des Films, darunter die Spuren der geöffneten

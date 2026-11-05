@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 cf_scene = { path = "../../crates/cf_scene" }
 cf_audio = { path = "../../crates/cf_audio" }
-bevy = { version = "0.20.1", features = ["free_camera"] }
+bevy = { version = "0.20.1", features = ["free_camera", "wav", "mp3"] }
 tiny_http = "0.12"
 base64 = "0.22"
 serde_json.workspace = true

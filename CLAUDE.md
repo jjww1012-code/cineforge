@@ -48,7 +48,8 @@ ein Objekt vor. Klicks testen: App auf `Xvfb :81 -screen 0 1600x900x24` starten,
 `xdotool mousemove X Y; xdotool mousedown 1; sleep 0.4; xdotool mouseup 1` (kein `--window`,
 das wären synthetische Ereignisse), Bild mit `import -window root out.png`.
 Software-Rendering ist langsam (~1 FPS, ~20 s pro Kontrollbild); auf echter GPU ist es schnell.
-**Nie `rm -rf $HOME` o. ä.** – für Tests `CINEFORGE_HOME` auf einen frischen Ordner setzen.
+Platz: alte Test-Binaries `target/debug/deps/cineforge-<hash>` (je ~2 GB) und `target/debug/incremental`
+dürfen gelöscht werden, wenn `df -h /` knapp wird. **Nie `rm -rf $HOME` o. ä.** – für Tests `CINEFORGE_HOME` auf einen frischen Ordner setzen.
 
 ## Bevy 0.20 – gelernte API-Details
 

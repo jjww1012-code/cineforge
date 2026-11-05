@@ -20,6 +20,7 @@ mod hud;
 mod library;
 mod media;
 mod overlay;
+mod preview_audio;
 mod project;
 mod render;
 mod source;
@@ -129,6 +130,7 @@ fn main() -> AppExit {
         app.add_plugins((
             hud::HudPlugin,
             studio_ui::StudioUiPlugin,
+            preview_audio::PreviewAudioPlugin,
             capture::ManualCapturePlugin,
             control::ControlPlugin { port: args.port },
             claude_setup::ClaudeSetupPlugin,
