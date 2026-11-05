@@ -43,6 +43,8 @@ impl Plugin for StudioUiPlugin {
         }
         app.init_resource::<Selection>()
             .init_resource::<UiState>()
+            .init_resource::<crate::thumbs::ShotThumbs>()
+            .add_systems(Update, crate::thumbs::update_thumbs.after(crate::timeline::TimelineSet))
             .add_systems(PostStartup, setup)
             .add_systems(
                 Update,
@@ -504,7 +506,7 @@ fn setup(
             ))
             .with_children(|tl| {
                 // Film-Leiste (alle Shots, eigener Maßstab)
-                tl.spawn(Node { flex_direction: FlexDirection::Row, height: px(30), ..default() }).with_children(|row| {
+                tl.spawn(Node { flex_direction: FlexDirection::Row, height: px(42), ..default() }).with_children(|row| {
                     row.spawn(Node { width: px(LABEL_W), padding: UiRect::left(px(14)), align_items: AlignItems::Center, flex_shrink: 0.0, ..default() })
                         .with_children(|l| {
                             l.spawn(txt(f, "Film", 12.0, DIM, true));
@@ -1434,12 +1436,14 @@ fn rebuild_tracks(
     lanes: Query<Entity, With<TrackLanes>>,
     film: Query<Entity, With<FilmLane>>,
     mut first: Local<bool>,
+    mut thumbs: ResMut<crate::thumbs::ShotThumbs>,
 ) {
     let Some(f) = fonts else { return };
-    if loaded.read().count() == 0 && !project.is_changed() && *first {
+    if loaded.read().count() == 0 && !project.is_changed() && *first && !thumbs.changed {
         return;
     }
     *first = true;
+    thumbs.changed = false;
     let (Ok(labels), Ok(lanes), Ok(film)) = (labels.single(), lanes.single(), film.single()) else { return };
     let f = &*f;
     let scene = &src.scene;
@@ -1480,6 +1484,13 @@ fn rebuild_tracks(
             ))
             .insert(BorderColor::all(ACCENT))
             .with_children(|b| {
+                if let Some(img) = s.scene.as_ref().and_then(|sc| thumbs.images.get(sc)) {
+                    b.spawn((
+                        ImageNode::new(img.clone()),
+                        Node { width: px(56), height: px(32), flex_shrink: 0.0, margin: UiRect::right(px(6)), border_radius: BorderRadius::all(px(3)), ..default() },
+                        Pickable::IGNORE,
+                    ));
+                }
                 let title = if s.title.is_empty() { s.id.clone() } else { s.title.clone() };
                 b.spawn((txt(f, title, 11.0, TEXT, is_cur), TextLayout::no_wrap()));
             });

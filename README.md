@@ -38,7 +38,7 @@ Aufgebaut wie ein Schnittprogramm (ähnlich CapCut):
   den Ton des Shots (Stimmen, Geräusche, Musik) synchron zum Bild. Exporte übernehmen das gewählte Format.
 - **Rechts:** *Eigenschaften* des ausgewählten Objekts (oder der Szene) und *Was passiert* –
   was Claude gerade gemacht hat und der nächste Schritt.
-- **Unten:** die Zeitleiste. Oben alle Shots des Films, darunter die Spuren der geöffneten
+- **Unten:** die Zeitleiste. Oben alle Shots des Films (mit Vorschaubild), darunter die Spuren der geöffneten
   Szene: Kamera, Texte, Ton und jedes animierte Objekt mit seinen Keyframes (◆).
   Klicken oder Ziehen springt an die Stelle.
 

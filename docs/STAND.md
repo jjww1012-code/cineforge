@@ -164,6 +164,9 @@
 - **Figuren-Accessoires:** Hüte (cap, beanie, top_hat, crown, party), Brille, Kleid, Schal, Rucksack.
 - **Regie-Fahrplan:** MCP-Vorlage „Neuer Film“ führt in 13 Schritten durch Geschichte, Storyboard,
   Vorlagen, Figuren/Tiere, Dialog, Kamera, Licht, Prüfen, Ton, Titel, Export.
+- **Shot-Vorschaubilder (`thumbs.rs`):** wenn eine Storyboard-Szene offen ist und Ruhe herrscht
+  (4 s nach dem Laden, keine Aufträge), Still-Auftrag 192×108 aus der Shot-Mitte →
+  `Export/.vorschau/<szene>.png`, Film-Leiste zeigt sie; schwarze Bilder werden verworfen (max. 3 Versuche).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

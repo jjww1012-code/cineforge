@@ -27,6 +27,7 @@ mod source;
 mod spawn;
 mod studio_ui;
 mod timeline;
+mod thumbs;
 mod tools;
 mod video;
 

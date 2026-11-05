@@ -15,7 +15,7 @@ use cf_scene::Scene;
 #[derive(Resource)]
 pub struct SceneSource {
     pub path: PathBuf,
-    modified: Option<SystemTime>,
+    pub modified: Option<SystemTime>,
     poll: Timer,
     /// Zuletzt erfolgreich geladene Szene.
     pub scene: Scene,
