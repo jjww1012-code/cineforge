@@ -13,6 +13,25 @@ use cf_scene::{
 
 use crate::project::{global_library_dir, ActiveProject};
 
+/// Mitgelieferte Objekte (Cartoon-Stil), erzeugt mit `tools/make_starter_library.py`.
+const STARTER: &str = include_str!("../assets/bibliothek.json");
+
+/// Legt die mitgelieferten Objekte in der globalen Bibliothek an – nur fehlende Dateien,
+/// eigene Änderungen bleiben erhalten.
+pub fn install_starter_library() {
+    let Ok(dir) = global_library_dir() else { return };
+    let Ok(list) = serde_json::from_str::<Vec<AssetFile>>(STARTER) else { return };
+    let _ = std::fs::create_dir_all(&dir);
+    for a in list {
+        let path = dir.join(format!("{}.json", a.name));
+        if !path.exists() {
+            if let Ok(text) = serde_json::to_string_pretty(&a) {
+                let _ = std::fs::write(&path, text);
+            }
+        }
+    }
+}
+
 /// Maximale Verschachtelung von Bibliotheks-Objekten in Bibliotheks-Objekten.
 const MAX_DEPTH: u32 = 8;
 
@@ -128,5 +147,18 @@ impl Library {
             chain.pop();
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn starter_library_objects_are_valid() {
+        let list: Vec<super::AssetFile> = serde_json::from_str(super::STARTER).unwrap();
+        assert!(list.len() >= 10);
+        for a in list {
+            let scene = cf_scene::Scene::from_json(&serde_json::json!({"objects": [a.object]}).to_string());
+            assert!(scene.is_ok(), "{}: {:?}", a.name, scene.err());
+        }
     }
 }

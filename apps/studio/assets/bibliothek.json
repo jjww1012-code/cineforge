@@ -1,0 +1,1803 @@
+[
+ {
+  "name": "haus",
+  "description": "Cartoon-Häuschen 4 × 3,2 m, Dach rot, Tür vorne (+Z), zwei Fenster, Schornstein. Farbe über material_override nur einheitlich – besser Kopie anpassen.",
+  "object": {
+   "id": "haus",
+   "type": "group",
+   "children": [
+    {
+     "id": "waende",
+     "type": "rounded_box",
+     "size": [
+      4.0,
+      3.0,
+      3.2
+     ],
+     "radius": 0.12,
+     "position": [
+      0,
+      1.5,
+      0
+     ],
+     "material": {
+      "color": "#f6d9a8",
+      "roughness": 0.85
+     }
+    },
+    {
+     "id": "sockel",
+     "type": "rounded_box",
+     "size": [
+      4.15,
+      0.35,
+      3.35
+     ],
+     "radius": 0.06,
+     "position": [
+      0,
+      0.17,
+      0
+     ],
+     "material": {
+      "color": "#b9a58c",
+      "roughness": 0.7
+     }
+    },
+    {
+     "id": "dach",
+     "type": "extrude",
+     "profile": [
+      [
+       -2.45,
+       0
+      ],
+      [
+       2.45,
+       0
+      ],
+      [
+       0,
+       1.7
+      ]
+     ],
+     "height": 3.7,
+     "rotation": [
+      -90,
+      0,
+      0
+     ],
+     "position": [
+      0,
+      2.98,
+      1.85
+     ],
+     "material": {
+      "color": "#c0392b",
+      "roughness": 0.6,
+      "pattern": {
+       "type": "stripes",
+       "color2": "#a93226",
+       "scale": 4,
+       "bump": 0.4
+      }
+     }
+    },
+    {
+     "id": "schornstein",
+     "type": "rounded_box",
+     "size": [
+      0.5,
+      1.3,
+      0.5
+     ],
+     "radius": 0.05,
+     "position": [
+      1.15,
+      4.0,
+      -0.5
+     ],
+     "material": {
+      "color": "#a0522d",
+      "roughness": 0.7,
+      "pattern": {
+       "type": "bricks",
+       "color2": "#7d3c1f",
+       "scale": 2.5,
+       "bump": 0.5
+      }
+     }
+    },
+    {
+     "id": "tuer",
+     "type": "rounded_box",
+     "size": [
+      0.95,
+      1.8,
+      0.1
+     ],
+     "radius": 0.045,
+     "position": [
+      0,
+      0.95,
+      1.62
+     ],
+     "material": {
+      "color": "#7b4a2a",
+      "roughness": 0.7
+     }
+    },
+    {
+     "id": "knauf",
+     "type": "sphere",
+     "radius": 0.06,
+     "position": [
+      0.33,
+      0.95,
+      1.7
+     ],
+     "material": {
+      "color": "#f1c40f",
+      "roughness": 0.3,
+      "metallic": 1
+     }
+    },
+    {
+     "id": "fenster_1",
+     "type": "group",
+     "children": [
+      {
+       "id": "glas_1",
+       "type": "rounded_box",
+       "size": [
+        0.8,
+        0.8,
+        0.06
+       ],
+       "radius": 0.027,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#9fd8ff",
+        "roughness": 0.1,
+        "emissive": "#ffe9a8",
+        "emissive_strength": 2
+       }
+      },
+      {
+       "id": "rahmen_h_1",
+       "type": "rounded_box",
+       "size": [
+        0.86,
+        0.07,
+        0.1
+       ],
+       "radius": 0.02,
+       "position": [
+        0,
+        0,
+        0.02
+       ],
+       "material": {
+        "color": "#ffffff",
+        "roughness": 0.7
+       }
+      },
+      {
+       "id": "rahmen_v_1",
+       "type": "rounded_box",
+       "size": [
+        0.07,
+        0.86,
+        0.1
+       ],
+       "radius": 0.02,
+       "position": [
+        0,
+        0,
+        0.02
+       ],
+       "material": {
+        "color": "#ffffff",
+        "roughness": 0.7
+       }
+      },
+      {
+       "id": "bank_1",
+       "type": "rounded_box",
+       "size": [
+        0.95,
+        0.08,
+        0.18
+       ],
+       "radius": 0.02,
+       "position": [
+        0,
+        -0.45,
+        0.06
+       ],
+       "material": {
+        "color": "#ffffff",
+        "roughness": 0.7
+       }
+      }
+     ],
+     "position": [
+      -1.25,
+      1.75,
+      1.62
+     ]
+    },
+    {
+     "id": "fenster_2",
+     "type": "group",
+     "children": [
+      {
+       "id": "glas_2",
+       "type": "rounded_box",
+       "size": [
+        0.8,
+        0.8,
+        0.06
+       ],
+       "radius": 0.027,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#9fd8ff",
+        "roughness": 0.1,
+        "emissive": "#ffe9a8",
+        "emissive_strength": 2
+       }
+      },
+      {
+       "id": "rahmen_h_2",
+       "type": "rounded_box",
+       "size": [
+        0.86,
+        0.07,
+        0.1
+       ],
+       "radius": 0.02,
+       "position": [
+        0,
+        0,
+        0.02
+       ],
+       "material": {
+        "color": "#ffffff",
+        "roughness": 0.7
+       }
+      },
+      {
+       "id": "rahmen_v_2",
+       "type": "rounded_box",
+       "size": [
+        0.07,
+        0.86,
+        0.1
+       ],
+       "radius": 0.02,
+       "position": [
+        0,
+        0,
+        0.02
+       ],
+       "material": {
+        "color": "#ffffff",
+        "roughness": 0.7
+       }
+      },
+      {
+       "id": "bank_2",
+       "type": "rounded_box",
+       "size": [
+        0.95,
+        0.08,
+        0.18
+       ],
+       "radius": 0.02,
+       "position": [
+        0,
+        -0.45,
+        0.06
+       ],
+       "material": {
+        "color": "#ffffff",
+        "roughness": 0.7
+       }
+      }
+     ],
+     "position": [
+      1.25,
+      1.75,
+      1.62
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "auto",
+  "description": "Cartoon-Auto 2 × 3,6 m, rot lackiert, fährt Richtung +Z (Scheinwerfer vorne). Für Fahrten: animate.path mit face: true.",
+  "object": {
+   "id": "auto",
+   "type": "group",
+   "children": [
+    {
+     "id": "karosserie",
+     "type": "rounded_box",
+     "size": [
+      2.0,
+      0.65,
+      3.6
+     ],
+     "radius": 0.28,
+     "position": [
+      0,
+      0.7,
+      0
+     ],
+     "material": {
+      "color": "#d62828",
+      "roughness": 0.35,
+      "clearcoat": 0.25
+     }
+    },
+    {
+     "id": "kabine",
+     "type": "rounded_box",
+     "size": [
+      1.7,
+      0.62,
+      1.9
+     ],
+     "radius": 0.279,
+     "position": [
+      0,
+      1.25,
+      -0.25
+     ],
+     "material": {
+      "color": "#d62828",
+      "roughness": 0.35,
+      "clearcoat": 0.25
+     }
+    },
+    {
+     "id": "scheibe_vorne",
+     "type": "rounded_box",
+     "size": [
+      1.5,
+      0.48,
+      0.06
+     ],
+     "radius": 0.027,
+     "position": [
+      0,
+      1.27,
+      0.71
+     ],
+     "material": {
+      "color": "#a8dcff",
+      "roughness": 0.05
+     },
+     "rotation": [
+      -25,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "scheiben_seite",
+     "type": "rounded_box",
+     "size": [
+      1.74,
+      0.42,
+      1.5
+     ],
+     "radius": 0.15,
+     "position": [
+      0,
+      1.28,
+      -0.25
+     ],
+     "material": {
+      "color": "#a8dcff",
+      "roughness": 0.05
+     }
+    },
+    {
+     "id": "rad_1",
+     "type": "group",
+     "children": [
+      {
+       "id": "reifen_1",
+       "type": "cylinder",
+       "radius": 0.38,
+       "height": 0.32,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#222222",
+        "roughness": 0.9
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      },
+      {
+       "id": "felge_1",
+       "type": "cylinder",
+       "radius": 0.19,
+       "height": 0.34,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#dddddd",
+        "roughness": 0.3,
+        "metallic": 1
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      }
+     ],
+     "position": [
+      -0.95,
+      0.38,
+      1.15
+     ]
+    },
+    {
+     "id": "rad_2",
+     "type": "group",
+     "children": [
+      {
+       "id": "reifen_2",
+       "type": "cylinder",
+       "radius": 0.38,
+       "height": 0.32,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#222222",
+        "roughness": 0.9
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      },
+      {
+       "id": "felge_2",
+       "type": "cylinder",
+       "radius": 0.19,
+       "height": 0.34,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#dddddd",
+        "roughness": 0.3,
+        "metallic": 1
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      }
+     ],
+     "position": [
+      0.95,
+      0.38,
+      1.15
+     ]
+    },
+    {
+     "id": "rad_3",
+     "type": "group",
+     "children": [
+      {
+       "id": "reifen_3",
+       "type": "cylinder",
+       "radius": 0.38,
+       "height": 0.32,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#222222",
+        "roughness": 0.9
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      },
+      {
+       "id": "felge_3",
+       "type": "cylinder",
+       "radius": 0.19,
+       "height": 0.34,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#dddddd",
+        "roughness": 0.3,
+        "metallic": 1
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      }
+     ],
+     "position": [
+      -0.95,
+      0.38,
+      -1.15
+     ]
+    },
+    {
+     "id": "rad_4",
+     "type": "group",
+     "children": [
+      {
+       "id": "reifen_4",
+       "type": "cylinder",
+       "radius": 0.38,
+       "height": 0.32,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#222222",
+        "roughness": 0.9
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      },
+      {
+       "id": "felge_4",
+       "type": "cylinder",
+       "radius": 0.19,
+       "height": 0.34,
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "material": {
+        "color": "#dddddd",
+        "roughness": 0.3,
+        "metallic": 1
+       },
+       "rotation": [
+        0,
+        0,
+        90
+       ]
+      }
+     ],
+     "position": [
+      0.95,
+      0.38,
+      -1.15
+     ]
+    },
+    {
+     "id": "licht_l",
+     "type": "sphere",
+     "radius": 0.13,
+     "position": [
+      -0.65,
+      0.75,
+      1.78
+     ],
+     "material": {
+      "color": "#fff6c8",
+      "roughness": 0.7,
+      "emissive": "#fff2b0",
+      "emissive_strength": 20
+     }
+    },
+    {
+     "id": "licht_r",
+     "type": "sphere",
+     "radius": 0.13,
+     "position": [
+      0.65,
+      0.75,
+      1.78
+     ],
+     "material": {
+      "color": "#fff6c8",
+      "roughness": 0.7,
+      "emissive": "#fff2b0",
+      "emissive_strength": 20
+     }
+    },
+    {
+     "id": "stossstange",
+     "type": "rounded_box",
+     "size": [
+      2.05,
+      0.18,
+      0.2
+     ],
+     "radius": 0.06,
+     "position": [
+      0,
+      0.45,
+      1.8
+     ],
+     "material": {
+      "color": "#cccccc",
+      "roughness": 0.3,
+      "metallic": 1
+     }
+    }
+   ]
+  }
+ },
+ {
+  "name": "laterne",
+  "description": "Straßenlaterne 3,6 m mit warmem Licht (point_light) – nachts gemütlich.",
+  "object": {
+   "id": "laterne",
+   "type": "group",
+   "children": [
+    {
+     "id": "mast",
+     "type": "lathe",
+     "profile": [
+      [
+       0.14,
+       0
+      ],
+      [
+       0.14,
+       0.18
+      ],
+      [
+       0.07,
+       0.25
+      ],
+      [
+       0.05,
+       3.2
+      ],
+      [
+       0.09,
+       3.3
+      ],
+      [
+       0,
+       3.3
+      ]
+     ],
+     "material": {
+      "color": "#2f3640",
+      "metallic": 0.8,
+      "roughness": 0.4
+     }
+    },
+    {
+     "id": "kopf",
+     "type": "lathe",
+     "profile": [
+      [
+       0,
+       3.75
+      ],
+      [
+       0.28,
+       3.55
+      ],
+      [
+       0.22,
+       3.3
+      ],
+      [
+       0,
+       3.3
+      ]
+     ],
+     "material": {
+      "color": "#2f3640",
+      "metallic": 0.8,
+      "roughness": 0.4
+     }
+    },
+    {
+     "id": "leuchte",
+     "type": "sphere",
+     "radius": 0.17,
+     "position": [
+      0,
+      3.38,
+      0
+     ],
+     "material": {
+      "color": "#fff3c4",
+      "roughness": 0.7,
+      "emissive": "#ffd98a",
+      "emissive_strength": 40
+     }
+    },
+    {
+     "id": "licht",
+     "type": "point_light",
+     "color": "#ffcf87",
+     "intensity": 9000,
+     "range": 16,
+     "position": [
+      0,
+      3.2,
+      0
+     ],
+     "shadows": true
+    }
+   ]
+  }
+ },
+ {
+  "name": "bank",
+  "description": "Parkbank 1,8 m breit, Sitzfläche vorne (+Z), Sitzhöhe 0,46 m.",
+  "object": {
+   "id": "bank",
+   "type": "group",
+   "children": [
+    {
+     "id": "sitz_0",
+     "type": "rounded_box",
+     "size": [
+      1.8,
+      0.06,
+      0.13
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.46,
+      -0.2
+     ],
+     "material": {
+      "color": "#b5651d",
+      "roughness": 0.8
+     }
+    },
+    {
+     "id": "sitz_1",
+     "type": "rounded_box",
+     "size": [
+      1.8,
+      0.06,
+      0.13
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.46,
+      -0.05000000000000002
+     ],
+     "material": {
+      "color": "#b5651d",
+      "roughness": 0.8
+     }
+    },
+    {
+     "id": "sitz_2",
+     "type": "rounded_box",
+     "size": [
+      1.8,
+      0.06,
+      0.13
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.46,
+      0.09999999999999998
+     ],
+     "material": {
+      "color": "#b5651d",
+      "roughness": 0.8
+     }
+    },
+    {
+     "id": "lehne_0",
+     "type": "rounded_box",
+     "size": [
+      1.8,
+      0.13,
+      0.05
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.7,
+      -0.32
+     ],
+     "material": {
+      "color": "#b5651d",
+      "roughness": 0.8
+     },
+     "rotation": [
+      -10,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "lehne_1",
+     "type": "rounded_box",
+     "size": [
+      1.8,
+      0.13,
+      0.05
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.8799999999999999,
+      -0.32
+     ],
+     "material": {
+      "color": "#b5651d",
+      "roughness": 0.8
+     },
+     "rotation": [
+      -10,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "bein_0",
+     "type": "rounded_box",
+     "size": [
+      0.07,
+      0.46,
+      0.5
+     ],
+     "radius": 0.02,
+     "position": [
+      -0.75,
+      0.23,
+      -0.05
+     ],
+     "material": {
+      "color": "#2f3640",
+      "roughness": 0.7,
+      "metallic": 0.8
+     }
+    },
+    {
+     "id": "bein_1",
+     "type": "rounded_box",
+     "size": [
+      0.07,
+      0.46,
+      0.5
+     ],
+     "radius": 0.02,
+     "position": [
+      0.75,
+      0.23,
+      -0.05
+     ],
+     "material": {
+      "color": "#2f3640",
+      "roughness": 0.7,
+      "metallic": 0.8
+     }
+    }
+   ]
+  }
+ },
+ {
+  "name": "zaun",
+  "description": "Holzzaun-Stück 4 m lang (von x = −2 bis +2), mit repeat aneinanderreihen (offset [4, 0, 0]).",
+  "object": {
+   "id": "zaun",
+   "type": "group",
+   "children": [
+    {
+     "id": "pfosten",
+     "type": "rounded_box",
+     "size": [
+      0.1,
+      1.0,
+      0.1
+     ],
+     "radius": 0.03,
+     "position": [
+      -2.0,
+      0.5,
+      0
+     ],
+     "material": {
+      "color": "#f5f0e6",
+      "roughness": 0.7
+     },
+     "repeat": {
+      "count": 6,
+      "offset": [
+       0.8,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "id": "latte_oben",
+     "type": "rounded_box",
+     "size": [
+      4.1,
+      0.09,
+      0.05
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.78,
+      0.06
+     ],
+     "material": {
+      "color": "#f5f0e6",
+      "roughness": 0.7
+     }
+    },
+    {
+     "id": "latte_unten",
+     "type": "rounded_box",
+     "size": [
+      4.1,
+      0.09,
+      0.05
+     ],
+     "radius": 0.02,
+     "position": [
+      0,
+      0.35,
+      0.06
+     ],
+     "material": {
+      "color": "#f5f0e6",
+      "roughness": 0.7
+     }
+    }
+   ]
+  }
+ },
+ {
+  "name": "tisch",
+  "description": "Holztisch 1,4 × 0,9 m, Höhe 0,76 m.",
+  "object": {
+   "id": "tisch",
+   "type": "group",
+   "children": [
+    {
+     "id": "platte",
+     "type": "rounded_box",
+     "size": [
+      1.4,
+      0.07,
+      0.9
+     ],
+     "radius": 0.03,
+     "position": [
+      0,
+      0.74,
+      0
+     ],
+     "material": {
+      "color": "#c68642",
+      "roughness": 0.6,
+      "pattern": {
+       "type": "wood",
+       "color2": "#9c6430",
+       "scale": 2
+      }
+     }
+    },
+    {
+     "id": "bein_0",
+     "type": "cylinder",
+     "radius": 0.04,
+     "height": 0.72,
+     "position": [
+      -0.62,
+      0.36,
+      -0.37
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    },
+    {
+     "id": "bein_1",
+     "type": "cylinder",
+     "radius": 0.04,
+     "height": 0.72,
+     "position": [
+      0.62,
+      0.36,
+      -0.37
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    },
+    {
+     "id": "bein_2",
+     "type": "cylinder",
+     "radius": 0.04,
+     "height": 0.72,
+     "position": [
+      -0.62,
+      0.36,
+      0.37
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    },
+    {
+     "id": "bein_3",
+     "type": "cylinder",
+     "radius": 0.04,
+     "height": 0.72,
+     "position": [
+      0.62,
+      0.36,
+      0.37
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    }
+   ]
+  }
+ },
+ {
+  "name": "stuhl",
+  "description": "Holzstuhl, Sitzhöhe 0,46 m, Lehne hinten (−Z).",
+  "object": {
+   "id": "stuhl",
+   "type": "group",
+   "children": [
+    {
+     "id": "sitz",
+     "type": "rounded_box",
+     "size": [
+      0.46,
+      0.06,
+      0.46
+     ],
+     "radius": 0.027,
+     "position": [
+      0,
+      0.46,
+      0
+     ],
+     "material": {
+      "color": "#c68642",
+      "roughness": 0.7
+     }
+    },
+    {
+     "id": "lehne",
+     "type": "rounded_box",
+     "size": [
+      0.46,
+      0.4,
+      0.05
+     ],
+     "radius": 0.0225,
+     "position": [
+      0,
+      0.72,
+      -0.21
+     ],
+     "material": {
+      "color": "#c68642",
+      "roughness": 0.7
+     }
+    },
+    {
+     "id": "bein_0",
+     "type": "cylinder",
+     "radius": 0.025,
+     "height": 0.45,
+     "position": [
+      -0.19,
+      0.225,
+      -0.19
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    },
+    {
+     "id": "bein_1",
+     "type": "cylinder",
+     "radius": 0.025,
+     "height": 0.45,
+     "position": [
+      0.19,
+      0.225,
+      -0.19
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    },
+    {
+     "id": "bein_2",
+     "type": "cylinder",
+     "radius": 0.025,
+     "height": 0.45,
+     "position": [
+      -0.19,
+      0.225,
+      0.19
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    },
+    {
+     "id": "bein_3",
+     "type": "cylinder",
+     "radius": 0.025,
+     "height": 0.45,
+     "position": [
+      0.19,
+      0.225,
+      0.19
+     ],
+     "material": {
+      "color": "#8b5a2b",
+      "roughness": 0.6
+     }
+    }
+   ]
+  }
+ },
+ {
+  "name": "wolke",
+  "description": "Flauschige Cartoon-Wolke ca. 4 m breit – hoch oben platzieren, gerne mit animate.position langsam ziehen lassen.",
+  "object": {
+   "id": "wolke",
+   "type": "group",
+   "children": [
+    {
+     "id": "puff_0",
+     "type": "sphere",
+     "radius": 1.0,
+     "position": [
+      0,
+      1.0,
+      0
+     ],
+     "material": {
+      "color": "#ffffff",
+      "roughness": 0.95
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.08,
+       "scale": 1.5,
+       "seed": 0
+      }
+     ]
+    },
+    {
+     "id": "puff_1",
+     "type": "sphere",
+     "radius": 0.75,
+     "position": [
+      -1.1,
+      0.75,
+      0.1
+     ],
+     "material": {
+      "color": "#ffffff",
+      "roughness": 0.95
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.06,
+       "scale": 2.0,
+       "seed": 1
+      }
+     ]
+    },
+    {
+     "id": "puff_2",
+     "type": "sphere",
+     "radius": 0.8,
+     "position": [
+      1.05,
+      0.8,
+      -0.1
+     ],
+     "material": {
+      "color": "#ffffff",
+      "roughness": 0.95
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.064,
+       "scale": 1.875,
+       "seed": 2
+      }
+     ]
+    },
+    {
+     "id": "puff_3",
+     "type": "sphere",
+     "radius": 0.6,
+     "position": [
+      -1.9,
+      0.55,
+      0
+     ],
+     "material": {
+      "color": "#ffffff",
+      "roughness": 0.95
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.048,
+       "scale": 2.5,
+       "seed": 3
+      }
+     ]
+    },
+    {
+     "id": "puff_4",
+     "type": "sphere",
+     "radius": 0.55,
+     "position": [
+      1.85,
+      0.55,
+      0.1
+     ],
+     "material": {
+      "color": "#ffffff",
+      "roughness": 0.95
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.044000000000000004,
+       "scale": 2.727272727272727,
+       "seed": 4
+      }
+     ]
+    },
+    {
+     "id": "puff_5",
+     "type": "sphere",
+     "radius": 0.7,
+     "position": [
+      0.3,
+      0.6,
+      0.6
+     ],
+     "material": {
+      "color": "#ffffff",
+      "roughness": 0.95
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.055999999999999994,
+       "scale": 2.142857142857143,
+       "seed": 5
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "brunnen",
+  "description": "Steinbrunnen ⌀ 3,2 m mit sprudelndem Wasser (Partikel).",
+  "object": {
+   "id": "brunnen",
+   "type": "group",
+   "children": [
+    {
+     "id": "becken",
+     "type": "lathe",
+     "profile": [
+      [
+       0,
+       0
+      ],
+      [
+       1.55,
+       0
+      ],
+      [
+       1.6,
+       0.1
+      ],
+      [
+       1.6,
+       0.55
+      ],
+      [
+       1.42,
+       0.6
+      ],
+      [
+       1.36,
+       0.18
+      ],
+      [
+       0,
+       0.18
+      ]
+     ],
+     "material": {
+      "color": "#b8b0a2",
+      "roughness": 0.85,
+      "pattern": {
+       "type": "noise",
+       "color2": "#9a9184",
+       "scale": 3,
+       "bump": 0.5
+      }
+     }
+    },
+    {
+     "id": "wasser",
+     "type": "cylinder",
+     "radius": 1.38,
+     "height": 0.04,
+     "position": [
+      0,
+      0.45,
+      0
+     ],
+     "material": {
+      "color": "#3a8fd1",
+      "roughness": 0.04,
+      "clearcoat": 1
+     }
+    },
+    {
+     "id": "saeule",
+     "type": "lathe",
+     "profile": [
+      [
+       0.25,
+       0
+      ],
+      [
+       0.18,
+       0.4
+      ],
+      [
+       0.12,
+       1.1
+      ],
+      [
+       0.35,
+       1.2
+      ],
+      [
+       0.32,
+       1.3
+      ],
+      [
+       0,
+       1.3
+      ]
+     ],
+     "material": {
+      "color": "#b8b0a2",
+      "roughness": 0.8
+     }
+    },
+    {
+     "id": "fontaene",
+     "type": "particles",
+     "preset": "fountain",
+     "position": [
+      0,
+      1.3,
+      0
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "blume",
+  "description": "Blume 0,55 m (rosa Blüte, gelbe Mitte). Mit material_override andere Blütenfarbe.",
+  "object": {
+   "id": "blume",
+   "type": "group",
+   "children": [
+    {
+     "id": "stiel",
+     "type": "tube",
+     "path": [
+      [
+       0,
+       0,
+       0
+      ],
+      [
+       0.03,
+       0.25,
+       0
+      ],
+      [
+       0,
+       0.5,
+       0
+      ]
+     ],
+     "radius": 0.012,
+     "material": {
+      "color": "#3e8e41"
+     }
+    },
+    {
+     "id": "mitte",
+     "type": "sphere",
+     "radius": 0.035,
+     "position": [
+      0,
+      0.53,
+      0
+     ],
+     "material": {
+      "color": "#ffd23f",
+      "roughness": 0.7
+     }
+    },
+    {
+     "id": "blatt_0",
+     "type": "sphere",
+     "radius": 0.045,
+     "position": [
+      0.06,
+      0.52,
+      0.0
+     ],
+     "material": {
+      "color": "#ff6fae",
+      "roughness": 0.7
+     },
+     "scale": [
+      1,
+      0.5,
+      1
+     ]
+    },
+    {
+     "id": "blatt_1",
+     "type": "sphere",
+     "radius": 0.045,
+     "position": [
+      0.030010264475824205,
+      0.52,
+      0.051955596677269365
+     ],
+     "material": {
+      "color": "#ff6fae",
+      "roughness": 0.7
+     },
+     "scale": [
+      1,
+      0.5,
+      1
+     ]
+    },
+    {
+     "id": "blatt_2",
+     "type": "sphere",
+     "radius": 0.045,
+     "position": [
+      -0.02997946753636945,
+      0.52,
+      0.051973373242803565
+     ],
+     "material": {
+      "color": "#ff6fae",
+      "roughness": 0.7
+     },
+     "scale": [
+      1,
+      0.5,
+      1
+     ]
+    },
+    {
+     "id": "blatt_3",
+     "type": "sphere",
+     "radius": 0.045,
+     "position": [
+      -0.05999998946285198,
+      0.52,
+      3.555921330596723e-05
+     ],
+     "material": {
+      "color": "#ff6fae",
+      "roughness": 0.7
+     },
+     "scale": [
+      1,
+      0.5,
+      1
+     ]
+    },
+    {
+     "id": "blatt_4",
+     "type": "sphere",
+     "radius": 0.045,
+     "position": [
+      -0.030041050874525667,
+      0.52,
+      -0.05193780186294141
+     ],
+     "material": {
+      "color": "#ff6fae",
+      "roughness": 0.7
+     },
+     "scale": [
+      1,
+      0.5,
+      1
+     ]
+    },
+    {
+     "id": "blatt_5",
+     "type": "sphere",
+     "radius": 0.045,
+     "position": [
+      0.029948660066978456,
+      0.52,
+      -0.05199113155330022
+     ],
+     "material": {
+      "color": "#ff6fae",
+      "roughness": 0.7
+     },
+     "scale": [
+      1,
+      0.5,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "busch",
+  "description": "Runder Busch ca. 1,6 m breit.",
+  "object": {
+   "id": "busch",
+   "type": "group",
+   "children": [
+    {
+     "id": "teil_0",
+     "type": "sphere",
+     "radius": 0.6,
+     "position": [
+      0,
+      0.55,
+      0
+     ],
+     "material": {
+      "color": "#3f8f3a",
+      "roughness": 0.9
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.09,
+       "scale": 4.166666666666667,
+       "seed": 3
+      }
+     ]
+    },
+    {
+     "id": "teil_1",
+     "type": "sphere",
+     "radius": 0.45,
+     "position": [
+      -0.5,
+      0.4,
+      0.1
+     ],
+     "material": {
+      "color": "#4ca444",
+      "roughness": 0.9
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.0675,
+       "scale": 5.555555555555555,
+       "seed": 4
+      }
+     ]
+    },
+    {
+     "id": "teil_2",
+     "type": "sphere",
+     "radius": 0.45,
+     "position": [
+      0.5,
+      0.42,
+      -0.1
+     ],
+     "material": {
+      "color": "#378232",
+      "roughness": 0.9
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.0675,
+       "scale": 5.555555555555555,
+       "seed": 5
+      }
+     ]
+    },
+    {
+     "id": "teil_3",
+     "type": "sphere",
+     "radius": 0.4,
+     "position": [
+      0.1,
+      0.38,
+      0.45
+     ],
+     "material": {
+      "color": "#4ca444",
+      "roughness": 0.9
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.06,
+       "scale": 6.25,
+       "seed": 6
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "felsen",
+  "description": "Felsbrocken ca. 1,4 m mit kleinem Stein daneben (Low-Poly).",
+  "object": {
+   "id": "felsen",
+   "type": "group",
+   "children": [
+    {
+     "id": "gross",
+     "type": "sphere",
+     "radius": 0.7,
+     "position": [
+      0,
+      0.5,
+      0
+     ],
+     "material": {
+      "color": "#8d8a85",
+      "roughness": 0.7,
+      "flat": true
+     },
+     "subdivide": 2,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.22,
+       "scale": 1.6,
+       "octaves": 4,
+       "seed": 2
+      }
+     ],
+     "scale": [
+      1.2,
+      0.8,
+      1
+     ]
+    },
+    {
+     "id": "klein",
+     "type": "sphere",
+     "radius": 0.3,
+     "position": [
+      0.95,
+      0.2,
+      0.3
+     ],
+     "material": {
+      "color": "#97938d",
+      "roughness": 0.7,
+      "flat": true
+     },
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.1,
+       "scale": 3,
+       "seed": 5
+      }
+     ]
+    }
+   ]
+  }
+ }
+]

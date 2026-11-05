@@ -58,6 +58,9 @@ fn main() -> AppExit {
     }
 
     crash::install();
+    if args.screenshot.is_none() {
+        library::install_starter_library();
+    }
     let source = match source::SceneSource::open(args.scene.clone()) {
         Ok(s) => s,
         // Einmaliger Screenshot: Fehler melden und beenden.

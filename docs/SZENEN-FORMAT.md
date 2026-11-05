@@ -385,6 +385,14 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
 7. **Farbkorrektur zum Schluss:** `grade` mit `saturation` 1.1–1.2 und `vignette` 0.3.
 8. **Prüfen:** `contact_sheet` über die ganze Szene, Nahaufnahmen per `screenshot` mit `position`.
 
+## Mitgelieferte Bibliothek
+
+Sofort einsetzbar mit `{"id": "haus_1", "type": "instance", "asset": "haus", "position": [x, 0, z]}`
+(Ursprung unten in der Mitte, Vorderseite +Z): `haus`, `auto`, `laterne` (mit Licht), `bank`, `zaun`
+(4 m, mit `repeat` verlängern), `tisch`, `stuhl`, `wolke`, `brunnen` (sprudelt), `blume`, `busch`,
+`felsen`. `list_assets` zeigt alle mit Beschreibung; `get_asset` liefert den Bauplan zum Abwandeln
+(z. B. andere Farbe → mit neuem Namen per `save_asset` speichern).
+
 ## Detaillierte Objekte bauen – Tipps
 
 - **Aus Teilen zusammensetzen:** Ein Objekt ist meist eine `group` aus vielen Teilen

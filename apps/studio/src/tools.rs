@@ -84,6 +84,7 @@ Arbeitsweise:
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
 8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
+Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
 Cartoon-Figuren leben lassen: Mund mit animate.talk (Lippen-Sync zur Stimme aus generate_voice), Augen mit animate.blink, Körper mit animate.breathe.

@@ -142,6 +142,9 @@
 - **Figuren in der Oberfläche:** Aktionen lesbar (rechts) und als Balken in der Zeitleiste.
 - Hinweis Entwicklung: `target/debug/deps/cineforge-*` (je ~2 GB) sammeln sich an – alte löschen,
   wenn der Platz knapp wird (siehe CLAUDE.md).
+- **Mitgelieferte Bibliothek:** 12 Cartoon-Objekte (`apps/studio/assets/bibliothek.json`, erzeugt
+  mit `tools/make_starter_library.py`), beim Start in `Dokumente/CineForge/Bibliothek/`
+  installiert (nur fehlende Dateien), Test prüft alle Objekte.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in
