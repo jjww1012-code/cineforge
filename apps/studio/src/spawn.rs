@@ -575,9 +575,8 @@ impl Builder<'_, '_, '_> {
                 let mesh = self.meshes.add(to_bevy_mesh(data));
                 let mut m = material.clone();
                 m.color = spec.color;
-                m.roughness = m.roughness.min(0.04);
-                m.metallic = m.metallic.max(0.15); // spiegelt den Himmel stärker
-                m.clearcoat = m.clearcoat.max(1.0);
+                m.roughness = m.roughness.min(0.12);
+                m.clearcoat = m.clearcoat.max(0.4);
                 let mat = self.material(&m);
                 self.commands.entity(entity).insert((
                     Mesh3d(mesh.clone()),

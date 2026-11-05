@@ -84,6 +84,7 @@ Arbeitsweise:
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
 8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
+Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
@@ -406,10 +407,10 @@ pub fn definitions() -> Value {
         },
         {
             "name": "new_scene",
-            "description": "Legt eine neue Szenen-Datei im aktuellen Projekt an und öffnet sie. Optional direkt mit Inhalt (scene).",
+            "description": "Legt eine neue Szenen-Datei im aktuellen Projekt an und öffnet sie. Optional direkt mit Inhalt (scene) oder mit einer fertig ausgeleuchteten Vorlage (template): wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d. Vorlagen sind der schnellste Weg zu schönen Szenen – danach Figuren und Handlung ergänzen.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"name": {"type": "string"}, "scene": obj},
+                "properties": {"name": {"type": "string"}, "scene": obj, "template": {"type": "string"}},
                 "required": ["name"]
             }
         }
@@ -1468,7 +1469,20 @@ fn new_scene(a: &Value, cx: &mut Ctx) -> ToolOutput {
     if path.exists() {
         return ToolOutput::error(format!("{} existiert schon – open_scene benutzen oder anderen Namen wählen", path.display()));
     }
-    let scene = match a.get("scene") {
+    let template = a.get("template").and_then(Value::as_str);
+    let scene_value = match (a.get("scene"), template) {
+        (Some(v), _) => Some(v.clone()),
+        (None, Some(t)) => match cf_scene::templates::template(t) {
+            Some(v) => Some(v),
+            None => {
+                let names: Vec<&str> = cf_scene::templates::TEMPLATES.iter().map(|(n, _)| *n).collect();
+                let hint = cf_scene::diagnose::suggest(t, names.iter().copied()).map(|s| format!(" Meintest du „{s}“?")).unwrap_or_default();
+                return ToolOutput::error(format!("Vorlage „{t}“ gibt es nicht.{hint} Vorhanden: {}", names.join(", ")));
+            }
+        },
+        (None, None) => None,
+    };
+    let scene = match scene_value.as_ref() {
         Some(v) => match serde_json::from_value::<Scene>(v.clone()) {
             Ok(s) if s.validate().is_empty() => s,
             Ok(s) => return ToolOutput::error(format!("Szene ist ungültig:\n- {}", s.validate().join("\n- "))),

@@ -283,6 +283,9 @@ pub struct CameraSpec {
     /// Um ein Objekt oder einen Punkt kreisen.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub orbit: Option<crate::motion::Orbit>,
+    /// Einstellungsgröße auf ein Objekt (Totale, Halbnah, Nah, Großaufnahme …).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frame: Option<crate::motion::Frame>,
 }
 
 fn is_zero3(v: &[f32; 3]) -> bool {
@@ -359,6 +362,7 @@ impl Default for CameraSpec {
             target_offset: [0.0; 3],
             follow: None,
             orbit: None,
+            frame: None,
         }
     }
 }
@@ -1026,7 +1030,8 @@ impl Scene {
             .target
             .iter()
             .chain(self.camera.follow.as_ref().map(|f| &f.target))
-            .chain(self.camera.orbit.as_ref().and_then(|o| o.target.as_ref()));
+            .chain(self.camera.orbit.as_ref().and_then(|o| o.target.as_ref()))
+            .chain(self.camera.frame.as_ref().map(|f| &f.target));
         for id in cam_ids {
             if crate::ops::find(self, id).is_none() {
                 problems.push(format!("camera: Objekt „{id}“ gibt es nicht"));

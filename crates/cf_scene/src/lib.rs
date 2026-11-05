@@ -20,6 +20,7 @@ pub mod motion;
 pub mod nature;
 pub mod shaping;
 pub mod svg;
+pub mod templates;
 pub mod textures;
 pub mod procedural;
 

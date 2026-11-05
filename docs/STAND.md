@@ -145,6 +145,10 @@
 - **Mitgelieferte Bibliothek:** 12 Cartoon-Objekte (`apps/studio/assets/bibliothek.json`, erzeugt
   mit `tools/make_starter_library.py`), beim Start in `Dokumente/CineForge/Bibliothek/`
   installiert (nur fehlende Dateien), Test prüft alle Objekte.
+- **Szenen-Vorlagen (`cf_scene::templates`):** 9 Vorlagen für `new_scene` (`template`), alle
+  gerendert und geprüft; Test validiert sie.
+- **Einstellungsgrößen (`camera.frame`):** wide/full/medium/close/extreme_close, Winkel relativ zur
+  Blickrichtung der Figur, Neigung; Abstand aus Bildwinkel und Figurenhöhe.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

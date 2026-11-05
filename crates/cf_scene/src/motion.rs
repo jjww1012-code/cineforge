@@ -257,6 +257,80 @@ pub struct Orbit {
     pub start_angle: f32,
 }
 
+/// Einstellungsgröße wie im Film.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ShotSize {
+    /// Totale: Figur klein in der Umgebung.
+    Wide,
+    /// Halbtotale: ganze Figur.
+    Full,
+    /// Halbnah: Hüfte aufwärts.
+    #[default]
+    Medium,
+    /// Nah: Brust aufwärts.
+    Close,
+    /// Großaufnahme: Gesicht.
+    ExtremeClose,
+}
+
+fn d_frame_height() -> f32 {
+    6.0
+}
+
+/// Kamera automatisch auf ein Objekt einstellen (statt Position auszurechnen).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Frame {
+    /// id des Objekts (meist eine Figur).
+    pub target: String,
+    #[serde(default)]
+    pub shot: ShotSize,
+    /// Blickwinkel um das Objekt in Grad: 0 = von vorne (+Z), 90 = von rechts, −30 = schräg links.
+    #[serde(default)]
+    pub angle: f32,
+    /// Kamerahöhe als Winkel: 0 = Augenhöhe, 20 = leicht von oben, −15 = von unten (heldenhaft).
+    #[serde(default)]
+    pub tilt: f32,
+    /// Höhe des Objekts in Metern (bei Figuren automatisch).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<f32>,
+}
+
+fn find_obj<'a>(objs: &'a [Object], id: &str) -> Option<&'a Object> {
+    objs.iter().find_map(|o| if o.id == id { Some(o) } else if let Kind::Group { children } = &o.kind { find_obj(children, id) } else { None })
+}
+
+/// Kamera (Position, Blickpunkt) für eine Einstellungsgröße.
+fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32) -> Option<([f32; 3], [f32; 3])> {
+    let p = world_position(scene, &f.target, t)?;
+    let obj = find_obj(&scene.objects, &f.target)?;
+    let h = f.height.unwrap_or(match &obj.kind {
+        Kind::Character(c) => c.height * obj.scale.to_array()[1],
+        _ => d_frame_height().min(2.0) * obj.scale.to_array()[1],
+    });
+    // (sichtbare Bildhöhe, Blickpunkt-Höhe) relativ zur Objekthöhe
+    let (view, look_y) = match f.shot {
+        ShotSize::Wide => (h * 4.0, h * 0.5),
+        ShotSize::Full => (h * 1.35, h * 0.5),
+        ShotSize::Medium => (h * 0.75, h * 0.72),
+        ShotSize::Close => (h * 0.42, h * 0.85),
+        ShotSize::ExtremeClose => (h * 0.24, h * 0.88),
+    };
+    let dist = (view / 2.0) / (fov.to_radians() / 2.0).tan().max(0.05);
+    // Blickrichtung des Objekts (Gier) berücksichtigen: „von vorne“ heißt vor seinem Gesicht.
+    let (_, rot, _) = local_state(obj, t);
+    let yaw = (rot[1] + f.angle).to_radians();
+    let tilt = f.tilt.to_radians();
+    let look = [p[0], p[1] + look_y, p[2]];
+    let pos = [
+        look[0] + dist * tilt.cos() * yaw.sin(),
+        look[1] + dist * tilt.sin(),
+        look[2] + dist * tilt.cos() * yaw.cos(),
+    ];
+    Some((pos, look))
+}
+
 /// Mittelwert der Objekt-Position im Zeitfenster [t − smooth, t] (deterministisches Nachziehen).
 fn smoothed_position(scene: &Scene, id: &str, t: f32, smooth: f32) -> Option<[f32; 3]> {
     if smooth <= 0.0 {
@@ -302,6 +376,12 @@ pub fn camera_shot(scene: &Scene, t: f32) -> ([f32; 3], [f32; 3], f32) {
             look = add(p, offset);
         }
     }
+    if let Some(f) = &cam.frame {
+        if let Some((p, l)) = framed(scene, f, fov, t) {
+            pos = p;
+            look = l;
+        }
+    }
     (pos, look, fov)
 }
 
@@ -335,6 +415,18 @@ mod tests {
         assert!((p2[0] - 14.0).abs() < 1e-3, "{p2:?}");
         let (pos, look, _) = camera_shot(&s, 2.0);
         assert!((pos[0] - 14.0).abs() < 1e-3 && (pos[2] - 5.0).abs() < 1e-3 && (look[1] - 1.0).abs() < 1e-3, "{pos:?} {look:?}");
+    }
+
+    #[test]
+    fn frame_close_up_is_near_the_face() {
+        let s = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character", "height": 1.2, "position": [2, 0, 0]}],
+            "camera": {"fov": 40, "frame": {"target": "max", "shot": "close"}}}"#).unwrap();
+        let (pos, look, _) = camera_shot(&s, 0.0);
+        assert!((look[1] - 1.02).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
+        assert!(pos[2] > 0.3 && pos[2] < 1.2 && (pos[0] - 2.0).abs() < 1e-3, "nah vor dem Gesicht: {pos:?}");
+        let wide = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character"}], "camera": {"frame": {"target": "max", "shot": "wide", "angle": 90}}}"#).unwrap();
+        let (p2, _, _) = camera_shot(&wide, 0.0);
+        assert!(p2[0] > 3.0, "von rechts und weit weg: {p2:?}");
     }
 
     #[test]

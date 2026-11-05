@@ -7,6 +7,12 @@ optional und hat sinnvolle Standardwerte. **Einheiten:** Meter, Grad, Sekunden.
 Die App lädt die Datei bei jeder Änderung automatisch neu. Ist die neue Fassung
 fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 
+## Schnellstart mit Vorlagen
+
+`new_scene` mit `"template"` legt eine fertig ausgeleuchtete Umgebung an: `wiese`, `dorf`, `wald`,
+`strand`, `nacht`, `studio`, `weltraum`, `zimmer`, `cartoon_2d`. Danach nur noch Figuren
+(`type: "character"`), Handlung (`actions`, `path`) und Kamera (`frame`, `follow`) ergänzen.
+
 ## Grundgerüst
 
 ```json
@@ -58,6 +64,7 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `target` | – | **Immer auf dieses Objekt schauen** (id) – ersetzt `look_at`, folgt dem Objekt auch wenn es sich bewegt |
 | `target_offset` | [0,0,0] | Blickpunkt relativ zum Objekt, z. B. `[0, 1, 0]` = Kopfhöhe einer 1,2-m-Figur |
 | `follow` | – | **Kamera folgt einem Objekt**: `{"target": "max", "offset": [2, 1.5, 4], "smooth": 0.5}` – Position = Objekt + `offset` (Welt), weich nachgezogen (`smooth` in s); der Blick bleibt auf dem Objekt |
+| `frame` | – | **Einstellungsgröße wie im Film**: `{"target": "max", "shot": "close", "angle": -30, "tilt": 10}` – `shot`: `wide` (Totale), `full` (ganze Figur), `medium` (halbnah), `close` (nah), `extreme_close` (Großaufnahme); `angle` = Blickwinkel um die Figur (0 = von vorne, berücksichtigt ihre Drehung), `tilt` = von oben (+) / unten (−). Rechnet die Kamera automatisch aus, auch wenn die Figur läuft |
 | `orbit` | – | **Kamera kreist**: `{"target": "auto", "radius": 6, "height": 2, "speed": 20, "start_angle": 0}` (oder `center` statt `target`) – 360°-Fahrt um ein Objekt |
 
 ## Gemeinsame Felder aller Objekte
