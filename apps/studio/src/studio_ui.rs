@@ -189,6 +189,19 @@ enum Action {
     ExportFilm,
     CancelExport,
     OpenExportFolder,
+    /// Ausgewähltes Objekt bearbeiten (läuft als Werkzeug-Aufruf „mensch“, rückgängig machbar).
+    Edit(Edit),
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Edit {
+    Move([f32; 3]),
+    Turn(f32),
+    Grow(f32),
+    Duplicate,
+    ToggleHidden,
+    Delete,
+    Undo,
 }
 
 /// Hintergrundfarbe je nach Zustand (normal / Maus darüber).
@@ -749,6 +762,37 @@ fn clicks(
                     c.send("cancel_export", serde_json::json!({}));
                 }
             }
+            Action::Edit(edit) => {
+                let Some(c) = &ui_cmd else { continue };
+                if let Edit::Undo = edit {
+                    c.send("undo", serde_json::json!({}));
+                    continue;
+                }
+                let Some(id) = sel.id.clone() else { continue };
+                let Some(o) = find_object(&src.scene.objects, &id) else { continue };
+                let r2 = |v: f32| (v * 1000.0).round() / 1000.0;
+                match edit {
+                    Edit::Move(d) => {
+                        let p = [r2(o.position[0] + d[0]), r2(o.position[1] + d[1]), r2(o.position[2] + d[2])];
+                        c.send("update_object", serde_json::json!({"id": id, "changes": {"position": p}}));
+                    }
+                    Edit::Turn(deg) => {
+                        let y = ((o.rotation[1] + deg + 540.0) % 360.0) - 180.0;
+                        c.send("update_object", serde_json::json!({"id": id, "changes": {"rotation": [o.rotation[0], r2(y), o.rotation[2]]}}));
+                    }
+                    Edit::Grow(f) => {
+                        let s = o.scale.to_array().map(|v| r2(v * f));
+                        c.send("update_object", serde_json::json!({"id": id, "changes": {"scale": s}}));
+                    }
+                    Edit::Duplicate => c.send("duplicate_object", serde_json::json!({"id": id, "offset": [1.0, 0.0, 0.0]})),
+                    Edit::ToggleHidden => c.send("update_object", serde_json::json!({"id": id, "changes": {"hidden": !o.hidden}})),
+                    Edit::Delete => {
+                        c.send("remove_objects", serde_json::json!({"ids": [id]}));
+                        sel.id = None;
+                    }
+                    Edit::Undo => {}
+                }
+            }
             Action::OpenExportFolder => {
                 if let Ok(dir) = project.export_dir() {
                     let _ = std::fs::create_dir_all(&dir);
@@ -1266,11 +1310,51 @@ fn rebuild_props(
     });
 }
 
+/// Knopfleiste zum direkten Bearbeiten des ausgewählten Objekts.
+fn edit_bar(p: &mut ChildSpawnerCommands, f: &UiFonts, hidden: bool) {
+    let rows: [&[(Edit, &str)]; 3] = [
+        &[
+            (Edit::Move([-0.25, 0.0, 0.0]), "←"),
+            (Edit::Move([0.25, 0.0, 0.0]), "→"),
+            (Edit::Move([0.0, 0.0, -0.25]), "nach hinten"),
+            (Edit::Move([0.0, 0.0, 0.25]), "nach vorn"),
+            (Edit::Move([0.0, 0.25, 0.0]), "↑"),
+            (Edit::Move([0.0, -0.25, 0.0]), "↓"),
+        ],
+        &[(Edit::Turn(-15.0), "↺ 15°"), (Edit::Turn(15.0), "↻ 15°"), (Edit::Grow(1.1), "größer"), (Edit::Grow(1.0 / 1.1), "kleiner")],
+        &[(Edit::Duplicate, "Duplizieren"), (Edit::ToggleHidden, if hidden { "Zeigen" } else { "Verstecken" }), (Edit::Delete, "Löschen"), (Edit::Undo, "Rückgängig")],
+    ];
+    p.spawn(Node { flex_direction: FlexDirection::Column, row_gap: px(4), padding: UiRect::vertical(px(4)), flex_shrink: 0.0, ..default() }).with_children(|col| {
+        for row in rows {
+            col.spawn(Node { flex_direction: FlexDirection::Row, column_gap: px(4), flex_wrap: FlexWrap::Wrap, ..default() }).with_children(|r| {
+                for (edit, label) in row {
+                    let bg = if matches!(edit, Edit::Delete) { RED.with_alpha(0.22) } else { PANEL_2 };
+                    r.spawn(button(
+                        Action::Edit(*edit),
+                        bg,
+                        Node {
+                            padding: UiRect::axes(px(8), px(4)),
+                            border_radius: BorderRadius::all(px(5)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                    ))
+                    .with_children(|b| {
+                        b.spawn(txt(f, *label, 12.0, TEXT, false));
+                    });
+                }
+            });
+        }
+    });
+}
+
 fn object_props(p: &mut ChildSpawnerCommands, f: &UiFonts, o: &Object) {
     p.spawn(Node { flex_direction: FlexDirection::Column, padding: UiRect::bottom(px(4)), flex_shrink: 0.0, ..default() }).with_children(|h| {
         h.spawn(txt(f, o.id.clone(), 16.0, TEXT, true));
         h.spawn(txt(f, format!("{} · {}", kind_name(&o.kind), cf_scene::ops::kind_label(&o.kind)), 12.0, kind_color(&o.kind), false));
     });
+    edit_bar(p, f, o.hidden);
     if let Some(n) = &o.name {
         prop_row(p, f, "Name", n.clone(), None);
     }
@@ -2116,7 +2200,7 @@ fn update_error(
 mod tests {
     #[test]
     fn ui_symbols_exist_in_font() {
-        for ch in "◀▶◆●○✓⚠♪□·›…„“–".chars() {
+        for ch in "◀▶◆●○✓⚠♪□·›…„“–←→↑↓↺↻°äöüß".chars() {
             assert!(cf_scene::modeling::font_has_char(crate::spawn::FONT, ch), "Zeichen fehlt in Inter: {ch}");
         }
     }

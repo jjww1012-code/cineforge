@@ -214,13 +214,18 @@
   `underwater` (deterministischer Zufall je Variante); `foley` erkennt die Umgebung (Bäume + Tag,
   Nacht, Wasser, Brunnen/Fontäne, Autos/Häuser, Fische + Nebel ohne Wasser) und mischt sie
   (`ambience`, `ambience_volume`). Getestet an allen Vorlagen (Pegel −20…−35 dB RMS).
+- **Bearbeiten per Klick:** Eigenschaften-Bereich hat für das ausgewählte Objekt Knöpfe ← → nach
+  hinten/vorn ↑ ↓ (0,25 m), ↺/↻ 15°, größer/kleiner (×1,1), Duplizieren, Verstecken/Zeigen, Löschen,
+  Rückgängig – laufen als Werkzeug-Aufrufe „mensch“ (Logbuch, rückgängig machbar). Mit echten Klicks
+  getestet (Xvfb + xdotool).
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.
-2. Oberfläche ausbauen: Werte direkt im Eigenschaften-Bereich ändern, Shots per Ziehen umsortieren.
+2. Oberfläche ausbauen: Farben per Palette ändern, Shots per Ziehen umsortieren, Objekte in der
+   Vorschau ziehen.
 3. Weitere Regie-Hilfen (z. B. Musik passend zur Stimmung je Shot, Kamerafahrten-Vorlagen).
 
 ## Offene Punkte / Wissenswertes
