@@ -92,6 +92,24 @@ Aufgebaut wie ein Schnittprogramm (ähnlich CapCut):
 
 ## Ausprobieren
 
+### Mac: selbst bauen (kostenlos, immer die neueste Version)
+
+1. Auf GitHub im Projekt oben auf den grünen Knopf **Code → Download ZIP** klicken.
+2. Die ZIP-Datei im Ordner *Downloads* doppelklicken (es entsteht der Ordner `cineforge-main`).
+3. Das Programm **Terminal** öffnen (Spotlight: ⌘ + Leertaste, „Terminal“ tippen) und diese Zeile
+   hineinkopieren, dann Enter:
+
+   ```bash
+   cd ~/Downloads/cineforge-main && bash packaging/macos/selbst-bauen.sh
+   ```
+
+   Beim allerersten Mal fragt Apple nach den „Entwickler-Werkzeugen“ → *Installieren*, danach die
+   Zeile noch einmal ausführen. Der erste Bau dauert 10–20 Minuten, dann startet CineForge von selbst
+   aus dem Programme-Ordner – ohne „Trotzdem öffnen“. **Update:** alten Ordner `cineforge-main` in den
+   Papierkorb, neue ZIP laden und entpacken, Zeile erneut ausführen (dauert dann nur noch wenige Minuten).
+
+### Fertige Version von GitHub
+
 1. Auf GitHub unter **Actions → Build → letzter Lauf** ganz unten unter *Artifacts*
    `CineForge-macOS` oder `CineForge-Windows` herunterladen und entpacken.
 2. **Mac:** `CineForge.app` in den Programme-Ordner ziehen und doppelklicken.

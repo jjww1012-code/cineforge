@@ -269,6 +269,11 @@
 
 ## Offene Punkte / Wissenswertes
 
+- **Mac-App selbst bauen (kostenlos):** `packaging/macos/selbst-bauen.sh` – prüft Xcode-Werkzeuge,
+  installiert Rust, baut (Zwischenspeicher `~/Library/Caches/CineForge-Bau`, Updates inkrementell),
+  packt ffmpeg dazu, installiert nach /Applications (ohne Quarantäne) und startet. Anleitung in README.
+  Der Nutzer will kein Geld für GitHub ausgeben → CI läuft nur noch auf Knopfdruck/Tags.
+
 - **Sporadischer Absturz im Test (lavapipe):** Zweimal starb die von der Brücke gestartete App beim
   zweiten Licht-Wechsel + Screenshot (kein Rust-Panic, kein absturz.txt → vermutlich Treiber). Mit
   `CINEFORGE_APP_LOG` bzw. selbst gestarteter App nicht reproduzierbar. Auf echter GPU beobachten.

@@ -1,12 +1,11 @@
 name: Build
 
+# Builds kosten GitHub-Minuten (Mac zählt 10-fach). Deshalb nur auf Knopfdruck
+# (Actions → Build → „Run workflow“) oder für Versionen (Tags v…), nicht bei jeder Änderung.
+# Kostenlos und immer aktuell: packaging/macos/selbst-bauen.sh auf dem eigenen Mac.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-    # Reine Doku-Änderungen brauchen keinen (teuren) Mac-/Windows-Build
-    paths-ignore: ["docs/**", "**.md", "tools/**"]
-  pull_request:
   workflow_dispatch:
 
 # Mehrere Änderungen kurz hintereinander: nur der neueste Stand wird gebaut (spart Actions-Minuten)
