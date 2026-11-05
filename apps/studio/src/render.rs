@@ -57,7 +57,8 @@ pub struct ViewSpec {
 
 pub enum JobRequest {
     Still { reply: Sender<ToolOutput>, time: Option<f32>, view: ViewSpec, width: u32, height: u32 },
-    Sheet { reply: Sender<ToolOutput>, times: Vec<f32>, width: u32, height: u32, columns: u32 },
+    /// Kontaktabzug: je Bild eine Zeit und optional eine andere Szene (Film-Übersicht) und Beschriftung.
+    Sheet { reply: Sender<ToolOutput>, times: Vec<f32>, scenes: Vec<Option<PathBuf>>, labels: Vec<String>, width: u32, height: u32, columns: u32 },
     Export { output: PathBuf, width: u32, height: u32, fps: u32, segments: Vec<Segment>, quality: Quality },
 }
 
@@ -146,7 +147,17 @@ impl RenderQueue {
 
 enum Stage {
     Still { reply: Sender<ToolOutput>, time: Option<f32>, fixed: Option<(Transform, Option<f32>)>, done: Arc<Mutex<bool>> },
-    Sheet { reply: Sender<ToolOutput>, times: Vec<f32>, next: usize, columns: u32, results: Arc<Mutex<Vec<Option<Image>>>> },
+    Sheet {
+        reply: Sender<ToolOutput>,
+        times: Vec<f32>,
+        scenes: Vec<Option<PathBuf>>,
+        labels: Vec<String>,
+        next: usize,
+        switched: bool,
+        restore: PathBuf,
+        columns: u32,
+        results: Arc<Mutex<Vec<Option<Image>>>>,
+    },
     Export {
         frames: u32,
         next: u32,
@@ -246,9 +257,19 @@ fn drive_jobs(
                 };
                 Stage::Still { reply, time, fixed, done: Arc::new(Mutex::new(false)) }
             }
-            JobRequest::Sheet { reply, times, columns, .. } => {
+            JobRequest::Sheet { reply, times, scenes, labels, columns, .. } => {
                 let n = times.len();
-                Stage::Sheet { reply, times, next: 0, columns, results: Arc::new(Mutex::new(vec![None; n])) }
+                Stage::Sheet {
+                    reply,
+                    times,
+                    scenes,
+                    labels,
+                    next: 0,
+                    switched: false,
+                    restore: src.path.clone(),
+                    columns,
+                    results: Arc::new(Mutex::new(vec![None; n])),
+                }
             }
             JobRequest::Export { output, width, height, fps, segments, quality } => {
                 let seg_frames: Vec<u32> = segments.iter().map(|s| ((s.duration * fps as f32).round() as u32).max(1)).collect();
@@ -348,8 +369,24 @@ fn drive_jobs(
                 finished = true;
             }
         }
-        Stage::Sheet { reply, times, next, columns, results } => {
-            if *next < times.len() {
+        Stage::Sheet { reply, times, scenes, labels, next, switched, restore, columns, results } => {
+            // Film-Übersicht: vor dem Bild die passende Szene öffnen
+            if *next < times.len() && !*switched {
+                *switched = true;
+                if let Some(Some(path)) = scenes.get(*next) {
+                    if *path != src.path {
+                        match src.open_file(path.clone(), &mut out) {
+                            Ok(()) => job.warmup = warmup_frames() + 6,
+                            Err(e) => {
+                                let _ = reply.send(ToolOutput::error(format!("Szene {} konnte nicht geladen werden: {e}", path.display())));
+                                finished = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if finished {
+            } else if *next < times.len() {
                 let t = times[*next];
                 ph.time = t;
                 let (tf, fov) = scene_camera_at(&src.scene, t);
@@ -365,15 +402,25 @@ fn drive_jobs(
                         }
                     });
                     *next += 1;
+                    *switched = false;
                     job.warmup = 1;
                 }
             } else {
                 let all = results.lock().map(|r| r.iter().all(Option::is_some)).unwrap_or(false);
                 if all {
                     let imgs: Vec<Image> = results.lock().expect("Ergebnisse").iter().flatten().cloned().collect();
-                    let _ = reply.send(compose_sheet(&imgs, times, *columns));
+                    let labels = if labels.len() == times.len() {
+                        labels.clone()
+                    } else {
+                        times.iter().enumerate().map(|(i, t)| format!("{}: {}", i + 1, crate::timeline::format_time(*t))).collect()
+                    };
+                    let _ = reply.send(compose_sheet(&imgs, &labels, *columns));
                     finished = true;
                 }
+            }
+            if finished && *restore != src.path {
+                let r = restore.clone();
+                let _ = src.open_file(r, &mut out);
             }
         }
         Stage::Export { frames, next, fps, segments, seg_frames, seg, seg_frame, switched, restore, tx, captured, last_progress, last_count } => {
@@ -499,7 +546,7 @@ pub fn encode_jpeg(img: &Image) -> Result<(String, u32, u32), String> {
 }
 
 /// Setzt mehrere Bilder zu einem Raster zusammen (Lesereihenfolge: Zeile für Zeile).
-fn compose_sheet(imgs: &[Image], times: &[f32], columns: u32) -> ToolOutput {
+fn compose_sheet(imgs: &[Image], labels: &[String], columns: u32) -> ToolOutput {
     let frames: Vec<image::RgbImage> =
         imgs.iter().filter_map(|i| i.clone().try_into_dynamic().ok()).map(|d| d.to_rgb8()).collect();
     let Some(first) = frames.first() else { return ToolOutput::error("Keine Bilder erhalten") };
@@ -516,7 +563,6 @@ fn compose_sheet(imgs: &[Image], times: &[f32], columns: u32) -> ToolOutput {
     if let Err(e) = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 85).encode_image(&sheet) {
         return ToolOutput::error(e.to_string());
     }
-    let labels: Vec<String> = times.iter().enumerate().map(|(i, t)| format!("{}: {}", i + 1, crate::timeline::format_time(*t))).collect();
     ToolOutput {
         content: vec![
             Content::Image { base64: base64::engine::general_purpose::STANDARD.encode(bytes), mime: "image/jpeg" },

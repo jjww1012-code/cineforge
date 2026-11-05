@@ -213,11 +213,13 @@ fn handle_one(msg: &Value, tx: &Sender<ToolCall>) -> Option<Value> {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("").to_string();
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
             let (reply_tx, reply_rx) = mpsc::channel();
+            // Film-Übersicht öffnet nacheinander alle Szenen: braucht mehr Zeit
+            let wait = if name == "contact_sheet" && args.get("film").and_then(Value::as_bool).unwrap_or(false) { 590 } else { 120 };
             if tx.send(ToolCall { name, args, reply: reply_tx }).is_err() {
                 return Some(rpc_error(id, -32603, "App wird gerade beendet"));
             }
             let output = reply_rx
-                .recv_timeout(Duration::from_secs(120))
+                .recv_timeout(Duration::from_secs(wait))
                 .unwrap_or_else(|_| ToolOutput::error("Zeitüberschreitung: Die App hat nicht rechtzeitig geantwortet (ist das Fenster minimiert?)"));
             rpc_ok(id, output.to_mcp())
         }

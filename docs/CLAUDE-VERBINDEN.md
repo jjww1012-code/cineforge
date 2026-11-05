@@ -95,7 +95,7 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `update_scene_settings` | Himmel, Sonne, Nebel, Kamera, Name |
 | `set_scene` | Komplett neue Szene |
 | `screenshot` | Ergebnis ansehen, auch aus beliebigem Blickwinkel und zu jedem Zeitpunkt |
-| `contact_sheet` | Mehrere Zeitpunkte der Animation als Raster in einem Bild |
+| `contact_sheet` | Mehrere Zeitpunkte der Animation als Raster in einem Bild; `film: true` = je Storyboard-Shot ein Bild (ganzer Film auf einen Blick, `at`, `from`) |
 | `export_video`, `export_status`, `cancel_export` | Video (MP4, bis 4K) rendern |
 | `export_film` | Den ganzen Film rendern (auch 1 Stunde+): Shot für Shot mit Cache, Clips, Ton |
 | `check_film` | Film vor dem Export prüfen: Länge, fehlende Dateien, Cache-Stand |

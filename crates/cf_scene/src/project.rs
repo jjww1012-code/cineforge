@@ -293,14 +293,14 @@ impl Project {
                     (None, Some(c)) => format!(" → Clip \"{}\"", c.file),
                     _ => " → (noch keine Szene)".into(),
                 };
+                let len = if sh.duration > 0.0 { format!("{:.1} s", sh.duration) } else { "so lang wie die Szene".into() };
                 s += &format!(
-                    "{} {:>3}. [{}] {} – {} ({:.1} s){}\n      {}\n",
+                    "{} {:>3}. [{}] {} – {} ({len}){}\n      {}\n",
                     sh.status.symbol(),
                     i + 1,
                     format_duration(start),
                     sh.id,
                     sh.title,
-                    sh.duration,
                     source,
                     sh.description
                 );

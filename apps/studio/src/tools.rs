@@ -83,7 +83,8 @@ Arbeitsweise:
 5. Nach jeder sichtbaren Änderung screenshot aufrufen und das Bild kritisch prüfen (Komposition, Licht, Größenverhältnisse, Überschneidungen). Dann verbessern.
 6. Fehler? undo stellt die vorherige Fassung wieder her. Fehlermeldungen nennen die genaue Stelle und meist die Lösung („Meintest du …?“).
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
-8. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
+8. Vor dem Export: contact_sheet mit film: true zeigt alle Shots des Films in EINEM Bild – Anschlüsse, Farben, Figuren und Reihenfolge prüfen.
+9. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
 Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Tiere: type \"animal\" (dog, cat, bunny, bird, fish; actions walk/run/wag/jump/sit/fly/swim).
@@ -208,14 +209,17 @@ pub fn definitions() -> Value {
         },
         {
             "name": "contact_sheet",
-            "description": "Kontaktabzug: mehrere Zeitpunkte der Animation als Raster in EINEM Bild (aus Sicht der Szenen-Kamera). Ideal, um Bewegungen, Kamerafahrten und Timing zu prüfen. Standard: 6 gleichmäßig verteilte Zeitpunkte.",
+            "description": "Kontaktabzug: mehrere Zeitpunkte der Animation als Raster in EINEM Bild (aus Sicht der Szenen-Kamera). Ideal, um Bewegungen, Kamerafahrten und Timing zu prüfen. Standard: 6 gleichmäßig verteilte Zeitpunkte. film: true = Übersicht über den GANZEN Film: je Storyboard-Shot ein Bild (at: 0.5 = Shot-Mitte, oder Liste wie [0.1, 0.9] für Anfang und Ende jedes Shots), from = ab Shot Nr. (je Aufruf max. 24 Bilder). So prüft man Anschlüsse, Farben und Abfolge aller Shots auf einen Blick.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "times": {"type": "array", "items": {"type": "number"}, "description": "Zeitpunkte in Sekunden (max. 24)"},
                     "count": {"type": "integer", "minimum": 2, "maximum": 24},
                     "columns": {"type": "integer", "minimum": 1, "maximum": 6},
-                    "width": {"type": "integer", "description": "Breite eines Einzelbilds (160–960, Standard 480)"}
+                    "width": {"type": "integer", "description": "Breite eines Einzelbilds (160–960, Standard 480)"},
+                    "film": {"type": "boolean", "description": "Übersicht über alle Shots des Storyboards"},
+                    "at": {"description": "bei film: Stelle im Shot (0–1) oder Liste davon (max. 3)"},
+                    "from": {"type": "integer", "description": "bei film: ab Shot Nr. (1 = erster)"}
                 }
             }
         },
@@ -798,6 +802,13 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
             });
             return;
         }
+        "contact_sheet" if a.get("film").and_then(Value::as_bool).unwrap_or(false) => match film_sheet(a, cx) {
+            Ok(job) => {
+                cx.jobs.push(job(call.reply));
+                return;
+            }
+            Err(e) => ToolOutput::error(e),
+        },
         "contact_sheet" => {
             let dur = cx.src.scene.duration;
             let times: Vec<f32> = match a.get("times").and_then(Value::as_array) {
@@ -817,6 +828,8 @@ pub fn execute(call: ToolCall, cx: &mut Ctx) {
                     width: w,
                     height: (w as f32 * 9.0 / 16.0) as u32,
                     times,
+                    scenes: Vec::new(),
+                    labels: Vec::new(),
                 });
                 return;
             }
@@ -1673,6 +1686,69 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         let _ = cx.project.save();
     }
     Ok(scene)
+}
+
+/// Film-Übersicht: je Storyboard-Shot (Szene) ein oder mehrere Bilder in einem Kontaktabzug.
+#[allow(clippy::type_complexity)]
+fn film_sheet(a: &Value, cx: &mut Ctx) -> Result<Box<dyn FnOnce(std::sync::mpsc::Sender<ToolOutput>) -> crate::render::JobRequest>, String> {
+    cx.project.require()?;
+    let dir = cx.project.scenes_dir()?;
+    let fractions: Vec<f32> = match a.get("at") {
+        Some(Value::Array(l)) => l.iter().filter_map(Value::as_f64).map(|f| (f as f32).clamp(0.0, 1.0)).take(3).collect(),
+        Some(v) => v.as_f64().map(|f| vec![(f as f32).clamp(0.0, 1.0)]).unwrap_or_default(),
+        None => vec![0.5],
+    };
+    let fractions = if fractions.is_empty() { vec![0.5] } else { fractions };
+    let from = a.get("from").and_then(Value::as_u64).unwrap_or(1).max(1) as usize;
+    let (mut times, mut scenes, mut labels) = (Vec::new(), Vec::new(), Vec::new());
+    let mut start = 0.0;
+    let mut skipped = 0;
+    for (i, shot) in cx.project.data.storyboard.iter().enumerate() {
+        let shot_start = start;
+        start += shot.duration;
+        if i + 1 < from {
+            continue;
+        }
+        let Some(name) = &shot.scene else {
+            skipped += 1;
+            continue;
+        };
+        let path = dir.join(format!("{name}.json"));
+        let scene = std::fs::read_to_string(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|t| Scene::from_json(&t).map_err(|e| e.to_string()))
+            .map_err(|e| format!("Shot {} „{}“: Szene \"{name}\" nicht ladbar ({e})", i + 1, shot.title))?;
+        // Ohne eingetragene Dauer läuft der Shot so lang wie seine Szene (wie beim Film-Export)
+        let dur = if shot.duration > 0.0 { shot.duration } else { scene.duration };
+        if shot.duration <= 0.0 {
+            start += dur;
+        }
+        for f in &fractions {
+            if times.len() >= 24 {
+                break;
+            }
+            let t = (dur * f).min((dur - 0.05).max(0.0));
+            times.push(t);
+            scenes.push(Some(path.clone()));
+            let title = if shot.title.is_empty() { name.clone() } else { shot.title.clone() };
+            labels.push(format!("{}: Shot {} „{title}“ bei {} (Film {})", times.len(), i + 1, crate::timeline::format_time(t), crate::timeline::format_time(shot_start + t)));
+        }
+    }
+    if times.is_empty() {
+        return Err("Keine Szenen-Shots im Storyboard (oder from zu groß).".into());
+    }
+    if skipped > 0 {
+        labels.push(format!("({skipped} Clip-Shot(s) ohne Szene übersprungen)"));
+        let last = labels.pop().unwrap_or_default();
+        if let Some(l) = labels.last_mut() {
+            l.push_str(&format!(" {last}"));
+        }
+    }
+    let n = times.len() as u32;
+    let columns = a.get("columns").and_then(Value::as_u64).map(|c| c.clamp(1, 6) as u32).unwrap_or(if fractions.len() > 1 { fractions.len() as u32 } else { n.min(4) });
+    let w = a.get("width").and_then(Value::as_u64).unwrap_or(400).clamp(160, 960) as u32;
+    let h = (w as f32 * 9.0 / 16.0) as u32;
+    Ok(Box::new(move |reply| crate::render::JobRequest::Sheet { reply, times, scenes, labels, width: w, height: h, columns }))
 }
 
 /// Geräusche zur Handlung der geöffneten Szene (Schritte, Sprünge, Flügel, Feuer, Regen, Titel-Pops):

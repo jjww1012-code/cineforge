@@ -43,7 +43,7 @@ pub fn run(port: u16) -> std::process::ExitCode {
 
 fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(150)))
+        .timeout_global(Some(Duration::from_secs(620)))
         .build()
         .into()
 }
