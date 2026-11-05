@@ -1,0 +1,359 @@
+{
+ "name": "Vorzeige-Szene: Dorf am Abend",
+ "description": "2D-Figur (Verläufe, weicher Schatten, Blinzeln, Atmen) in einer 3D-Welt mit Cartoon-Umrissen, Tiefenschärfe, Lichtstrahlen und Farbkorrektur.",
+ "duration": 6,
+ "environment": {
+  "sun": {
+   "azimuth": 235,
+   "elevation": 14,
+   "color": "#ffe2c0"
+  },
+  "look": "cartoon",
+  "ao": true,
+  "light_rays": 0.4,
+  "bloom": 0.15,
+  "grade": {
+   "saturation": 1.1,
+   "vignette": 0.35
+  }
+ },
+ "camera": {
+  "position": [
+   -3.5,
+   1.7,
+   9
+  ],
+  "look_at": [
+   0,
+   1.3,
+   1.5
+  ],
+  "fov": 35,
+  "dof": {
+   "focus": "max",
+   "aperture": 2.2
+  },
+  "animate": {
+   "smooth_path": true,
+   "position": [
+    {
+     "t": 0,
+     "v": [
+      -3.5,
+      1.7,
+      9
+     ]
+    },
+    {
+     "t": 6,
+     "v": [
+      2.5,
+      1.5,
+      7.5
+     ],
+     "ease": "in_out"
+    }
+   ]
+  }
+ },
+ "objects": [
+  {
+   "id": "wiese",
+   "type": "terrain",
+   "size": [
+    120,
+    120
+   ],
+   "resolution": 128,
+   "height": 1.2,
+   "style": "hills",
+   "feature_size": 30,
+   "flat_center_radius": 14,
+   "material": {
+    "color": "#79c35b"
+   }
+  },
+  {
+   "id": "haus_1",
+   "type": "rounded_box",
+   "size": [
+    2.4,
+    2.0,
+    2.2
+   ],
+   "radius": 0.15,
+   "position": [
+    -4.5,
+    1.0,
+    -3
+   ],
+   "material": {
+    "color": "#ffe08a",
+    "roughness": 0.7,
+    "outline": {
+     "width": 0.035
+    }
+   }
+  },
+  {
+   "id": "dach_1",
+   "type": "pyramid",
+   "size": [
+    3.0,
+    1.3,
+    2.7
+   ],
+   "position": [
+    -4.5,
+    2.0,
+    -3
+   ],
+   "material": {
+    "color": "#e4572e",
+    "roughness": 0.6,
+    "outline": {
+     "width": 0.035
+    }
+   }
+  },
+  {
+   "id": "haus_2",
+   "type": "rounded_box",
+   "size": [
+    2.4,
+    2.0,
+    2.2
+   ],
+   "radius": 0.15,
+   "position": [
+    4.2,
+    1.0,
+    -5
+   ],
+   "material": {
+    "color": "#f7c6d9",
+    "roughness": 0.7,
+    "outline": {
+     "width": 0.035
+    }
+   }
+  },
+  {
+   "id": "dach_2",
+   "type": "pyramid",
+   "size": [
+    3.0,
+    1.3,
+    2.7
+   ],
+   "position": [
+    4.2,
+    2.0,
+    -5
+   ],
+   "material": {
+    "color": "#7b4fd6",
+    "roughness": 0.6,
+    "outline": {
+     "width": 0.035
+    }
+   }
+  },
+  {
+   "id": "haus_3",
+   "type": "rounded_box",
+   "size": [
+    2.4,
+    2.0,
+    2.2
+   ],
+   "radius": 0.15,
+   "position": [
+    -1,
+    1.0,
+    -9
+   ],
+   "material": {
+    "color": "#bde0fe",
+    "roughness": 0.7,
+    "outline": {
+     "width": 0.035
+    }
+   }
+  },
+  {
+   "id": "dach_3",
+   "type": "pyramid",
+   "size": [
+    3.0,
+    1.3,
+    2.7
+   ],
+   "position": [
+    -1,
+    2.0,
+    -9
+   ],
+   "material": {
+    "color": "#2e86ab",
+    "roughness": 0.6,
+    "outline": {
+     "width": 0.035
+    }
+   }
+  },
+  {
+   "id": "baum",
+   "type": "group",
+   "position": [
+    3.2,
+    0,
+    0.5
+   ],
+   "children": [
+    {
+     "id": "stamm",
+     "type": "cylinder",
+     "radius": 0.18,
+     "height": 2.2,
+     "position": [
+      0,
+      1.1,
+      0
+     ],
+     "subdivide": 2,
+     "deform": [
+      {
+       "type": "taper",
+       "scale": 0.6
+      },
+      {
+       "type": "bend",
+       "angle": 12
+      }
+     ],
+     "material": {
+      "color": "#7a4a24",
+      "outline": {
+       "width": 0.03
+      }
+     }
+    },
+    {
+     "id": "krone",
+     "type": "sphere",
+     "radius": 1.1,
+     "position": [
+      0.25,
+      2.8,
+      0
+     ],
+     "subdivide": 1,
+     "deform": [
+      {
+       "type": "noise",
+       "amount": 0.18,
+       "scale": 1.2,
+       "octaves": 3,
+       "seed": 2
+      }
+     ],
+     "material": {
+      "color": "#3fa34d",
+      "outline": {
+       "width": 0.035
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "steine",
+   "type": "scatter",
+   "count": 40,
+   "area": [
+    26,
+    26
+   ],
+   "seed": 3,
+   "on_terrain": "wiese",
+   "keep_clear_radius": 4,
+   "shape": {
+    "type": "sphere",
+    "radius": 0.25
+   },
+   "material": {
+    "color": "#9e9e9e",
+    "flat": true
+   }
+  },
+  {
+   "id": "max",
+   "type": "group",
+   "position": [
+    0,
+    0,
+    1.5
+   ],
+   "billboard": true,
+   "animate": {
+    "breathe": 0.012
+   },
+   "children": [
+    {
+     "id": "max_koerper",
+     "type": "svg",
+     "svg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 160'><defs><radialGradient id='skin' cx='0.4' cy='0.35' r='0.75'><stop offset='0' stop-color='#ffe6cc'/><stop offset='1' stop-color='#e9a57a'/></radialGradient><linearGradient id='shirt' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#4fc3f7'/><stop offset='1' stop-color='#0277bd'/></linearGradient><radialGradient id='cheek' cx='0.5' cy='0.5' r='0.5'><stop offset='0' stop-color='#ff7a7a' stop-opacity='0.55'/><stop offset='1' stop-color='#ff7a7a' stop-opacity='0'/></radialGradient><filter id='soft' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur stdDeviation='2.5'/></filter></defs><ellipse cx='50' cy='156' rx='24' ry='3.5' fill='#000' opacity='0.3' filter='url(#soft)'/><rect x='36' y='118' width='11' height='36' rx='5' fill='#37474f' stroke='#1b1b2f' stroke-width='2.5'/><rect x='53' y='118' width='11' height='36' rx='5' fill='#37474f' stroke='#1b1b2f' stroke-width='2.5'/><path d='M26 90 Q50 70 74 90 L72 124 Q50 132 28 124 Z' fill='url(#shirt)' stroke='#1b1b2f' stroke-width='2.5' stroke-linejoin='round'/><circle cx='50' cy='46' r='30' fill='url(#skin)' stroke='#1b1b2f' stroke-width='2.5'/><path d='M20 42 Q22 10 52 12 Q82 12 81 42 Q74 26 58 30 Q42 18 30 34 Z' fill='#5d3a1a' stroke='#1b1b2f' stroke-width='2.5' stroke-linejoin='round'/><circle cx='34' cy='56' r='7' fill='url(#cheek)'/><circle cx='66' cy='56' r='7' fill='url(#cheek)'/><path d='M40 62 Q50 71 60 62' stroke='#1b1b2f' stroke-width='2.5' fill='none' stroke-linecap='round'/></svg>",
+     "width": 1.25,
+     "position": [
+      0,
+      1.0,
+      0
+     ]
+    },
+    {
+     "id": "max_augen",
+     "type": "svg",
+     "svg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 30 100 30'><ellipse cx='41' cy='44' rx='6.5' ry='8' fill='#fff' stroke='#1b1b2f' stroke-width='2'/><circle cx='42' cy='45' r='4' fill='#1b1b2f'/><circle cx='43.5' cy='43' r='1.4' fill='#fff'/><ellipse cx='61' cy='44' rx='6.5' ry='8' fill='#fff' stroke='#1b1b2f' stroke-width='2'/><circle cx='62' cy='45' r='4' fill='#1b1b2f'/><circle cx='63.5' cy='43' r='1.4' fill='#fff'/></svg>",
+     "width": 1.25,
+     "position": [
+      0,
+      1.484,
+      0.01
+     ],
+     "animate": {
+      "blink": {
+       "every": 3.2,
+       "seed": 7
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "staub",
+   "type": "particles",
+   "preset": "dust",
+   "position": [
+    0,
+    1.5,
+    0
+   ],
+   "area": [
+    12,
+    3,
+    12
+   ]
+  }
+ ],
+ "overlays": [
+  {
+   "text": "Ein ganz normaler Abend.",
+   "y": -0.82,
+   "size": 0.05,
+   "italic": true,
+   "start": 0.8,
+   "end": 5.2
+  }
+ ]
+}

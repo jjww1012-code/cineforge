@@ -89,6 +89,8 @@ Damit eine Verformung weich aussieht, braucht die Form genug Punkte: `subdivide`
 Rezepte:
 - **Felsen:** `sphere` + `"subdivide": 2` + `noise` (amount 0.3×Radius, scale 1.5, octaves 4) + `material.flat`
 - **Kiesel / weiche Formen:** `box` + `"rounded": true, "subdivide": 3`
+  (Achtung: `rounded` schrumpft spitze Formen stark – Pyramiden/Dächer werden zu flachen Klumpen.
+  Für leicht gerundete Kanten lieber `rounded_box` nehmen.)
 - **Figuren-Körper (Pixar-Stil):** `capsule`/`sphere`/`rounded_box` mit `rounded` + leichtem `noise` (amount 0.01) gegen das „Computer-Perfekte“
 - **Ast:** `cylinder` + `subdivide` 3 + `taper` 0.35 + `bend` 60
 - **Fahne:** `box` [2, 1.2, 0.02] + `subdivide` 4 + `wave` (axis x)
@@ -365,3 +367,5 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
 - [`scenes/wueste.json`](../scenes/wueste.json) – Landschaft mit Gelände und Scatter
 - [`scenes/werkstatt.json`](../scenes/werkstatt.json) – alle Modellier-Werkzeuge und Muster
 - [`scenes/cartoon.json`](../scenes/cartoon.json) – 2D-Cartoon mit SVG-Grafiken und 2D-Kamera
+- [`scenes/vorzeige.json`](../scenes/vorzeige.json) – 2D-Figur in 3D-Welt: Verläufe, Blinzeln, Atmen,
+  Cartoon-Umrisse, verformter Baum, Tiefenschärfe, Lichtstrahlen, Farbkorrektur, Kamerafahrt

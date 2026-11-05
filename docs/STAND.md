@@ -2,7 +2,7 @@
 
 > Diese Datei ist das Übergabe-Protokoll der Entwicklung. Nach jedem Teilschritt aktualisieren.
 
-**Zuletzt aktualisiert:** 2026-11-04 · Neue Oberfläche (wie ein Schnittprogramm) mit Auswahl per Klick fertig
+**Zuletzt aktualisiert:** 2026-11-05 · 3D-Verformen, 2D in voller Qualität, 2D/3D mischen, Kino-Look, Lippen-Sync, Vorzeige-Szene
 
 ## Fertig
 
@@ -117,6 +117,8 @@
   `seed`), `animate.breathe`. Fehlende Stimme wird Claude sofort gemeldet.
   Hinweis Tests: mehrere Software-Renderings parallel ⇒ Shader evtl. beim Foto noch nicht fertig
   (leeres Bild) – Kontrollbilder einzeln oder mit `--frames 60` rendern.
+
+- **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 

@@ -13,6 +13,10 @@ App starten, **F2** drücken, Claude Desktop neu starten. Danach zum Beispiel sc
 „Bau mir in CineForge eine Unterwasserstadt mit leuchtenden Kuppeln.“
 Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
+![Vorzeige-Szene](docs/bilder/vorzeige.png)
+
+*2D-Figur in einer 3D-Welt – gebaut aus der Szenen-Datei [`scenes/vorzeige.json`](scenes/vorzeige.json).*
+
 ![Die Oberfläche](docs/bilder/oberflaeche.png)
 
 ## Die Oberfläche
