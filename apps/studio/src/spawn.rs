@@ -759,6 +759,40 @@ impl Builder<'_, '_, '_> {
                     .map(|((_, offset, scale), hf)| Ground { heightfield: hf, offset, scale });
                 let world_pos = transform.translation.to_array();
                 let instances = procedural::scatter_instances(spec, world_pos, ground.as_ref());
+                if matches!(spec.shape.kind, Kind::Character(_) | Kind::Animal(_)) {
+                    // Menschenmenge / Herde: jede Figur eine eigene Variante
+                    for (i, inst) in instances.iter().enumerate() {
+                        let holder = self
+                            .commands
+                            .spawn((
+                                Transform {
+                                    translation: Vec3::from_array(inst.position),
+                                    rotation: Quat::from_rotation_y(inst.yaw),
+                                    scale: Vec3::splat(inst.scale),
+                                },
+                                Visibility::default(),
+                                ChildOf(entity),
+                            ))
+                            .id();
+                        let fake_id = format!("{}_{i}", o.id);
+                        let built = match &spec.shape.kind {
+                            Kind::Character(c) => {
+                                let v = cf_scene::character::vary(c, i as u32 + 1);
+                                let fake = Object { id: fake_id, kind: Kind::Character(v.clone()), animate: None, ..o.clone() };
+                                cf_scene::character::build(&fake, &v)
+                            }
+                            Kind::Animal(a) => {
+                                let fake = Object { id: fake_id, kind: Kind::Animal(a.clone()), animate: None, ..o.clone() };
+                                cf_scene::animal::build_animal(&fake, a)
+                            }
+                            _ => unreachable!(),
+                        };
+                        let child_prefix = format!("{full_id}/");
+                        self.spawn_object(&built, holder, None, depth + 1, &child_prefix);
+                    }
+                    self.stats.instances += instances.len();
+                    return;
+                }
                 if let Kind::Tree(tree) = &spec.shape.kind {
                     // Wald: jeder Baum eine eigene Variante (seed), an seiner Position.
                     for (i, inst) in instances.iter().enumerate() {

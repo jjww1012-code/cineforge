@@ -229,6 +229,10 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 – erzeugt die Stimmen, legt die Sätze hintereinander, gibt jeder Figur ihre Tonspur (Lippen-Sync +
 Sprech-Gesten), setzt Untertitel und trägt den Ton im Storyboard-Shot ein (Szene wird bei Bedarf länger).
 
+**Menschenmengen:** `scatter` mit `"shape": {"type": "character", "height": 1.5, "actions": [{"type": "cheer", "start": 0, "end": 5}]}` –
+jede Figur bekommt eigene Frisur, Haut-/Haar-/Kleidungsfarben, Größe, Statur, Ausdruck, ggf. Hut/Brille,
+und die Aktionen laufen leicht versetzt (max. 300). Genauso Herden: `"shape": {"type": "animal", "kind": "dog"}`.
+
 Tipps: Gesichtsausdruck je Shot wählen (zwei Fassungen derselben Figur in verschiedenen Szenen),
 Kamera mit `follow`/`target` auf die Figur, `dof` mit `focus` = Figur. Aktionen dürfen sich
 überlappen (z. B. `walk` + `wave`). Übergänge zwischen Aktionen werden automatisch weich.

@@ -376,6 +376,39 @@ fn total_pose(actions: &[(ActionKind, f32, f32, f32)], t: f32) -> Pose {
     pose
 }
 
+/// Zufällige Variante einer Figur (für Menschenmengen): Frisur, Farben, Größe, Statur, Ausdruck.
+pub fn vary(spec: &CharacterSpec, seed: u32) -> CharacterSpec {
+    let mut r = crate::noise::Rng::new(seed.wrapping_mul(2654435761) ^ 0x5eed);
+    let pick = |r: &mut crate::noise::Rng, n: usize| (r.next_u32() as usize) % n;
+    let skins = ["#f9d7c0", "#f2c29b", "#e0ac84", "#c68863", "#8d5b3b", "#5e3b26"];
+    let hairs = ["#2b1a0f", "#5d3a1a", "#a0522d", "#e0a33a", "#d9d2c5", "#1c1c1c", "#b23a2a"];
+    let clothes = ["#e63946", "#2a9d8f", "#f4a261", "#457b9d", "#8338ec", "#ffbe0b", "#3a86ff", "#06d6a0", "#ef476f", "#6c757d"];
+    let pants = ["#2d3a5a", "#3d405b", "#5c4033", "#264653", "#6b705c"];
+    let mut s = spec.clone();
+    s.skin = Rgb::parse_hex(skins[pick(&mut r, skins.len())]).unwrap_or(s.skin);
+    s.hair_color = Rgb::parse_hex(hairs[pick(&mut r, hairs.len())]).unwrap_or(s.hair_color);
+    s.shirt = Rgb::parse_hex(clothes[pick(&mut r, clothes.len())]).unwrap_or(s.shirt);
+    s.pants = Rgb::parse_hex(pants[pick(&mut r, pants.len())]).unwrap_or(s.pants);
+    s.shoes = Rgb::parse_hex(clothes[pick(&mut r, clothes.len())]).unwrap_or(s.shoes);
+    s.hair = [Hair::Short, Hair::Spiky, Hair::Long, Hair::Bun, Hair::Curly, Hair::Bald][pick(&mut r, 6)];
+    s.build = [Build::Slim, Build::Normal, Build::Normal, Build::Round][pick(&mut r, 4)];
+    s.height = spec.height * r.range(0.85, 1.25);
+    s.expression = [Expression::Happy, Expression::Happy, Expression::Neutral, Expression::Surprised][pick(&mut r, 4)];
+    s.outfit = if s.hair == Hair::Long && pick(&mut r, 2) == 0 { Outfit::Dress } else { Outfit::Shirt };
+    s.hat = [Hat::None, Hat::None, Hat::None, Hat::Cap, Hat::Beanie][pick(&mut r, 5)];
+    s.glasses = pick(&mut r, 5) == 0;
+    s.hat_color = Rgb::parse_hex(clothes[pick(&mut r, clothes.len())]);
+    s.talk = None;
+    // Nicht alle im Gleichtakt: Aktionen leicht versetzt und etwas unterschiedlich schnell
+    let shift = r.range(0.0, 0.6);
+    for act in &mut s.actions {
+        act.start += shift;
+        act.end = act.end.map(|e| e + shift);
+        act.speed *= r.range(0.88, 1.12);
+    }
+    s
+}
+
 /// Baut die Figur als Gruppe (Kinder-ids: `<id>_…`). `obj` = das Szenen-Objekt (für `path`).
 pub fn build(obj: &Object, spec: &CharacterSpec) -> Object {
     build_looking(obj, spec, 0.0)

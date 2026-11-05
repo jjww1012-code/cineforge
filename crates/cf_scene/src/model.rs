@@ -1196,11 +1196,14 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Character(_) | Kind::Water(_) | Kind::Animal(_)) {
-                p.push(format!("\"{id}\": scatter.shape muss eine einfache Form oder ein tree sein"));
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Water(_)) {
+                p.push(format!("\"{id}\": scatter.shape muss eine einfache Form, ein tree, character oder animal sein"));
             }
             if matches!(s.shape.kind, Kind::Tree(_)) && s.count > 1500 {
                 p.push(format!("\"{id}\": höchstens 1500 Bäume pro scatter"));
+            }
+            if matches!(s.shape.kind, Kind::Character(_) | Kind::Animal(_)) && s.count > 300 {
+                p.push(format!("\"{id}\": höchstens 300 Figuren/Tiere pro scatter"));
             }
             if s.scale_range[0] > s.scale_range[1] {
                 p.push(format!("\"{id}\": scale_range min ist größer als max"));
