@@ -206,6 +206,10 @@
 - **Disney-Prinzipien bei Figuren:** Squash & Stretch (`Pose.squash`, Skalierung der ganzen Figur
   vom Boden aus, volumenerhaltend), Sprung mit Ausholen (Knie, Arme nach hinten) und gestauchter
   Landung; neue Aktionen `clap`, `bow`, `laugh`, `scared`, `look_around`, `shrug`, `sad`, `excited`.
+- **Dialog mit Mimik:** `dialogue` nimmt je Zeile `expression` (neutral/happy/sad/angry/surprised) →
+  `character.expressions`; ist die Szenen-Kamera noch Standard, beginnt der Dialog mit einer
+  automatisch berechneten Zweier-Einstellung (alle Sprecher im Bild). Posen sad/scared so, dass das
+  Gesicht in Nahaufnahmen sichtbar bleibt.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

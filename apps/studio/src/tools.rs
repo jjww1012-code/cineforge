@@ -118,7 +118,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "dialogue",
-            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Hi Max!\", \"pause\": 0.3}]. Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. camera_cuts: true setzt automatisch Schnitte (Nahaufnahme auf den Sprecher, Schuss/Gegenschuss). Ersetzt einen früheren Dialog derselben Szene.",
+            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Oh nein!\", \"expression\": \"surprised\", \"action\": \"scared\", \"pause\": 0.3}] (expression je Zeile: neutral, happy, sad, angry, surprised). Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. camera_cuts: true setzt automatisch Schnitte (Nahaufnahme auf den Sprecher, Schuss/Gegenschuss). Ersetzt einen früheren Dialog derselben Szene.",
             "inputSchema": {"type": "object", "properties": {"lines": {"type": "array", "items": obj}, "start": {"type": "number"}, "gap": {"type": "number"}, "subtitles": {"type": "boolean"}, "camera_cuts": {"type": "boolean"}, "voices": obj, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["lines"]}
         },
         {
@@ -1627,6 +1627,7 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         at: f32,
         samples: Vec<f32>,
         action: Option<String>,
+        expression: Option<String>,
     }
     let mut out: Vec<Line> = Vec::new();
     let mut t = start;
@@ -1656,7 +1657,13 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
             .collect();
         t += l.get("pause").and_then(Value::as_f64).unwrap_or(0.0) as f32;
         let dur = samples.len() as f32 / SR as f32;
-        out.push(Line { who, text, at: t, samples, action: l.get("action").and_then(Value::as_str).map(String::from) });
+        let expression = l.get("expression").or_else(|| l.get("mood")).and_then(Value::as_str).map(String::from);
+        if let Some(e) = &expression {
+            if serde_json::from_value::<cf_scene::character::Expression>(Value::String(e.clone())).is_err() {
+                return Err(format!("lines[{i}]: Ausdruck „{e}“ unbekannt (neutral, happy, sad, angry, surprised)"));
+            }
+        }
+        out.push(Line { who, text, at: t, samples, action: l.get("action").and_then(Value::as_str).map(String::from), expression });
         t += dur + gap;
     }
     let end = t;
@@ -1692,14 +1699,21 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
                     .filter(|x| x.kind != cf_scene::character::ActionKind::Talk)
                     .map(|x| serde_json::to_value(x).unwrap_or(Value::Null))
                     .collect();
+                // Mimik je Zeile (bleibt, bis die nächste Zeile dieser Figur etwas anderes sagt)
+                let mut expressions: Vec<Value> = c.expressions.iter().map(|x| serde_json::to_value(x).unwrap_or(Value::Null)).collect();
                 for l in out.iter().filter(|l| &l.who == who) {
                     let d = l.samples.len() as f32 / SR as f32;
                     actions.push(serde_json::json!({"type": "talk", "start": l.at, "end": l.at + d}));
                     if let Some(act) = &l.action {
                         actions.push(serde_json::json!({"type": act, "start": l.at, "end": l.at + d.min(2.5)}));
                     }
+                    if let Some(e) = &l.expression {
+                        expressions.retain(|x| x.get("t").and_then(Value::as_f64).is_none_or(|t| (t as f32 - (l.at - 0.1)).abs() > 0.05));
+                        expressions.push(serde_json::json!({"t": (l.at - 0.1).max(0.0), "expression": e}));
+                    }
                 }
-                serde_json::json!({"talk": talk, "actions": actions})
+                expressions.sort_by(|a, b| a.get("t").and_then(Value::as_f64).unwrap_or(0.0).total_cmp(&b.get("t").and_then(Value::as_f64).unwrap_or(0.0)));
+                serde_json::json!({"talk": talk, "actions": actions, "expressions": expressions})
             }
             _ => serde_json::json!({"animate": {"talk": talk}}),
         };
@@ -1727,7 +1741,36 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
     let mut settings = serde_json::json!({"overlays": overlays, "duration": duration});
     // Automatische Schnitte: Halbtotale am Anfang, dann Nahaufnahme auf den, der spricht
     if a.get("camera_cuts").and_then(Value::as_bool).unwrap_or(false) {
-        let mut cuts = vec![serde_json::json!({"t": 0.0, "position": scene.camera.position, "look_at": scene.camera.look_at})];
+        // Anfang: Kamera der Szene – ist sie noch nicht eingerichtet (Standard), eine Zweier-Einstellung,
+        // die alle Sprecher zeigt (klassische Eröffnung eines Dialogs).
+        let default_cam = cf_scene::CameraSpec::default();
+        let untouched = scene.camera.position == default_cam.position && scene.camera.look_at == default_cam.look_at && scene.camera.animate.is_none();
+        let (mut cam_pos, mut cam_look) = (scene.camera.position, scene.camera.look_at);
+        let pts: Vec<[f32; 3]> = {
+            let mut ids: Vec<&str> = out.iter().map(|l| l.who.as_str()).collect();
+            ids.sort();
+            ids.dedup();
+            ids.iter().filter_map(|id| cf_scene::motion::world_position(&scene, id, 0.0)).collect()
+        };
+        if untouched && !pts.is_empty() {
+            let n = pts.len() as f32;
+            let c = [pts.iter().map(|p| p[0]).sum::<f32>() / n, pts.iter().map(|p| p[1]).sum::<f32>() / n, pts.iter().map(|p| p[2]).sum::<f32>() / n];
+            let span = pts.iter().flat_map(|a| pts.iter().map(move |b| ((a[0] - b[0]).powi(2) + (a[2] - b[2]).powi(2)).sqrt())).fold(0.0_f32, f32::max);
+            // Blickrichtung senkrecht zur Linie zwischen den Sprechern, auf der Seite der bisherigen Kamera
+            let (mut dx, mut dz) = if pts.len() >= 2 { (-(pts[1][2] - pts[0][2]), pts[1][0] - pts[0][0]) } else { (0.0, 1.0) };
+            let len = (dx * dx + dz * dz).sqrt().max(1e-4);
+            (dx, dz) = (dx / len, dz / len);
+            if dx * (scene.camera.position[0] - c[0]) + dz * (scene.camera.position[2] - c[2]) < 0.0 {
+                (dx, dz) = (-dx, -dz);
+            }
+            let fov = scene.camera.fov.clamp(20.0, 90.0);
+            let width = (span + 1.4).max(2.2); // etwas Luft links und rechts
+            // horizontaler Bildwinkel bei 16:9: tan(h/2) = tan(v/2) · 16/9
+            let dist = (width / 2.0) / ((fov.to_radians() / 2.0).tan() * 16.0 / 9.0).max(0.1);
+            cam_pos = [c[0] + dx * dist, c[1] + 1.05, c[2] + dz * dist];
+            cam_look = [c[0], c[1] + 0.7, c[2]];
+        }
+        let mut cuts = vec![serde_json::json!({"t": 0.0, "position": cam_pos, "look_at": cam_look})];
         // Seite je Sprecher (nicht je Satz): so bleibt die Kamera auf einer Seite der Blickachse
         // (Schuss/Gegenschuss); spricht jemand zweimal hintereinander, gibt es keinen Schnitt.
         let mut speakers: Vec<&str> = Vec::new();

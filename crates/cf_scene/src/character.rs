@@ -419,13 +419,14 @@ fn action_pose(kind: ActionKind, lt: f32, speed: f32, len: f32) -> Pose {
         }
         ActionKind::Scared => {
             let tr = (lt * TAU * 11.0).sin();
-            p.hip_y = -0.04;
+            // Gesicht bleibt sichtbar (Nahaufnahmen): Arme vor der Brust, Kopf nur leicht eingezogen
+            p.hip_y = -0.03;
             p.hip_x = 0.004 * tr;
-            p.hip_rot_x = 10.0;
-            p.arm_l = [-105.0, 25.0];
-            p.arm_r = [-105.0, -25.0];
-            p.head = [12.0, 3.0 * tr, 0.0];
-            p.squash = -0.06;
+            p.hip_rot_x = -4.0;
+            p.arm_l = [-80.0, 30.0];
+            p.arm_r = [-80.0, -30.0];
+            p.head = [-4.0, 3.0 * tr, 0.0];
+            p.squash = -0.04;
         }
         ActionKind::LookAround => {
             p.head = [-4.0, 55.0 * (lt * TAU * 0.35 * speed).sin(), 0.0];
@@ -439,12 +440,12 @@ fn action_pose(kind: ActionKind, lt: f32, speed: f32, len: f32) -> Pose {
             p.squash = 0.03;
         }
         ActionKind::Sad => {
-            p.head = [22.0, 0.0, 3.0];
-            p.hip_rot_x = 8.0;
-            p.hip_y = -0.012;
+            p.head = [12.0, 0.0, 4.0];
+            p.hip_rot_x = 5.0;
+            p.hip_y = -0.01;
             p.arm_l = [4.0, -2.0];
             p.arm_r = [4.0, 2.0];
-            p.squash = -0.04;
+            p.squash = -0.03;
         }
         ActionKind::Excited => {
             let ph = (lt * TAU * 2.4 * speed).sin();
