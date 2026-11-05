@@ -246,6 +246,9 @@
   Angaben gehen vor; Tippfehler mit Vorschlag. Alle Stimmungen gerendert und auf Lesbarkeit abgestimmt.
 - **Diagnose:** `CINEFORGE_APP_LOG=<Datei>` – die von der Brücke (`cineforge mcp`) gestartete App schreibt
   ihre Ausgaben dorthin (sonst verworfen).
+- **Keine „unfertigen“ Kontrollbilder mehr:** Ist ein Screenshot komplett schwarz oder die untere
+  Bildhälfte schwarz (Shader/Szene noch nicht fertig), wird bis zu 2× nach 8 Bildern neu aufgenommen;
+  Kontaktabzüge wiederholen schwarze Einzelbilder einmal. (`render::is_black`)
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

@@ -148,7 +148,8 @@ impl RenderQueue {
 }
 
 enum Stage {
-    Still { reply: Sender<ToolOutput>, time: Option<f32>, fixed: Option<(Transform, Option<f32>)>, done: Arc<Mutex<bool>> },
+    /// `captured`: das zurückgelesene Bild; komplett schwarze Bilder (Shader noch nicht fertig) werden wiederholt.
+    Still { reply: Sender<ToolOutput>, time: Option<f32>, fixed: Option<(Transform, Option<f32>)>, captured: Arc<Mutex<Option<Image>>>, retries: u32 },
     Sheet {
         reply: Sender<ToolOutput>,
         times: Vec<f32>,
@@ -159,6 +160,9 @@ enum Stage {
         restore: PathBuf,
         columns: u32,
         results: Arc<Mutex<Vec<Option<Image>>>>,
+        /// schwarze Bilder schon einmal wiederholt?
+        rechecked: bool,
+        redo: Vec<usize>,
     },
     Export {
         frames: u32,
@@ -257,7 +261,7 @@ fn drive_jobs(
                 } else {
                     view.fov.map(|f| (scene_camera_at(&src.scene, time.unwrap_or(saved_time)).0, Some(f)))
                 };
-                Stage::Still { reply, time, fixed, done: Arc::new(Mutex::new(false)) }
+                Stage::Still { reply, time, fixed, captured: Arc::new(Mutex::new(None)), retries: 0 }
             }
             JobRequest::Sheet { reply, times, scenes, labels, columns, .. } => {
                 let n = times.len();
@@ -271,6 +275,8 @@ fn drive_jobs(
                     restore: src.path.clone(),
                     columns,
                     results: Arc::new(Mutex::new(vec![None; n])),
+                    rechecked: false,
+                    redo: Vec::new(),
                 }
             }
             JobRequest::Export { output, width, height, fps, segments, quality } => {
@@ -335,7 +341,7 @@ fn drive_jobs(
 
     let mut finished = false;
     match &mut job.stage {
-        Stage::Still { reply, time, fixed, done } => {
+        Stage::Still { reply, time, fixed, captured, retries } => {
             let t = time.unwrap_or(job.saved_time);
             ph.time = t;
             let (tf, fov) = match fixed {
@@ -347,11 +353,21 @@ fn drive_jobs(
                 job.warmup -= 1;
             } else if !job.waiting {
                 job.waiting = true;
-                let reply = reply.clone();
-                let done = done.clone();
-                let (w, h) = images.get(&job.image).map(|i| (i.width(), i.height())).unwrap_or((0, 0));
+                let slot = captured.clone();
                 commands.spawn(Screenshot::image(job.image.clone())).observe(move |cap: On<ScreenshotCaptured>| {
-                    let out = match encode_jpeg(&cap.image) {
+                    if let Ok(mut s) = slot.lock() {
+                        *s = Some(cap.image.clone());
+                    }
+                });
+            } else if let Some(img) = captured.lock().ok().and_then(|mut s| s.take()) {
+                if is_black(&img) && *retries < 2 {
+                    // Szene/Shader waren noch nicht fertig: etwas warten und neu aufnehmen
+                    *retries += 1;
+                    job.waiting = false;
+                    job.warmup = 8;
+                } else {
+                    let (w, h) = (img.width(), img.height());
+                    let out = match encode_jpeg(&img) {
                         Ok((b64, _, _)) => ToolOutput {
                             content: vec![
                                 Content::Image { base64: b64, mime: "image/jpeg" },
@@ -362,16 +378,16 @@ fn drive_jobs(
                         Err(e) => ToolOutput::error(format!("Bild konnte nicht erstellt werden: {e}")),
                     };
                     let _ = reply.send(out);
-                    if let Ok(mut d) = done.lock() {
-                        *d = true;
-                    }
-                });
-            } else if done.lock().map(|d| *d).unwrap_or(true) {
-                // Bild ist zurückgelesen und beantwortet → aufräumen.
-                finished = true;
+                    finished = true;
+                }
             }
         }
-        Stage::Sheet { reply, times, scenes, labels, next, switched, restore, columns, results } => {
+        Stage::Sheet { reply, times, scenes, labels, next, switched, restore, columns, results, rechecked, redo } => {
+            // Wiederholungsrunde: nur die schwarzen Bilder neu aufnehmen
+            if !redo.is_empty() && *next < times.len() && !redo.contains(next) {
+                *next = redo.iter().copied().find(|&k| k > *next).unwrap_or(times.len());
+                *switched = false;
+            }
             // Film-Übersicht: vor dem Bild die passende Szene öffnen
             if *next < times.len() && !*switched {
                 *switched = true;
@@ -409,7 +425,24 @@ fn drive_jobs(
                 }
             } else {
                 let all = results.lock().map(|r| r.iter().all(Option::is_some)).unwrap_or(false);
-                if all {
+                // Komplett schwarze Bilder (Shader noch nicht fertig) einmal neu aufnehmen
+                let black: Vec<usize> = if all && !*rechecked {
+                    results.lock().map(|r| r.iter().enumerate().filter(|(_, i)| i.as_ref().is_some_and(is_black)).map(|(k, _)| k).collect()).unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                if let Some(&k) = black.first() {
+                    *rechecked = true;
+                    if let Ok(mut r) = results.lock() {
+                        for &b in &black {
+                            r[b] = None;
+                        }
+                    }
+                    *redo = black;
+                    *next = k;
+                    *switched = false;
+                    job.warmup = 8;
+                } else if all {
                     let imgs: Vec<Image> = results.lock().expect("Ergebnisse").iter().flatten().cloned().collect();
                     let labels = if labels.len() == times.len() {
                         labels.clone()
@@ -536,6 +569,24 @@ fn drive_jobs(
     } else {
         queue.active = Some(job);
     }
+}
+
+/// Sieht das Bild „unfertig“ aus? Komplett schwarz, oder die untere Bildhälfte komplett schwarz
+/// (Himmel schon da, Objekte noch ohne Shader). Dann wird kurz gewartet und neu aufgenommen;
+/// echte dunkle Bilder kommen nach den Wiederholungen trotzdem zurück.
+fn is_black(img: &Image) -> bool {
+    let Some(data) = img.data.as_ref() else { return false };
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    if w == 0 || h == 0 || data.len() < w * h * 4 {
+        return false;
+    }
+    let dark_rows = |from: usize, to: usize| {
+        (from..to).step_by(((to - from) / 40).max(1)).all(|y| (0..w).step_by((w / 80).max(1)).all(|x| {
+            let p = &data[(y * w + x) * 4..(y * w + x) * 4 + 3];
+            p[0].max(p[1]).max(p[2]) <= 12
+        }))
+    };
+    dark_rows(h / 2, h)
 }
 
 pub fn encode_jpeg(img: &Image) -> Result<(String, u32, u32), String> {
