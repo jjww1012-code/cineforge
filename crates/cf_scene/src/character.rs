@@ -171,6 +171,13 @@ pub struct CharacterSpec {
     /// Rucksack (Farbe).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backpack: Option<Rgb>,
+    /// Hält ein Objekt in der rechten Hand (beliebiges Objekt, z. B. Ballon, Blume, Eis, Buch,
+    /// oder `{"id": "x", "type": "instance", "asset": "blume"}`). Ursprung = Handmitte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold: Option<Box<Object>>,
+    /// Hält ein Objekt in der linken Hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold_left: Option<Box<Object>>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -676,12 +683,27 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
     let arm = |side: f32| {
         let f: Box<dyn Fn(&Pose) -> [f32; 3]> = if side < 0.0 { Box::new(|p: &Pose| [p.arm_l[0], 0.0, p.arm_l[1]]) } else { Box::new(|p: &Pose| [p.arm_r[0], 0.0, p.arm_r[1]]) };
         let rest = if n == 0 { json!([0.0, 0.0, side * 8.0]) } else { json!([0.0, 0.0, 0.0]) };
+        let mut children = vec![
+            json!({"id": format!("{id}_aermel_{side}"), "type": "capsule", "radius": 0.05 * u, "length": 0.17 * u, "position": [0.0, -0.12 * u, 0.0], "material": shirt}),
+            json!({"id": format!("{id}_hand_{side}"), "type": "sphere", "radius": 0.055 * u, "position": [0.0, -0.29 * u, 0.0], "material": skin}),
+        ];
+        let held = if side > 0.0 { spec.hold.as_ref() } else { spec.hold_left.as_ref() };
+        if let Some(h) = held {
+            // Gegenstand sitzt in der Hand; die Hand-Gruppe gleicht die Armhaltung nicht aus –
+            // so schwingt er natürlich mit.
+            let mut obj = serde_json::to_value(h.as_ref()).unwrap_or(Value::Null);
+            if let Value::Object(m) = &mut obj {
+                let base = m.get("position").cloned().unwrap_or(json!([0.0, 0.0, 0.0]));
+                let b = |i: usize| base.get(i).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+                m.insert("position".into(), json!([b(0), -0.32 * u + b(1), 0.03 * u + b(2)]));
+                let old = m.get("id").and_then(Value::as_str).unwrap_or("gegenstand").to_string();
+                m.insert("id".into(), json!(format!("{id}_haelt_{side}_{old}")));
+            }
+            children.push(obj);
+        }
         json!({"id": format!("{id}_arm_{}", if side < 0.0 { "l" } else { "r" }), "type": "group",
           "position": [side * 0.2 * u * bw, 0.62 * u - hip_y, 0.0], "rotation": rest, "animate": anim_rot(&*f),
-          "children": [
-            {"id": format!("{id}_aermel_{side}"), "type": "capsule", "radius": 0.05 * u, "length": 0.17 * u, "position": [0.0, -0.12 * u, 0.0], "material": shirt},
-            {"id": format!("{id}_hand_{side}"), "type": "sphere", "radius": 0.055 * u, "position": [0.0, -0.29 * u, 0.0], "material": skin}
-          ]})
+          "children": children})
     };
     let torso = json!({"id": format!("{id}_oberkoerper"), "type": "capsule", "radius": 0.165 * u * bw, "length": 0.12 * u,
         "position": [0.0, 0.53 * u - hip_y, 0.0], "scale": [1.0, 1.0, 0.82], "material": shirt, "animate": {"breathe": 0.015}});

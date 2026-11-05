@@ -220,6 +220,7 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 | `glasses` | false | Brille |
 | `outfit` | shirt | `dress` = Kleid in der Farbe von `shirt` |
 | `scarf`, `backpack` | – | Schal / Rucksack (Farbe) |
+| `hold`, `hold_left` | – | **Gegenstand in der rechten/linken Hand**: ein beliebiges Objekt (Ursprung = Handmitte), z. B. Ballon-Gruppe, `{"id": "b", "type": "instance", "asset": "blume"}`, Buch (`rounded_box`), Laterne. Schwingt mit dem Arm mit |
 | `expressions` | – | **Ausdruck wechselt im Lauf der Szene**: `[{"t": 2, "expression": "surprised"}, {"t": 4, "expression": "sad"}]` (Startausdruck = `expression`) |
 | `look_at` | – | Kopf und Oberkörper drehen sich zu diesem Objekt (z. B. Gesprächspartner) |
 | `auto_walk` | true | Läuft die Figur einen `animate.path` entlang, bewegen sich Beine und Arme automatisch im passenden Tempo (schnell ⇒ rennen) |

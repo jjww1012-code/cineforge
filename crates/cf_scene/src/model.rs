@@ -1047,13 +1047,20 @@ impl Scene {
             }
         }
         let mut look_targets = Vec::new();
+        let mut held: Vec<Object> = Vec::new();
         self.walk(&mut |o| {
             if let Kind::Character(c) = &o.kind {
                 if let Some(t) = &c.look_at {
                     look_targets.push((o.id.clone(), t.clone()));
                 }
+                held.extend(c.hold.iter().chain(c.hold_left.iter()).map(|h| (**h).clone()));
             }
         });
+        // Gehaltene Gegenstände wie normale Objekte prüfen
+        let no_terrains = std::collections::HashSet::new();
+        for h in &held {
+            check_object(h, &no_terrains, &mut problems);
+        }
         for (who, t) in look_targets {
             if crate::ops::find(self, &t).is_none() {
                 problems.push(format!("\"{who}\": look_at „{t}“ gibt es nicht"));
