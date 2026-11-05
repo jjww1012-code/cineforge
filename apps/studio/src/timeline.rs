@@ -8,7 +8,7 @@ use bevy::{
     camera_controller::free_camera::FreeCameraState,
     prelude::*,
 };
-use cf_scene::{animation::camera_at, Sky};
+use cf_scene::Sky;
 
 use crate::{
     environment::{color, sun_direction, SceneView, SunLight},
@@ -238,7 +238,7 @@ fn animate_environment(
 
 /// Transform der Szenen-Kamera zum Zeitpunkt t.
 pub fn scene_camera_at(scene: &cf_scene::Scene, t: f32) -> (Transform, f32) {
-    let (pos, look, fov) = camera_at(&scene.camera, t);
+    let (pos, look, fov) = cf_scene::motion::camera_shot(scene, t);
     let (p, l) = (Vec3::from_array(pos), Vec3::from_array(look));
     let tf = if (l - p).length_squared() < 1e-6 {
         Transform::from_translation(p)

@@ -53,6 +53,10 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 | `motion_blur` | – | **Bewegungsunschärfe** (Verschlusswinkel 0–1, 0.5 = Kino-Standard). Wirkt im Export und beim Abspielen |
 | `orthographic` | – | **2D-Kamera** ohne Perspektive: sichtbare Bildhöhe in Metern (z. B. `7`). Ideal für Cartoons, Erklärvideos, Seitenansichten. Weiter entfernte Objekte werden nicht kleiner – Tiefe (z) bestimmt nur, was vorne liegt |
 | `animate` | – | Kamerafahrt, siehe unten |
+| `target` | – | **Immer auf dieses Objekt schauen** (id) – ersetzt `look_at`, folgt dem Objekt auch wenn es sich bewegt |
+| `target_offset` | [0,0,0] | Blickpunkt relativ zum Objekt, z. B. `[0, 1, 0]` = Kopfhöhe einer 1,2-m-Figur |
+| `follow` | – | **Kamera folgt einem Objekt**: `{"target": "max", "offset": [2, 1.5, 4], "smooth": 0.5}` – Position = Objekt + `offset` (Welt), weich nachgezogen (`smooth` in s); der Blick bleibt auf dem Objekt |
+| `orbit` | – | **Kamera kreist**: `{"target": "auto", "radius": 6, "height": 2, "speed": 20, "start_angle": 0}` (oder `center` statt `target`) – 360°-Fahrt um ein Objekt |
 
 ## Gemeinsame Felder aller Objekte
 
@@ -174,6 +178,37 @@ Muster-Größen sind bei `box`, `rounded_box`, `extrude`, `lathe`, `tube`, `text
 | `svg` | `svg` (SVG-Text direkt im Feld) **oder** `file` (SVG-Datei in `Bilder/`), `width` 1, `depth` 0, `mode` auto, `resolution` auto – **2D-Grafik**, mittig, XY-Ebene, schaut nach +Z. `mode`: `"vector"` = jede Fläche wird ein eigenes Flächenstück (in jeder Größe scharf, mit `depth` > 0 ein 3D-Relief), `"image"` = volle SVG-Darstellung wie in einem Grafikprogramm (Farbverläufe, `feGaussianBlur`-Schatten, Masken, Text mit Inter, Transparenz). `auto` wählt `image`, sobald das SVG Verläufe, Filter, Masken, Muster oder Text enthält. `resolution` = Pixel der langen Seite (Standard 400 pro Meter, 1024–4096). Siehe „Cartoons und 2D“ |
 | `model` | `file` (glTF/GLB-Datei im Ordner `Modelle/`) – **3D-Modell importieren** (z. B. von Sketchfab, Blender, KI-3D-Generatoren) mit eigenen Materialien und Texturen. Größe/Lage über `position`, `rotation`, `scale` |
 
+## Figuren (`type: "character"`) – fertige Cartoon-Figuren im Pixar-Stil
+
+Eine Zeile reicht für eine komplette Figur mit Gelenken, großen Augen (blinzeln von selbst),
+Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Füße auf y = 0.
+
+```json
+{"id": "max", "type": "character", "height": 1.2, "hair": "spiky", "hair_color": "#3b2412",
+ "shirt": "#ff8a3d", "pants": "#2d3a5a", "shoes": "#e53935", "skin": "#f2c29b", "eye_color": "#3a6fd8",
+ "expression": "happy", "outline": false,
+ "talk": {"audio": "max_satz1.wav", "start": 1.0},
+ "actions": [{"type": "wave", "start": 0.5, "end": 2.5}, {"type": "talk", "start": 1.0, "end": 4.0}],
+ "animate": {"path": {"points": [[-4,0,0],[0,0,1],[4,0,0]], "start": 4, "end": 8}}}
+```
+
+| Feld | Standard | Werte |
+|---|---|---|
+| `height` | 1.2 | Größe in Metern (Kind 1.0–1.3, Erwachsene 1.6–1.9) |
+| `build` | normal | `slim`, `normal`, `round` |
+| `hair` | short | `short`, `spiky`, `long`, `bun`, `curly`, `bald` |
+| `skin`, `hair_color`, `shirt`, `pants`, `shoes`, `eye_color` | – | Farben |
+| `expression` | happy | `neutral`, `happy`, `sad`, `angry`, `surprised` |
+| `outline` | false | gezeichnete Umrisslinie |
+| `blink` | true | Blinzeln |
+| `talk` | – | Lippen-Sync wie `animate.talk` (WAV aus `Audio/`) |
+| `actions` | – | `idle`, `walk`, `run`, `wave`, `jump`, `cheer`, `dance`, `point`, `nod`, `shake_head`, `talk` (Gesten beim Sprechen), `sit`, `think` – je mit `start`, `end`, `speed` |
+| `auto_walk` | true | Läuft die Figur einen `animate.path` entlang, bewegen sich Beine und Arme automatisch im passenden Tempo (schnell ⇒ rennen) |
+
+Tipps: Gesichtsausdruck je Shot wählen (zwei Fassungen derselben Figur in verschiedenen Szenen),
+Kamera mit `follow`/`target` auf die Figur, `dof` mit `focus` = Figur. Aktionen dürfen sich
+überlappen (z. B. `walk` + `wave`). Übergänge zwischen Aktionen werden automatisch weich.
+
 ## Cartoons und 2D
 
 Für Zeichentrick-Look: **2D-Kamera** (`camera.orthographic`) + **SVG-Grafiken** (`type: "svg"`).
@@ -282,6 +317,7 @@ Vor dem ersten Keyframe gilt dessen Wert, nach dem letzten der letzte.
 | `flicker` | 0–1 | Nur `point_light`: Flackern (0.3 Kerze/Feuer) |
 | `spin` | [Grad/s x,y,z] | Dauerdrehung, z. B. `[0, 90, 0]` |
 | `smooth_path` | true/false | Position als weiche Kurve durch alle Keyframes |
+| `path` | `{"points": [[0,0,0],[4,0,2],[8,0,0]], "start": 0, "end": 5}` | **Weg entlang laufen/fahren/fliegen:** weiche Kurve durch die Punkte mit gleichmäßigem Tempo; `face` (true) dreht das Objekt in Laufrichtung (Vorderseite +Z), `ease` (in_out), `closed` (Runde). Ersetzt `position` |
 | `talk` | `{"audio": "max_satz1.wav", "start": 1.2}` | **Lippen-Sync:** der Mund öffnet sich mit der Lautstärke der Stimme (WAV aus `Audio/`, z. B. von `generate_voice`). `start` = wann die Datei in der Szene beginnt; `closed` (0.15) = Höhe des geschlossenen Mundes; `gain` (1) = Verstärkung. Gehört auf das Mund-Objekt (Ursprung = Mundmitte) |
 | `blink` | `{"every": 4, "seed": 1}` | **Blinzeln** in natürlichen, zufälligen Abständen (beide Augen derselbe `seed`, andere Figur anderer `seed`) |
 | `breathe` | 0.015 | **Atmen:** sanftes Heben/Senken – Figuren wirken nie eingefroren |

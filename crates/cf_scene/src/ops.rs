@@ -251,6 +251,7 @@ pub fn kind_label(k: &Kind) -> String {
         Kind::Image { file, width } => format!("image \"{file}\" b={width}"),
         Kind::Svg { file, width, .. } => format!("svg {} b={width}", file.as_deref().map(|f| format!("\"{f}\"")).unwrap_or_else(|| "(inline)".into())),
         Kind::Model { file } => format!("model \"{file}\""),
+        Kind::Character(c) => format!("character {:.1} m, {} Aktionen", c.height, c.actions.len()),
     }
 }
 

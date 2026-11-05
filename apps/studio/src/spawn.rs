@@ -151,6 +151,11 @@ fn object_fingerprint(o: &Object, scene: &Scene, project: &ActiveProject, librar
         if let Some(tk) = o.animate.as_ref().and_then(|a| a.talk.as_ref()) {
             file(crate::media::AUDIO, &tk.audio, key);
         }
+        if let Kind::Character(c) = &o.kind {
+            if let Some(tk) = &c.talk {
+                file(crate::media::AUDIO, &tk.audio, key);
+            }
+        }
         match &o.kind {
             Kind::Group { children } => {
                 for c in children {
@@ -516,6 +521,12 @@ impl Builder<'_, '_, '_> {
                     self.spawn_object(c, entity, mat_override, depth, prefix);
                 }
             }
+            Kind::Character(spec) => {
+                // Figur als Gruppe aus Grundformen; Teile heißen „<id>/…“ (Klick wählt die Figur).
+                let figure = cf_scene::character::build(o, spec);
+                let child_prefix = format!("{full_id}/");
+                self.spawn_object(&figure, entity, mat_override, depth + 1, &child_prefix);
+            }
             Kind::Instance { asset, material_override } => {
                 if depth >= MAX_INSTANCE_DEPTH {
                     self.stats.warnings.push(format!("\"{full_id}\": Bibliotheks-Objekte zu tief verschachtelt"));
@@ -846,6 +857,7 @@ impl Builder<'_, '_, '_> {
             | Kind::Particles(_)
             | Kind::Image { .. }
             | Kind::Svg { .. }
+            | Kind::Character(_)
             | Kind::Model { .. } => return None,
         };
         if mesh.count_vertices() == 0 {

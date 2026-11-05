@@ -799,12 +799,13 @@ fn kind_name(k: &Kind) -> &'static str {
         Kind::Scatter(_) => "Verteilung",
         Kind::Group { .. } => "Gruppe",
         Kind::PointLight(_) => "Licht",
+        Kind::Character(_) => "Figur",
     }
 }
 
 fn kind_color(k: &Kind) -> Color {
     match k {
-        Kind::Group { .. } | Kind::Instance { .. } => VIOLET,
+        Kind::Group { .. } | Kind::Instance { .. } | Kind::Character(_) => VIOLET,
         Kind::PointLight(_) | Kind::Particles(_) => AMBER,
         Kind::Svg { .. } | Kind::Image { .. } | Kind::Text(_) => ACCENT,
         _ => DIM,
@@ -1297,9 +1298,17 @@ fn object_tracks(objs: &[Object], prefix: &str, out: &mut Vec<Track>, duration: 
             keys.sort_by(f32::total_cmp);
             keys.dedup_by(|a, b| (*a - *b).abs() < 1e-3);
             let mut bars = Vec::new();
+            if let Some(p) = &a.path {
+                bars.push((p.start, p.end, "Weg".to_string()));
+                keys.extend([p.start, p.end]);
+            }
+            if a.talk.is_some() || a.blink.is_some() || a.breathe != 0.0 {
+                let what = if a.talk.is_some() { "spricht" } else if a.blink.is_some() { "blinzelt" } else { "atmet" };
+                bars.push((a.talk.as_ref().map(|t| t.start).unwrap_or(0.0), duration, what.to_string()));
+            }
             if a.spin != [0.0; 3] || a.flicker > 0.0 {
                 bars.push((0.0, duration, if a.spin != [0.0; 3] { "dreht sich" } else { "flackert" }.to_string()));
-            } else if keys.len() >= 2 {
+            } else if keys.len() >= 2 && bars.is_empty() {
                 bars.push((keys[0], *keys.last().unwrap_or(&0.0), String::new()));
             }
             out.push(Track { label: id.clone(), color: VIOLET, bars, keys });

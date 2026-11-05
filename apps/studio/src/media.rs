@@ -79,6 +79,11 @@ pub fn check_files(project: &ActiveProject, scene: &cf_scene::Scene) -> Vec<Stri
         if let Some(tk) = o.animate.as_ref().and_then(|a| a.talk.as_ref()) {
             need(AUDIO, &tk.audio);
         }
+        if let cf_scene::Kind::Character(c) = &o.kind {
+            if let Some(tk) = &c.talk {
+                need(AUDIO, &tk.audio);
+            }
+        }
         out.extend(svg_problem);
     });
     out

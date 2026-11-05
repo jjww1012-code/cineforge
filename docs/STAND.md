@@ -118,6 +118,15 @@
   Hinweis Tests: mehrere Software-Renderings parallel ⇒ Shader evtl. beim Foto noch nicht fertig
   (leeres Bild) – Kontrollbilder einzeln oder mit `--frames 60` rendern.
 
+- **Bewegung & Kamera-Automatik (`cf_scene::motion`):** `animate.path` (Catmull-Rom, gleichmäßiges
+  Tempo über Bogenlänge, `face` dreht in Laufrichtung), `world_position` (auch in animierten
+  Gruppen), `camera.target`/`target_offset`/`follow` (deterministisches Nachziehen über
+  Zeitfenster-Mittel, Blick bleibt auf aktueller Position)/`orbit`; App nutzt `camera_shot`.
+- **Figuren-Generator (`cf_scene::character`, `type: "character"`):** Gruppe aus Grundformen mit
+  Hüfte/Beinen/Armen/Kopf-Gelenken, Augen (Iris, Pupille, Glanz, Blinzeln je id), Brauen und
+  Lippenlinie je Ausdruck, Mundöffnung mit Lippen-Sync, 6 Frisuren, 3 Statur-Typen, Umriss;
+  13 Aktionen als prozedurale Posen → Keyframes (15/s) mit weichen Übergängen; `auto_walk`
+  passt Schrittfrequenz an die Pfad-Geschwindigkeit an. Teile heißen `<id>/…` (Klick wählt Figur).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

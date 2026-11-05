@@ -228,6 +228,22 @@ pub struct CameraSpec {
     /// Bewegungsunschärfe: Verschlusswinkel 0..1 (0.5 = 180°, Kino-Standard).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<f32>,
+    /// Immer auf dieses Objekt schauen (ersetzt look_at).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    /// Blickpunkt relativ zum Objekt (z. B. [0, 1.5, 0] = Kopfhöhe einer Figur).
+    #[serde(skip_serializing_if = "is_zero3")]
+    pub target_offset: [f32; 3],
+    /// Dem Objekt folgen (Position = Objekt + offset, weich nachgezogen).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub follow: Option<crate::motion::Follow>,
+    /// Um ein Objekt oder einen Punkt kreisen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orbit: Option<crate::motion::Orbit>,
+}
+
+fn is_zero3(v: &[f32; 3]) -> bool {
+    *v == [0.0; 3]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -277,6 +293,10 @@ impl Default for CameraSpec {
             animate: None,
             dof: None,
             motion_blur: None,
+            target: None,
+            target_offset: [0.0; 3],
+            follow: None,
+            orbit: None,
         }
     }
 }
@@ -590,6 +610,8 @@ pub enum Kind {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         resolution: Option<u32>,
     },
+    /// Fertige Cartoon-Figur mit Gelenken, Gesicht und Aktionen (siehe `character`).
+    Character(crate::character::CharacterSpec),
     /// 3D-Modell (GLB/glTF, Datei im Ordner Modelle/), z. B. aus Blender, Sketchfab oder einem KI-3D-Generator.
     Model { file: String },
     /// Partikel-Effekt (Feuer, Rauch, Funken, Schnee, Regen, Explosion, Magie, Staub, Fontäne).
@@ -933,6 +955,22 @@ impl Scene {
                 _ => {}
             }
         }
+        let cam_ids = self
+            .camera
+            .target
+            .iter()
+            .chain(self.camera.follow.as_ref().map(|f| &f.target))
+            .chain(self.camera.orbit.as_ref().and_then(|o| o.target.as_ref()));
+        for id in cam_ids {
+            if crate::ops::find(self, id).is_none() {
+                problems.push(format!("camera: Objekt „{id}“ gibt es nicht"));
+            }
+        }
+        if let Some(o) = &self.camera.orbit {
+            if o.target.is_none() && o.center.is_none() {
+                problems.push("camera.orbit: target (id) oder center angeben".into());
+            }
+        }
         if self.camera.motion_blur.is_some_and(|m| !(0.0..=1.0).contains(&m)) {
             problems.push("camera.motion_blur muss zwischen 0 und 1 liegen (0.5 = Kino-Standard)".into());
         }
@@ -1021,7 +1059,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
     }
     let shapes_mesh = !matches!(
         o.kind,
-        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. }
+        Kind::Group { .. } | Kind::Instance { .. } | Kind::Particles(_) | Kind::PointLight(_) | Kind::Scatter(_) | Kind::Model { .. } | Kind::Image { .. } | Kind::Svg { .. } | Kind::Character(_)
     );
     if (o.subdivide > 0 || o.rounded || !o.deform.is_empty()) && !shapes_mesh {
         p.push(format!("\"{id}\": subdivide/rounded/deform gehen nur bei Formen (box, sphere, extrude, lathe, tube, text …), nicht bei diesem Typ"));
@@ -1065,7 +1103,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
             if s.count > 200_000 {
                 p.push(format!("\"{id}\": count {} ist zu groß (max. 200000)", s.count));
             }
-            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. }) {
+            if matches!(s.shape.kind, Kind::Scatter(_) | Kind::Group { .. } | Kind::Terrain(_) | Kind::Instance { .. } | Kind::Particles(_) | Kind::Image { .. } | Kind::Svg { .. } | Kind::Model { .. } | Kind::Character(_)) {
                 p.push(format!("\"{id}\": scatter.shape muss eine einfache Form sein"));
             }
             if s.scale_range[0] > s.scale_range[1] {
@@ -1157,6 +1195,7 @@ fn check_object(o: &Object, terrains: &std::collections::HashSet<String>, p: &mu
                 _ => {}
             }
         }
+        Kind::Character(c) => c.validate(id, p),
         Kind::Model { file } => {
             let lower = file.to_lowercase();
             if !(lower.ends_with(".glb") || lower.ends_with(".gltf")) {

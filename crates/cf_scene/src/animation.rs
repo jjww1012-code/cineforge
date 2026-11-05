@@ -233,6 +233,9 @@ pub struct Animation {
     /// Lippen-Sync (für den Mund): öffnet sich mit der Lautstärke einer Audiodatei.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub talk: Option<Talk>,
+    /// Bewegung entlang eines weichen Pfades (ersetzt position), dreht sich in Laufrichtung.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<crate::motion::PathMotion>,
 }
 
 /// Blinzeln.
@@ -347,6 +350,9 @@ impl Animation {
         check_keys(&self.visible, &format!("\"{id}\" animate.visible"), p);
         check_keys(&self.intensity, &format!("\"{id}\" animate.intensity"), p);
         check_keys(&self.draw, &format!("\"{id}\" animate.draw"), p);
+        if let Some(path) = &self.path {
+            path.validate(id, p);
+        }
         if let Some(b) = &self.blink {
             if b.every < 0.5 {
                 p.push(format!("\"{id}\" animate.blink.every: mindestens 0.5 Sekunden"));
@@ -385,6 +391,7 @@ impl Animation {
             .max(last(&self.visible))
             .max(last(&self.intensity))
             .max(last(&self.draw))
+            .max(self.path.as_ref().map(|p| p.end).unwrap_or(0.0))
     }
 
     /// Lichtstärke zum Zeitpunkt t (inkl. Flackern) ausgehend von `base`.
@@ -402,7 +409,15 @@ impl Animation {
     pub fn state_at(&self, base_pos: [f32; 3], base_rot: [f32; 3], base_scale: [f32; 3], t: f32, hidden: bool) -> ObjectState {
         let position = if self.smooth_path { sample_smooth(&self.position, t) } else { sample(&self.position, t) }
             .unwrap_or(base_pos);
+        let mut position = position;
         let mut rotation = sample(&self.rotation, t).unwrap_or(base_rot);
+        if let Some(p) = &self.path {
+            let (pos, yaw) = p.sample(t);
+            position = pos;
+            if p.face {
+                rotation[1] += yaw;
+            }
+        }
         for (r, s) in rotation.iter_mut().zip(self.spin) {
             *r += s * t;
         }
