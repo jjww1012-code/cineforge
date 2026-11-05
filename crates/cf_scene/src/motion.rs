@@ -299,6 +299,9 @@ pub struct Frame {
     /// läuft sie über die ganze Einstellung (bis zum nächsten Schnitt bzw. Szenenende).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub to: Option<FrameTo>,
+    /// Gruppen-Einstellung: diese Objekte zusätzlich ins Bild nehmen (Abstand und Mitte automatisch).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub with: Vec<String>,
 }
 
 /// Ziel einer Kamerabewegung bei `frame`.
@@ -361,11 +364,69 @@ fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32, span: (f32, f32)) -> Optio
         angle = lerp(angle, to.angle.unwrap_or(f.angle));
         tilt = lerp(tilt, to.tilt.unwrap_or(f.tilt));
     }
-    let dist = (view / 2.0) / (fov.to_radians() / 2.0).tan().max(0.05);
+    let tan_v = (fov.to_radians() / 2.0).tan().max(0.05);
+    let mut dist = (view / 2.0) / tan_v;
     // Blickrichtung des Objekts (Gier) berücksichtigen: „von vorne“ heißt vor seinem Gesicht.
-    let yaw = (facing_yaw(scene, obj, t) + angle).to_radians();
+    let mut yaw = (facing_yaw(scene, obj, t) + angle).to_radians();
     let tilt = tilt.to_radians();
-    let look = [p[0], p[1] + look_y, p[2]];
+    let mut look = [p[0], p[1] + look_y, p[2]];
+    // Gruppe: Mitte aller Beteiligten, Blick senkrecht zu ihrer Reihe, Abstand so, dass alle passen
+    let mut group: Vec<([f32; 3], f32)> = vec![(p, h)];
+    for id in &f.with {
+        if let (Some(q), Some(o)) = (world_position(scene, id, t), find_obj(&scene.objects, id)) {
+            let hq = match &o.kind {
+                Kind::Character(c) => c.height * o.scale.to_array()[1],
+                Kind::Animal(a) => a.size.unwrap_or(0.6) * 0.7 * o.scale.to_array()[1],
+                _ => d_frame_height().min(2.0) * o.scale.to_array()[1],
+            };
+            group.push((q, hq));
+        }
+    }
+    if group.len() > 1 {
+        let n = group.len() as f32;
+        let c = [group.iter().map(|g| g.0[0]).sum::<f32>() / n, group.iter().map(|g| g.0[1]).fold(f32::MAX, f32::min), group.iter().map(|g| g.0[2]).sum::<f32>() / n];
+        let hmax = group.iter().map(|g| g.1).fold(0.0_f32, f32::max);
+        // Reihe = Verbindung erstes → letztes Mitglied; Kamera auf der Seite, in die die Gruppe schaut
+        let (a, b) = (group[0].0, group[group.len() - 1].0);
+        let (lx, lz) = (b[0] - a[0], b[2] - a[2]);
+        let len = (lx * lx + lz * lz).sqrt();
+        if len > 1e-3 {
+            let (mut nx, mut nz) = (-lz / len, lx / len);
+            let mut facing = [0.0f32, 0.0];
+            for id in std::iter::once(&f.target).chain(f.with.iter()) {
+                if let Some(o) = find_obj(&scene.objects, id) {
+                    let y = facing_yaw(scene, o, t).to_radians();
+                    facing = [facing[0] + y.sin(), facing[1] + y.cos()];
+                }
+            }
+            let mut d = nx * facing[0] + nz * facing[1];
+            if d.abs() < 0.2 {
+                // schauen sich an: Seite der Szenen-Kamera
+                let cam = scene.camera.position;
+                d = nx * (cam[0] - c[0]) + nz * (cam[2] - c[2]);
+            }
+            if d < 0.0 {
+                (nx, nz) = (-nx, -nz);
+            }
+            yaw = nx.atan2(nz) + angle.to_radians();
+        }
+        // Jedes Mitglied muss seitlich ins Bild passen – näher an der Kamera braucht mehr Abstand
+        let right = [yaw.cos(), -yaw.sin()];
+        let toward = [yaw.sin(), yaw.cos()];
+        let tan_h = tan_v * 16.0 / 9.0;
+        let need = group
+            .iter()
+            .map(|g| {
+                let (dx, dz) = (g.0[0] - c[0], g.0[2] - c[2]);
+                let lateral = (dx * right[0] + dz * right[1]).abs() + g.1 * 0.5;
+                let depth = dx * toward[0] + dz * toward[1];
+                lateral / tan_h + depth + g.1 * 0.3
+            })
+            .fold(0.0_f32, f32::max);
+        let (v2, ly) = shot_view(f.shot, hmax);
+        dist = dist.max((v2 / 2.0) / tan_v).max(need);
+        look = [c[0], c[1] + ly, c[2]];
+    }
     let pos = [
         look[0] + dist * tilt.cos() * yaw.sin(),
         look[1] + dist * tilt.sin(),
@@ -689,6 +750,16 @@ mod tests {
         let near = d(camera_shot(&c, 2.99).0);
         let far = d(camera_shot(&c, 1.0).0);
         assert!(near < far * 0.75, "Push-in bis zum Schnitt: {far} → {near}");
+    }
+
+    #[test]
+    fn group_frame_fits_everyone() {
+        let s = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character", "position": [-2, 0, 0], "look_at": "lena"},
+            {"id": "lena", "type": "character", "position": [2, 0, 0], "look_at": "max"}],
+            "camera": {"fov": 40, "frame": {"target": "max", "shot": "full", "with": ["lena"]}}}"#).unwrap();
+        let (pos, look, _) = camera_shot(&s, 0.0);
+        assert!(look[0].abs() < 1e-3, "Mitte der Gruppe: {look:?}");
+        assert!(pos[2] > 3.8 && pos[0].abs() < 1e-3, "senkrecht zur Reihe, weit genug weg: {pos:?}");
     }
 
     #[test]

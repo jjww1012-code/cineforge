@@ -249,6 +249,8 @@
 - **Keine „unfertigen“ Kontrollbilder mehr:** Ist ein Screenshot komplett schwarz oder die untere
   Bildhälfte schwarz (Shader/Szene noch nicht fertig), wird bis zu 2× nach 8 Bildern neu aufgenommen;
   Kontaktabzüge wiederholen schwarze Einzelbilder einmal. (`render::is_black`)
+- **Gruppen-Einstellung:** `frame.with` – Mitte aller Beteiligten, Blick senkrecht zur Reihe (Seite, in die
+  die Gruppe schaut; bei Blickkontakt Seite der Szenen-Kamera), Abstand mit Perspektive je Mitglied.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
