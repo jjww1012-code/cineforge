@@ -17,6 +17,8 @@ pub const TEMPLATES: &[(&str, &str)] = &[
     ("schloss", "Märchenschloss mit Türmen und Fahnen auf einem Hügel im goldenen Abendlicht"),
     ("unterwasser", "Unterwasserwelt mit Sand, Korallen, Seegras, Fischen und Lichtstrahlen"),
     ("stadt", "Straße in einer bunten Stadt mit Häusern, Autos, Laternen und Bäumen"),
+    ("bauernhof", "Bauernhof mit roter Scheune, Bauernhaus, Feld, Zaun, Kuh, Schwein, Schafen und Hühnern"),
+    ("winter", "Verschneite Winterlandschaft mit Tannen, Schneemann, Häuschen und fallendem Schnee"),
 ];
 
 fn base(name: &str, desc: &str) -> Value {
@@ -231,6 +233,70 @@ pub fn template(name: &str) -> Option<Value> {
                 }
             }
             s["objects"] = Value::Array(objs);
+            s
+        }
+        "bauernhof" => {
+            let mut s = base("Bauernhof", "Sonniger Nachmittag auf dem Bauernhof.");
+            s["environment"] = json!({"sun": {"azimuth": 210, "elevation": 34, "color": "#fff0d8"}, "fog": {"visibility": 500, "color": "#dbe7f0"}, "grade": {"saturation": 1.12, "vignette": 0.22}});
+            s["camera"] = json!({"position": [0.5, 2.4, 11], "look_at": [0, 1.0, -1], "fov": 45});
+            let red = json!({"color": "#b5352b", "roughness": 0.8, "pattern": {"type": "wood", "color2": "#9c2d25", "scale": 1.0, "bump": 0.3}});
+            let white = json!({"color": "#f4efe6", "roughness": 0.7});
+            s["objects"] = json!([
+                {"id": "wiese", "type": "terrain", "size": [240, 240], "resolution": 160, "height": 5, "style": "hills", "feature_size": 45, "flat_center_radius": 22, "material": {"color": "#86c060", "pattern": {"type": "noise", "color2": "#74ad52", "scale": 0.4, "bump": 0.2}}},
+                {"id": "scheune", "type": "group", "position": [-7, 0, -8], "rotation": [0, 15, 0], "children": [
+                    {"id": "scheune_waende", "type": "box", "size": [8, 5, 10], "position": [0, 2.5, 0], "material": red},
+                    {"id": "scheune_dach", "type": "extrude", "profile": [[-4.6, 0], [4.6, 0], [0, 3.2]], "height": 10.6, "position": [0, 5, 5.3], "rotation": [-90, 0, 0], "material": {"color": "#5b3b2c", "roughness": 0.85}},
+                    {"id": "scheune_tor", "type": "box", "size": [3.2, 3.6, 0.12], "position": [0, 1.8, 5.02], "material": red},
+                    {"id": "scheune_rahmen", "type": "box", "size": [3.5, 0.2, 0.16], "position": [0, 3.7, 5.05], "material": white},
+                    {"id": "scheune_kreuz_1", "type": "box", "size": [4.4, 0.16, 0.14], "position": [0, 1.8, 5.1], "rotation": [0, 0, 48], "material": white},
+                    {"id": "scheune_kreuz_2", "type": "box", "size": [4.4, 0.16, 0.14], "position": [0, 1.8, 5.1], "rotation": [0, 0, -48], "material": white},
+                    {"id": "heuluke", "type": "box", "size": [1.4, 1.2, 0.12], "position": [0, 5.9, 5.0], "material": white}
+                ]},
+                {"id": "bauernhaus", "type": "instance", "asset": "haus", "position": [7, 0, -11], "rotation": [0, -20, 0], "scale": 1.3},
+                {"id": "feld", "type": "plane", "size": [14, 16], "position": [16, 0.03, -6], "material": {"color": "#9a6a3c", "roughness": 0.95, "pattern": {"type": "stripes", "color2": "#7c522c", "scale": 2.0, "bump": 0.5}}},
+                {"id": "zaun_vorne", "type": "instance", "asset": "zaun", "position": [-12, 0, 3], "repeat": {"count": 4, "offset": [4, 0, 0]}},
+                {"id": "heuballen", "type": "cylinder", "radius": 0.7, "height": 1.2, "position": [-2, 0.7, -3], "rotation": [0, 0, 90], "repeat": {"count": 2, "offset": [0, 0, 1.6]}, "material": {"color": "#e3c35a", "roughness": 0.95, "pattern": {"type": "noise", "color2": "#c9a640", "scale": 3.0, "bump": 0.6}}},
+                {"id": "kuh", "type": "animal", "kind": "cow", "position": [-3, 0, 0], "rotation": [0, 40, 0], "actions": [{"type": "idle", "start": 0, "end": 6}]},
+                {"id": "schwein", "type": "animal", "kind": "pig", "position": [2.5, 0, 1], "rotation": [0, -30, 0]},
+                {"id": "schaf_1", "type": "animal", "kind": "sheep", "position": [5, 0, -2], "rotation": [0, -60, 0]},
+                {"id": "schaf_2", "type": "animal", "kind": "sheep", "position": [6.3, 0, -0.8], "rotation": [0, -100, 0]},
+                {"id": "huhn_1", "type": "animal", "kind": "chicken", "position": [0.5, 0, 3], "rotation": [0, 20, 0]},
+                {"id": "huhn_2", "type": "animal", "kind": "chicken", "position": [1.2, 0, 3.6], "rotation": [0, -50, 0]},
+                {"id": "baum_1", "type": "tree", "kind": "oak", "height": 7, "position": [14, 0, -16], "wind": 0.25, "seed": 6},
+                {"id": "baum_2", "type": "tree", "kind": "oak", "height": 6, "position": [-15, 0, -4], "wind": 0.25, "seed": 9},
+                {"id": "baeume", "type": "scatter", "count": 30, "area": [220, 80], "position": [0, 0, -90], "seed": 4, "on_terrain": "wiese", "shape": {"type": "tree", "kind": "oak", "height": 8, "wind": 0.2}},
+                {"id": "wolke_1", "type": "instance", "asset": "wolke", "position": [-14, 20, -60], "scale": 3}
+            ]);
+            s
+        }
+        "winter" => {
+            let mut s = base("Winter", "Verschneiter Wintertag.");
+            s["environment"] = json!({"sun": {"azimuth": 200, "elevation": 16, "color": "#ffeedd"}, "fog": {"visibility": 260, "color": "#e4ecf5"}, "grade": {"saturation": 1.05, "vignette": 0.25}});
+            s["camera"] = json!({"position": [0, 2.2, 12], "look_at": [0, 1.2, 0], "fov": 42});
+            let snow = json!({"color": "#f6f9fc", "roughness": 0.65, "pattern": {"type": "noise", "color2": "#e2eaf4", "scale": 0.5, "bump": 0.3}});
+            s["objects"] = json!([
+                {"id": "schnee", "type": "terrain", "size": [240, 240], "resolution": 160, "height": 5, "style": "hills", "feature_size": 40, "flat_center_radius": 14, "material": snow},
+                {"id": "tannen", "type": "scatter", "count": 110, "area": [200, 120], "position": [0, 0, -60], "seed": 5, "on_terrain": "schnee", "shape": {"type": "tree", "kind": "pine", "height": 9, "leaves": "#2c5a48", "wind": 0.1}},
+                {"id": "tanne_1", "type": "tree", "kind": "pine", "height": 7, "position": [-7, 0, -4], "leaves": "#2c5a48", "seed": 3},
+                {"id": "tanne_2", "type": "tree", "kind": "pine", "height": 5.5, "position": [8, 0, -6], "leaves": "#2c5a48", "seed": 8},
+                {"id": "schneemann", "type": "group", "position": [3, 0, -1], "rotation": [0, -20, 0], "children": [
+                    {"id": "schneemann_unten", "type": "sphere", "radius": 0.55, "position": [0, 0.5, 0], "material": {"color": "#fbfdff", "roughness": 0.6}},
+                    {"id": "schneemann_mitte", "type": "sphere", "radius": 0.4, "position": [0, 1.25, 0], "material": {"color": "#fbfdff", "roughness": 0.6}},
+                    {"id": "schneemann_kopf", "type": "sphere", "radius": 0.28, "position": [0, 1.82, 0], "material": {"color": "#fbfdff", "roughness": 0.6}},
+                    {"id": "schneemann_nase", "type": "cone", "radius": 0.05, "height": 0.25, "position": [0, 1.82, 0.36], "rotation": [90, 0, 0], "material": {"color": "#f2802a", "roughness": 0.5}},
+                    {"id": "schneemann_auge_l", "type": "sphere", "radius": 0.035, "position": [-0.1, 1.9, 0.25], "material": {"color": "#1b1b1b"}},
+                    {"id": "schneemann_auge_r", "type": "sphere", "radius": 0.035, "position": [0.1, 1.9, 0.25], "material": {"color": "#1b1b1b"}},
+                    {"id": "schneemann_knopf", "type": "sphere", "radius": 0.035, "position": [0, 1.15, 0.39], "repeat": {"count": 3, "offset": [0, 0.13, 0.01]}, "material": {"color": "#1b1b1b"}},
+                    {"id": "schneemann_hut", "type": "cylinder", "radius": 0.18, "height": 0.28, "position": [0, 2.15, 0], "material": {"color": "#222226"}},
+                    {"id": "schneemann_krempe", "type": "cylinder", "radius": 0.28, "height": 0.03, "position": [0, 2.02, 0], "material": {"color": "#222226"}},
+                    {"id": "schneemann_schal", "type": "torus", "radius": 0.24, "thickness": 0.06, "position": [0, 1.58, 0], "material": {"color": "#d62f3a", "roughness": 0.9}},
+                    {"id": "schneemann_arm_l", "type": "tube", "radius": 0.025, "path": [[-0.35, 1.3, 0], [-0.7, 1.55, 0], [-0.85, 1.75, 0.05]], "material": {"color": "#5b3a22"}},
+                    {"id": "schneemann_arm_r", "type": "tube", "radius": 0.025, "path": [[0.35, 1.3, 0], [0.7, 1.5, 0], [0.9, 1.45, 0.05]], "material": {"color": "#5b3a22"}}
+                ]},
+                {"id": "huette", "type": "instance", "asset": "haus", "position": [-6, 0, -12], "rotation": [0, 25, 0]},
+                {"id": "laterne_1", "type": "instance", "asset": "laterne", "position": [-2.5, 0, 2]},
+                {"id": "schneefall", "type": "particles", "preset": "snow", "position": [0, 7, 0], "area": [30, 2, 30]}
+            ]);
             s
         }
         _ => return None,

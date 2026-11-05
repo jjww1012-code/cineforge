@@ -10,7 +10,7 @@ fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 ## Schnellstart mit Vorlagen
 
 `new_scene` mit `"template"` legt eine fertig ausgeleuchtete Umgebung an: `wiese`, `dorf`, `wald`,
-`strand`, `nacht`, `studio`, `weltraum`, `zimmer`, `cartoon_2d`, `schloss`, `unterwasser`, `stadt`.
+`strand`, `nacht`, `studio`, `weltraum`, `zimmer`, `cartoon_2d`, `schloss`, `unterwasser`, `stadt`, `bauernhof` (mit Tieren), `winter` (Schnee, Schneemann).
 Danach nur noch Figuren
 (`type: "character"`), Handlung (`actions`, `path`) und Kamera (`frame`, `follow`) ergänzen.
 
@@ -244,7 +244,7 @@ Kamera mit `follow`/`target` auf die Figur, `dof` mit `focus` = Figur. Aktionen 
 
 | Feld | Werte |
 |---|---|
-| `kind` | `dog`, `cat`, `bunny`, `bird`, `fish` |
+| `kind` | `dog`, `cat`, `bunny`, `bird`, `fish`, `cow` (Kuh), `pig` (Schwein), `sheep` (Schaf), `horse` (Pferd), `chicken` (Huhn) |
 | `size` | Körperlänge in Metern (Standard je Art: Hund 0.8, Katze 0.6, Hase 0.4, Vogel 0.3, Fisch 0.4) |
 | `color`, `color2` | Fell/Grundfarbe und Zweitfarbe (Bauch, Schnauze, Streifen) |
 | `actions` | `idle`, `walk`, `run`, `wag` (Schwanzwedeln), `jump`, `sit`, `fly` (Vogel), `swim` (Fisch) – mit `start`, `end`, `speed` |

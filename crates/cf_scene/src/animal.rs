@@ -17,6 +17,11 @@ pub enum AnimalKind {
     Bunny,
     Bird,
     Fish,
+    Cow,
+    Pig,
+    Sheep,
+    Horse,
+    Chicken,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -196,6 +201,11 @@ pub fn build_animal(obj: &Object, spec: &AnimalSpec) -> Object {
         AnimalKind::Bunny => 0.4,
         AnimalKind::Bird => 0.3,
         AnimalKind::Fish => 0.4,
+        AnimalKind::Cow => 1.6,
+        AnimalKind::Pig => 0.9,
+        AnimalKind::Sheep => 0.9,
+        AnimalKind::Horse => 1.8,
+        AnimalKind::Chicken => 0.45,
     });
     let u = size;
     let (c1, c2) = match kind {
@@ -204,6 +214,11 @@ pub fn build_animal(obj: &Object, spec: &AnimalSpec) -> Object {
         AnimalKind::Bunny => (Rgb::new(0.92, 0.9, 0.88), Rgb::new(1.0, 0.8, 0.85)),
         AnimalKind::Bird => (Rgb::new(0.25, 0.55, 0.95), Rgb::new(1.0, 0.85, 0.3)),
         AnimalKind::Fish => (Rgb::new(1.0, 0.55, 0.15), Rgb::new(1.0, 1.0, 1.0)),
+        AnimalKind::Cow => (Rgb::new(0.97, 0.96, 0.94), Rgb::new(0.12, 0.11, 0.11)),
+        AnimalKind::Pig => (Rgb::new(0.98, 0.72, 0.72), Rgb::new(0.9, 0.52, 0.56)),
+        AnimalKind::Sheep => (Rgb::new(0.97, 0.96, 0.92), Rgb::new(0.24, 0.21, 0.2)),
+        AnimalKind::Horse => (Rgb::new(0.56, 0.34, 0.19), Rgb::new(0.17, 0.11, 0.08)),
+        AnimalKind::Chicken => (Rgb::new(0.98, 0.97, 0.94), Rgb::new(0.95, 0.93, 0.88)),
     };
     let (c1, c2) = (spec.color.unwrap_or(c1), spec.color2.unwrap_or(c2));
     let ol = spec.outline.then(|| json!({"width": 0.012 * u}));
@@ -260,30 +275,87 @@ pub fn build_animal(obj: &Object, spec: &AnimalSpec) -> Object {
 
     let mut parts: Vec<Value> = Vec::new();
     match kind {
-        AnimalKind::Dog | AnimalKind::Cat | AnimalKind::Bunny => {
-            let leg_h = u * if kind == AnimalKind::Bunny { 0.18 } else { 0.32 };
-            let body_r = u * if kind == AnimalKind::Cat { 0.15 } else { 0.18 };
-            let body_len = u * 0.45;
+        AnimalKind::Dog | AnimalKind::Cat | AnimalKind::Bunny | AnimalKind::Cow | AnimalKind::Pig | AnimalKind::Sheep | AnimalKind::Horse => {
+            // Proportionen je Art: (Beinlänge, Körperradius, Körperlänge, Kopfradius) relativ zur Größe
+            let (leg_f, body_f, len_f, head_f) = match kind {
+                AnimalKind::Bunny => (0.18, 0.18, 0.45, 0.2),
+                AnimalKind::Cat => (0.32, 0.15, 0.45, 0.17),
+                AnimalKind::Cow => (0.3, 0.2, 0.55, 0.15),
+                AnimalKind::Pig => (0.16, 0.22, 0.5, 0.16),
+                AnimalKind::Sheep => (0.22, 0.2, 0.45, 0.13),
+                AnimalKind::Horse => (0.42, 0.16, 0.55, 0.12),
+                _ => (0.32, 0.18, 0.45, 0.17),
+            };
+            let farm = matches!(kind, AnimalKind::Cow | AnimalKind::Pig | AnimalKind::Sheep | AnimalKind::Horse);
+            let leg_h = u * leg_f;
+            let body_r = u * body_f;
+            let body_len = u * len_f;
             let hip_y = leg_h + body_r * 0.6;
+            let leg_r = u * if farm { 0.045 } else { 0.055 };
+            let leg_mat = if kind == AnimalKind::Sheep { fur2.clone() } else { fur.clone() };
             let leg = |k: usize, x: f32, z: f32| {
                 let f: Box<dyn Fn(&Pose) -> [f32; 3]> = Box::new(move |p: &Pose| [p.legs[k], 0.0, 0.0]);
+                // Hufe (Bauernhoftiere) bzw. Pfoten
+                let foot = if farm {
+                    json!({"id": format!("{id}_huf_{k}"), "type": "cylinder", "radius": leg_r * 1.1, "height": u * 0.05, "position": [0.0, -leg_h + u * 0.025, 0.0], "material": fur2})
+                } else {
+                    json!({"id": format!("{id}_pfote_{k}"), "type": "sphere", "radius": u * 0.065, "position": [0.0, -leg_h + u * 0.03, u * 0.02], "scale": [1.0, 0.7, 1.2], "material": fur2})
+                };
                 json!({"id": format!("{id}_bein_{k}"), "type": "group", "position": [x, 0.0, z], "animate": rot(&*f),
                   "children": [
-                    {"id": format!("{id}_beinform_{k}"), "type": "capsule", "radius": u * 0.055, "length": (leg_h - u * 0.11).max(0.01), "position": [0.0, -leg_h / 2.0, 0.0], "material": fur},
-                    {"id": format!("{id}_pfote_{k}"), "type": "sphere", "radius": u * 0.065, "position": [0.0, -leg_h + u * 0.03, u * 0.02], "scale": [1.0, 0.7, 1.2], "material": fur2}]})
+                    {"id": format!("{id}_beinform_{k}"), "type": "capsule", "radius": leg_r, "length": (leg_h - leg_r * 2.0).max(0.01), "position": [0.0, -leg_h / 2.0, 0.0], "material": leg_mat},
+                    foot]})
             };
             let hx = body_r * 0.6;
             let hz = body_len * 0.5;
-            let head_r = u * if kind == AnimalKind::Bunny { 0.2 } else { 0.17 };
+            let head_r = u * head_f;
+            let head_mat = if kind == AnimalKind::Sheep { fur2.clone() } else { fur.clone() };
             let mut head = vec![
-                json!({"id": format!("{id}_kopfform"), "type": "sphere", "radius": head_r, "material": fur}),
-                json!({"id": format!("{id}_schnauze"), "type": "sphere", "radius": head_r * 0.55, "position": [0.0, -head_r * 0.3, head_r * 0.75], "scale": [1.1, 0.8, 1.0], "material": fur2}),
-                json!({"id": format!("{id}_nase"), "type": "sphere", "radius": head_r * 0.16, "position": [0.0, -head_r * 0.15, head_r * 1.25],
-                       "material": {"color": if kind == AnimalKind::Dog { "#1a1a1a" } else { "#f08aa0" }, "roughness": 0.2}}),
+                json!({"id": format!("{id}_kopfform"), "type": "sphere", "radius": head_r, "scale": if kind == AnimalKind::Horse { [0.85, 0.95, 1.5] } else { [1.0, 1.0, 1.0] }, "material": head_mat}),
                 eye(-1.0, [-head_r * 0.42, head_r * 0.22, head_r * 0.78], head_r * 0.24),
                 eye(1.0, [head_r * 0.42, head_r * 0.22, head_r * 0.78], head_r * 0.24),
             ];
+            if !farm {
+                head.push(json!({"id": format!("{id}_schnauze"), "type": "sphere", "radius": head_r * 0.55, "position": [0.0, -head_r * 0.3, head_r * 0.75], "scale": [1.1, 0.8, 1.0], "material": fur2}));
+                head.push(json!({"id": format!("{id}_nase"), "type": "sphere", "radius": head_r * 0.16, "position": [0.0, -head_r * 0.15, head_r * 1.25],
+                       "material": {"color": if kind == AnimalKind::Dog { "#1a1a1a" } else { "#f08aa0" }, "roughness": 0.2}}));
+            }
+            let nostrils = |head: &mut Vec<Value>, y: f32, z: f32, dx: f32| {
+                for s in [-1.0f32, 1.0] {
+                    head.push(json!({"id": format!("{id}_nasenloch_{s}"), "type": "sphere", "radius": head_r * 0.07, "position": [s * dx, y, z], "material": {"color": "#3a2020", "unlit": true}}));
+                }
+            };
             match kind {
+                AnimalKind::Cow => {
+                    head.push(json!({"id": format!("{id}_maul"), "type": "sphere", "radius": head_r * 0.62, "position": [0.0, -head_r * 0.42, head_r * 0.78], "scale": [1.25, 0.85, 0.95], "material": mat(Rgb::new(0.96, 0.72, 0.72), 0.5)}));
+                    nostrils(&mut head, -head_r * 0.35, head_r * 1.35, head_r * 0.25);
+                    for s in [-1.0f32, 1.0] {
+                        head.push(json!({"id": format!("{id}_horn_{s}"), "type": "cone", "radius": head_r * 0.12, "height": head_r * 0.45, "position": [s * head_r * 0.55, head_r * 0.85, -head_r * 0.1], "rotation": [0.0, 0.0, -s * 35.0], "material": {"color": "#efe3c4", "roughness": 0.4}}));
+                        head.push(json!({"id": format!("{id}_ohr_{s}"), "type": "capsule", "radius": head_r * 0.16, "length": head_r * 0.5, "position": [s * head_r * 1.05, head_r * 0.35, -head_r * 0.15], "rotation": [0.0, 0.0, s * 75.0], "scale": [1.0, 1.0, 0.5], "material": fur}));
+                    }
+                }
+                AnimalKind::Pig => {
+                    head.push(json!({"id": format!("{id}_ruessel"), "type": "cylinder", "radius": head_r * 0.36, "height": head_r * 0.35, "position": [0.0, -head_r * 0.12, head_r * 1.0], "rotation": [90.0, 0.0, 0.0], "material": fur2}));
+                    nostrils(&mut head, -head_r * 0.12, head_r * 1.18, head_r * 0.13);
+                    for s in [-1.0f32, 1.0] {
+                        head.push(json!({"id": format!("{id}_ohr_{s}"), "type": "cone", "radius": head_r * 0.3, "height": head_r * 0.5, "position": [s * head_r * 0.55, head_r * 0.8, head_r * 0.1], "rotation": [35.0, 0.0, -s * 20.0], "scale": [1.0, 1.0, 0.45], "material": fur}));
+                    }
+                }
+                AnimalKind::Sheep => {
+                    for (k, (x, y, z)) in [(0.0, 0.85, 0.0), (-0.35, 0.75, -0.1), (0.35, 0.75, -0.1), (0.0, 0.8, -0.35)].iter().enumerate() {
+                        head.push(json!({"id": format!("{id}_lockenkopf_{k}"), "type": "sphere", "radius": head_r * 0.45, "position": [x * head_r, y * head_r, z * head_r], "material": fur}));
+                    }
+                    for s in [-1.0f32, 1.0] {
+                        head.push(json!({"id": format!("{id}_ohr_{s}"), "type": "capsule", "radius": head_r * 0.18, "length": head_r * 0.55, "position": [s * head_r * 1.05, head_r * 0.15, -head_r * 0.1], "rotation": [0.0, 0.0, s * 80.0], "scale": [1.0, 1.0, 0.5], "material": fur2}));
+                    }
+                }
+                AnimalKind::Horse => {
+                    head.push(json!({"id": format!("{id}_maul"), "type": "sphere", "radius": head_r * 0.6, "position": [0.0, -head_r * 0.3, head_r * 1.15], "scale": [0.95, 0.85, 1.0], "material": mat(Rgb::new(c1.r * 0.8, c1.g * 0.75, c1.b * 0.7), 0.7)}));
+                    nostrils(&mut head, -head_r * 0.3, head_r * 1.7, head_r * 0.22);
+                    for s in [-1.0f32, 1.0] {
+                        head.push(json!({"id": format!("{id}_ohr_{s}"), "type": "cone", "radius": head_r * 0.18, "height": head_r * 0.55, "position": [s * head_r * 0.4, head_r * 0.95, -head_r * 0.35], "rotation": [-10.0, 0.0, -s * 10.0], "material": fur}));
+                    }
+                }
                 AnimalKind::Dog => {
                     for s in [-1.0f32, 1.0] {
                         head.push(json!({"id": format!("{id}_ohr_{s}"), "type": "capsule", "radius": head_r * 0.22, "length": head_r * 0.7,
@@ -310,21 +382,72 @@ pub fn build_animal(obj: &Object, spec: &AnimalSpec) -> Object {
             }
             let tail = match kind {
                 AnimalKind::Bunny => json!({"id": format!("{id}_schwanzform"), "type": "sphere", "radius": u * 0.08, "position": [0.0, 0.0, -u * 0.04], "material": fur2}),
+                AnimalKind::Sheep => json!({"id": format!("{id}_schwanzform"), "type": "sphere", "radius": u * 0.07, "position": [0.0, 0.0, -u * 0.03], "material": fur}),
+                AnimalKind::Pig => json!({"id": format!("{id}_schwanzform"), "type": "tube", "radius": u * 0.018,
+                    "path": [[0.0, 0.0, 0.0], [0.0, u * 0.04, -u * 0.05], [u * 0.04, u * 0.08, -u * 0.04], [u * 0.02, u * 0.1, -u * 0.0], [-u * 0.02, u * 0.08, -u * 0.03]], "material": fur}),
+                AnimalKind::Cow => json!({"id": format!("{id}_schwanzform"), "type": "group", "children": [
+                    {"id": format!("{id}_schwanzseil"), "type": "tube", "radius": u * 0.015, "path": [[0.0, 0.0, 0.0], [0.0, -u * 0.12, -u * 0.06], [0.0, -u * 0.3, -u * 0.07]], "material": fur},
+                    {"id": format!("{id}_schwanzquaste"), "type": "sphere", "radius": u * 0.035, "position": [0.0, -u * 0.32, -u * 0.07], "scale": [0.8, 1.4, 0.8], "material": fur2}]}),
+                AnimalKind::Horse => json!({"id": format!("{id}_schwanzform"), "type": "tube", "radius": u * 0.045, "radius_end": u * 0.02,
+                    "path": [[0.0, 0.0, 0.0], [0.0, -u * 0.05, -u * 0.12], [0.0, -u * 0.25, -u * 0.18], [0.0, -u * 0.42, -u * 0.17]], "material": fur2}),
                 AnimalKind::Cat => json!({"id": format!("{id}_schwanzform"), "type": "tube", "radius": u * 0.035, "radius_end": u * 0.03,
                     "path": [[0.0, 0.0, 0.0], [0.0, u * 0.15, -u * 0.15], [0.0, u * 0.4, -u * 0.12]], "material": fur}),
                 _ => json!({"id": format!("{id}_schwanzform"), "type": "tube", "radius": u * 0.04, "radius_end": u * 0.015,
                     "path": [[0.0, 0.0, 0.0], [0.0, u * 0.1, -u * 0.12], [0.0, u * 0.22, -u * 0.18]], "material": fur}),
             };
+            // Kopf-Position: Pferd auf langem Hals, Kuh tiefer vorne, sonst knapp über dem Körper
+            let head_pos = match kind {
+                AnimalKind::Horse => [0.0, body_r * 1.35 + head_r * 0.6, hz + head_r * 1.5],
+                AnimalKind::Cow => [0.0, body_r * 0.6, hz + head_r * 0.85],
+                AnimalKind::Pig => [0.0, body_r * 0.35, hz + head_r * 0.55],
+                AnimalKind::Sheep => [0.0, body_r * 0.7, hz + head_r * 0.8],
+                _ => [0.0, body_r * 0.9 + head_r * 0.4, hz + head_r * 0.5],
+            };
+            let belly_mat = if farm { fur.clone() } else { fur2.clone() };
+            let mut extras: Vec<Value> = Vec::new();
+            match kind {
+                AnimalKind::Cow => {
+                    // Flecken und Euter
+                    for (k, (x, y, z, r)) in [(0.95, 0.3, 0.2, 0.45), (-0.95, 0.1, -0.25, 0.5), (0.5, 0.85, -0.45, 0.35), (-0.4, 0.9, 0.35, 0.3), (0.9, -0.1, -0.5, 0.3)].iter().enumerate() {
+                        extras.push(json!({"id": format!("{id}_fleck_{k}"), "type": "sphere", "radius": body_r * r, "position": [x * body_r, y * body_r, z * body_len], "scale": [0.35, 1.0, 1.2], "rotation": [0.0, 0.0, -x * 25.0], "material": fur2}));
+                    }
+                    extras.push(json!({"id": format!("{id}_euter"), "type": "sphere", "radius": body_r * 0.35, "position": [0.0, -body_r * 0.85, -body_len * 0.2], "scale": [1.0, 0.7, 1.0], "material": mat(Rgb::new(0.96, 0.72, 0.72), 0.5)}));
+                }
+                AnimalKind::Sheep => {
+                    // Wolle: viele weiche Kugeln um den Körper
+                    let mut k = 0;
+                    for zi in [-0.45f32, -0.15, 0.15, 0.45] {
+                        for (x, y) in [(-0.55f32, 0.25f32), (0.55, 0.25), (0.0, 0.7), (-0.4, -0.35), (0.4, -0.35)] {
+                            extras.push(json!({"id": format!("{id}_wolle_{k}"), "type": "sphere", "radius": body_r * 0.62, "position": [x * body_r, y * body_r, zi * body_len], "material": fur}));
+                            k += 1;
+                        }
+                    }
+                }
+                AnimalKind::Horse => {
+                    // Hals und Mähne
+                    let top = [0.0, body_r * 0.5, hz * 0.85];
+                    let neck_end = [0.0, head_pos[1] - head_r * 0.3, head_pos[2] - head_r * 0.4];
+                    extras.push(json!({"id": format!("{id}_hals"), "type": "tube", "radius": body_r * 0.55, "radius_end": head_r * 0.7, "path": [top, neck_end], "material": fur}));
+                    for k in 0..6 {
+                        let f = k as f32 / 5.0;
+                        let p = [0.0, top[1] + (neck_end[1] - top[1]) * f + body_r * 0.45, top[2] + (neck_end[2] - top[2]) * f - body_r * 0.25];
+                        extras.push(json!({"id": format!("{id}_maehne_{k}"), "type": "sphere", "radius": body_r * 0.2, "position": p, "scale": [0.5, 1.2, 1.0], "material": fur2}));
+                    }
+                }
+                _ => {}
+            }
+            let mut body_children = vec![
+                json!({"id": format!("{id}_rumpf"), "type": "capsule", "radius": body_r, "length": body_len, "rotation": [90.0, 0.0, 0.0], "material": fur, "animate": {"breathe": 0.02}}),
+                json!({"id": format!("{id}_bauch"), "type": "sphere", "radius": body_r * 0.85, "position": [0.0, -body_r * 0.3, body_len * 0.2], "scale": [0.9, 0.8, 1.3], "material": belly_mat}),
+                json!({"id": format!("{id}_kopf"), "type": "group", "position": head_pos, "animate": rot(&|p: &Pose| [p.head[0], p.head[1], 0.0]), "children": head}),
+                json!({"id": format!("{id}_schwanz"), "type": "group", "position": [0.0, body_r * 0.3, -hz - body_r * 0.7], "animate": rot(&|p: &Pose| [p.tail[1], p.tail[0], 0.0]), "children": [tail]}),
+                leg(0, -hx, hz * 0.8), leg(1, hx, hz * 0.8), leg(2, -hx, -hz * 0.8), leg(3, hx, -hz * 0.8),
+            ];
+            body_children.extend(extras);
             let body = json!({"id": format!("{id}_koerper"), "type": "group", "position": [0.0, hip_y, 0.0],
               "animate": {"position": Value::Array(times.iter().zip(&poses).map(|(t, p)| json!({"t": t, "v": [0.0, hip_y + p.body_y * u, 0.0], "ease": "linear"})).collect()),
                           "rotation": Value::Array(times.iter().zip(&poses).map(|(t, p)| json!({"t": t, "v": [p.body_pitch, 0.0, 0.0], "ease": "linear"})).collect())},
-              "children": [
-                {"id": format!("{id}_rumpf"), "type": "capsule", "radius": body_r, "length": body_len, "rotation": [90.0, 0.0, 0.0], "material": fur, "animate": {"breathe": 0.02}},
-                {"id": format!("{id}_bauch"), "type": "sphere", "radius": body_r * 0.85, "position": [0.0, -body_r * 0.3, body_len * 0.2], "scale": [0.9, 0.8, 1.3], "material": fur2},
-                {"id": format!("{id}_kopf"), "type": "group", "position": [0.0, body_r * 0.9 + head_r * 0.4, hz + head_r * 0.5], "animate": rot(&|p: &Pose| [p.head[0], p.head[1], 0.0]), "children": head},
-                {"id": format!("{id}_schwanz"), "type": "group", "position": [0.0, body_r * 0.3, -hz - body_r * 0.7], "animate": rot(&|p: &Pose| [p.tail[1], p.tail[0], 0.0]), "children": [tail]},
-                leg(0, -hx, hz * 0.8), leg(1, hx, hz * 0.8), leg(2, -hx, -hz * 0.8), leg(3, hx, -hz * 0.8)
-              ]});
+              "children": body_children});
             let mut b = body;
             // Beine hängen am Körper: Beinlänge vom Körper aus nach unten
             if let Some(ch) = b["children"].as_array_mut() {
@@ -335,8 +458,9 @@ pub fn build_animal(obj: &Object, spec: &AnimalSpec) -> Object {
             }
             parts.push(b);
         }
-        AnimalKind::Bird => {
+        AnimalKind::Bird | AnimalKind::Chicken => {
             let r = u * 0.3;
+            let chicken = kind == AnimalKind::Chicken;
             let wing = |s: f32| {
                 let f: Box<dyn Fn(&Pose) -> [f32; 3]> = Box::new(move |p: &Pose| [0.0, 0.0, -s * p.wings]);
                 json!({"id": format!("{id}_fluegel_{s}"), "type": "group", "position": [s * r * 0.8, r * 0.1, 0.0], "animate": rot(&*f),
@@ -351,7 +475,11 @@ pub fn build_animal(obj: &Object, spec: &AnimalSpec) -> Object {
                   "children": [
                     {"id": format!("{id}_kopfform"), "type": "sphere", "radius": r * 0.6, "material": fur},
                     {"id": format!("{id}_schnabel"), "type": "cone", "radius": r * 0.18, "height": r * 0.45, "position": [0.0, -r * 0.05, r * 0.7], "rotation": [90.0, 0.0, 0.0], "material": {"color": "#ffb020", "roughness": 0.4}},
-                    eye(-1.0, [-r * 0.28, r * 0.15, r * 0.45], r * 0.15), eye(1.0, [r * 0.28, r * 0.15, r * 0.45], r * 0.15)]},
+                    eye(-1.0, [-r * 0.28, r * 0.15, r * 0.45], r * 0.15), eye(1.0, [r * 0.28, r * 0.15, r * 0.45], r * 0.15),
+                    // Huhn: roter Kamm und Kehllappen
+                    if chicken { json!({"id": format!("{id}_kamm"), "type": "sphere", "radius": r * 0.16, "position": [0.0, r * 0.6, r * 0.05], "scale": [0.5, 1.0, 1.0],
+                        "repeat": {"count": 3, "offset": [0.0, -r * 0.04, -r * 0.18]}, "material": {"color": "#e0262c", "roughness": 0.4}}) } else { Value::Null },
+                    if chicken { json!({"id": format!("{id}_kehllappen"), "type": "sphere", "radius": r * 0.1, "position": [0.0, -r * 0.35, r * 0.55], "scale": [0.6, 1.3, 0.6], "material": {"color": "#e0262c", "roughness": 0.4}}) } else { Value::Null }]},
                 {"id": format!("{id}_schwanz"), "type": "cone", "radius": r * 0.35, "height": r * 0.8, "position": [0.0, r * 0.1, -r * 1.1], "rotation": [-110.0, 0.0, 0.0], "scale": [1.0, 1.0, 0.3], "material": fur},
                 wing(-1.0), wing(1.0),
                 {"id": format!("{id}_bein_l"), "type": "cylinder", "radius": r * 0.05, "height": r * 0.6, "position": [-r * 0.3, -r * 1.0, 0.0], "material": {"color": "#ffb020"}},
@@ -386,7 +514,10 @@ fn strip_nulls(v: &mut Value) {
                 strip_nulls(x);
             }
         }
-        Value::Array(a) => a.iter_mut().for_each(strip_nulls),
+        Value::Array(a) => {
+            a.retain(|x| !x.is_null()); // optionale Teile (z. B. Hühnerkamm) als null eingetragen
+            a.iter_mut().for_each(strip_nulls)
+        }
         _ => {}
     }
 }
@@ -398,7 +529,7 @@ mod tests {
 
     #[test]
     fn all_animals_build_valid_groups() {
-        for kind in ["dog", "cat", "bunny", "bird", "fish"] {
+        for kind in ["dog", "cat", "bunny", "bird", "fish", "cow", "pig", "sheep", "horse", "chicken"] {
             let s = Scene::from_json(&format!(
                 r#"{{"objects": [{{"id": "tier", "type": "animal", "kind": "{kind}", "outline": true, "actions": [{{"type": "wag", "start": 1, "end": 3}}],
                     "animate": {{"path": {{"points": [[0,0,0],[3,0,0]], "start": 3, "end": 5}}}}}}]}}"#

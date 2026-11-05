@@ -230,6 +230,10 @@
   jetzt auch im normalen Start.
 - **Abspann:** Einblendungs-Effekt `scroll` (mehrzeiliger Text läuft von `start` bis `end` von unten
   nach oben durchs Bild). Getestet.
+- **Bauernhof-Tiere:** `cow`, `pig`, `sheep`, `horse`, `chicken` (Vierbeiner-Bauplan mit Proportionen je
+  Art, Hufe, Flecken/Euter, Wolle, Hals + Mähne; Huhn mit Kamm); Hufschritte in `foley`.
+- **Neue Vorlagen:** `bauernhof` (Scheune, Bauernhaus, Feld, Zaun, Heuballen, Tiere) und `winter` (Schnee,
+  Tannen, Schneemann, Hütte, Schneefall; Atmo: Wind statt Vögel).
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 

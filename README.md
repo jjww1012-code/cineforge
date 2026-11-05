@@ -33,8 +33,9 @@ Stimmen, Lippen-Sync, Mimik und Schuss/Gegenschuss, Verfolgerkamera im Wald, Tit
 
 ## Was Claude damit kann
 
-- **Ganze Filme**: Storyboard mit Shots – alle Szenen in einem Schritt aus 12 fertigen Vorlagen (Wiese,
-  Dorf, Wald, Strand, Nacht, Studio, Weltraum, Zimmer, Cartoon-2D, Schloss, Unterwasser, Stadt), Export bis
+- **Ganze Filme**: Storyboard mit Shots – alle Szenen in einem Schritt aus 14 fertigen Vorlagen (Wiese,
+  Dorf, Wald, Strand, Nacht, Studio, Weltraum, Zimmer, Cartoon-2D, Schloss, Unterwasser, Stadt, Bauernhof,
+  Winter), Export bis
   4K und 1 Stunde+, Übergänge (Schnitt, Abblende, Überblendung, Wisch-, Schiebe-, Kreisblende), Qualität
   „best“ mit Supersampling. **Film-Übersicht**: alle Shots in einem Bild; **Bildkontrolle** rechnet nach,
   ob Figuren im Bild sind, wenn sie handeln oder sprechen.
@@ -43,7 +44,7 @@ Stimmen, Lippen-Sync, Mimik und Schuss/Gegenschuss, Verfolgerkamera im Wald, Tit
   verbeugen, lachen, erschrecken, Schultern zucken, traurig, aufgeregt hüpfen …) mit Zeichentrick-Prinzipien
   (Ausholen, Stauchen & Strecken), Mimik im Zeitverlauf, Blickkontakt, Lippen-Sync, Blinzeln, Atmen.
   Menschenmengen mit lauter Varianten.
-- **Tiere**: Hund, Katze, Hase, Vogel, Fisch – laufen, wedeln, fliegen, schwimmen.
+- **Tiere**: Hund, Katze, Hase, Vogel, Fisch, Kuh, Schwein, Schaf, Pferd, Huhn – laufen, wedeln, fliegen, schwimmen.
 - **Dialoge in einem Schritt**: Stimmen, Timing, Lippen-Sync, Gesten, Mimik je Satz, Untertitel,
   Zweier-Einstellung und Schuss/Gegenschuss nach der 180°-Regel mit sanftem Heranfahren.
 - **Ton**: eigene Musik und Geräusche (Synthese, kein KI-Klang), automatische Geräusche zur Handlung

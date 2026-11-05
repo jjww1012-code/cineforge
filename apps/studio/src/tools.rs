@@ -85,9 +85,9 @@ Arbeitsweise:
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
 8. Vor dem Export: contact_sheet mit film: true zeigt alle Shots des Films in EINEM Bild – Anschlüsse, Farben, Figuren und Reihenfolge prüfen. check_film prüft zusätzlich rechnerisch, ob Figuren im Bild sind, wenn sie handeln oder sprechen.
 9. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
-Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}; Kamerabewegung mit frame.to {shot, angle, tilt, zoom} (Heranfahren, Bogen, Kran, Push-in).
+Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt, bauernhof, winter). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}; Kamerabewegung mit frame.to {shot, angle, tilt, zoom} (Heranfahren, Bogen, Kran, Push-in).
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
-Tiere: type \"animal\" (dog, cat, bunny, bird, fish; actions walk/run/wag/jump/sit/fly/swim).
+Tiere: type \"animal\" (dog, cat, bunny, bird, fish, cow, pig, sheep, horse, chicken; actions walk/run/wag/jump/sit/fly/swim).
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
 Abspann: Einblendung mit effect \"scroll\" (mehrzeiliger Text läuft von start bis end durchs Bild). Geräusche zur Handlung: foley (je Szene, nach dem Bauen). Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk/clap/bow/laugh/scared/look_around/shrug/sad/excited, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
@@ -2009,13 +2009,16 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
                 }
             }
             Kind::Animal(an) => {
-                let small = matches!(an.kind, cf_scene::animal::AnimalKind::Cat | cf_scene::animal::AnimalKind::Bunny);
+                let small = matches!(an.kind, cf_scene::animal::AnimalKind::Cat | cf_scene::animal::AnimalKind::Bunny | cf_scene::animal::AnimalKind::Chicken);
+                // Hufe: lauter und tiefer
+                let heavy = matches!(an.kind, cf_scene::animal::AnimalKind::Cow | cf_scene::animal::AnimalKind::Horse);
                 let mut moved = false;
                 for act in &an.actions {
                     let end = act.end.unwrap_or(act.start + 2.0);
                     match act.kind {
                         AA::Walk | AA::Run => {
-                            steps(&mut cues, act.start, end, if act.kind == AA::Run { 5.0 } else { 3.5 } * act.speed, if small { 0.18 } else { 0.3 }, 1.8, &mut events, &o.id);
+                            let (gain, pitch) = if heavy { (0.5, 0.8) } else if small { (0.18, 1.8) } else { (0.3, 1.8) };
+                            steps(&mut cues, act.start, end, if act.kind == AA::Run { 5.0 } else { 3.5 } * act.speed * if heavy { 0.6 } else { 1.0 }, gain, pitch, &mut events, &o.id);
                             moved = true;
                         }
                         AA::Fly => {
@@ -2034,6 +2037,7 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
                             while t < p.end { cues.push(("swoosh", t, 0.12, 1.6, 0.4, 5)); t += 0.33; }
                         }
                         cf_scene::animal::AnimalKind::Fish => {}
+                        _ if heavy => steps(&mut cues, p.start, p.end, 2.4, 0.5, 0.8, &mut events, &o.id),
                         _ => steps(&mut cues, p.start, p.end, 4.0, if small { 0.18 } else { 0.3 }, 1.8, &mut events, &o.id),
                     }
                 }
@@ -2060,7 +2064,7 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
     // Plätschern am Brunnen, Stadt bei Autos/Häusern, Blubbern unter Wasser, sonst leiser Wind.
     let mut ambience: Vec<&'static str> = Vec::new();
     if a.get("ambience").and_then(Value::as_bool).unwrap_or(true) {
-        let (mut trees, mut water, mut fish, mut fountain, mut cars, mut houses) = (0, 0, 0, 0, 0, 0);
+        let (mut trees, mut water, mut fish, mut fountain, mut cars, mut houses, mut snow) = (0, 0, 0, 0, 0, 0, 0);
         scene.walk(&mut |o| match &o.kind {
             Kind::Tree(_) => trees += 1,
             Kind::Scatter(sc) => {
@@ -2071,6 +2075,7 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
             Kind::Water(_) => water += 1,
             Kind::Animal(an) if an.kind == cf_scene::animal::AnimalKind::Fish => fish += 1,
             Kind::Particles(pt) if pt.preset == cf_scene::particles::ParticlePreset::Fountain => fountain += 1,
+            Kind::Particles(pt) if pt.preset == cf_scene::particles::ParticlePreset::Snow => snow += 1,
             Kind::Instance { asset, .. } => match asset.as_str() {
                 "auto" => cars += 1,
                 "haus" => houses += 1,
@@ -2088,7 +2093,9 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
             if water > 0 {
                 ambience.push("waves");
             }
-            if night {
+            if snow > 0 {
+                // Winter: Stille und Wind statt Vögel und Grillen (Wind kommt schon vom Schneefall)
+            } else if night {
                 ambience.push("crickets");
             } else if trees > 0 {
                 ambience.push("birds");
@@ -2099,7 +2106,7 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
             if cars > 0 || houses >= 4 {
                 ambience.push("city");
             }
-            if ambience.is_empty() && matches!(env.sky, cf_scene::Sky::Atmosphere) {
+            if ambience.is_empty() && snow == 0 && matches!(env.sky, cf_scene::Sky::Atmosphere) {
                 ambience.push("wind");
             }
         }
