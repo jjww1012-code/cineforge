@@ -139,6 +139,7 @@ fn sync_overlays(
                     has_pattern: false,
                     base_intensity: 0.0,
                     overlay: Some(boost),
+                    talk: None,
                 },
                 ChildOf(cam),
             ));

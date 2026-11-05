@@ -224,6 +224,98 @@ pub struct Animation {
     /// Position weich als Kurve durch alle Keyframes führen.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub smooth_path: bool,
+    /// Blinzeln (für Augen): schließt sich von selbst in natürlichen Abständen (Höhe → 10 %).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blink: Option<Blink>,
+    /// Atmen: sanftes Heben/Senken (Höhe ±amount, Breite gegengleich), z. B. 0.02.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub breathe: f32,
+    /// Lippen-Sync (für den Mund): öffnet sich mit der Lautstärke einer Audiodatei.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub talk: Option<Talk>,
+}
+
+/// Blinzeln.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct Blink {
+    /// Mittlerer Abstand in Sekunden.
+    pub every: f32,
+    /// Variante (verschiedene Figuren blinzeln zu verschiedenen Zeiten; beide Augen gleich lassen).
+    pub seed: u32,
+}
+
+impl Default for Blink {
+    fn default() -> Self {
+        Self { every: 4.0, seed: 0 }
+    }
+}
+
+/// Lippen-Sync aus einer Audiodatei.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Talk {
+    /// Datei im Ordner Audio/ (z. B. von generate_voice).
+    pub audio: String,
+    /// Ab wann die Datei in dieser Szene läuft (s).
+    #[serde(default)]
+    pub start: f32,
+    /// Höhe des geschlossenen Mundes (Anteil, Standard 0.15).
+    #[serde(default = "talk_closed")]
+    pub closed: f32,
+    /// Verstärkung (leise Stimmen: 1.5–2).
+    #[serde(default = "talk_gain")]
+    pub gain: f32,
+}
+
+fn talk_closed() -> f32 {
+    0.15
+}
+fn talk_gain() -> f32 {
+    1.0
+}
+
+/// Wie weit der Mund offen ist (0..1) – aus der Lautstärke-Hüllkurve (`rate` Werte pro Sekunde).
+pub fn mouth_open(envelope: &[f32], rate: f32, talk: &Talk, t: f32) -> f32 {
+    let local = t - talk.start;
+    if local < 0.0 || envelope.is_empty() {
+        return 0.0;
+    }
+    let i = local * rate;
+    let i0 = i.floor() as usize;
+    if i0 + 1 >= envelope.len() {
+        return 0.0;
+    }
+    let f = i - i0 as f32;
+    let v = envelope[i0] * (1.0 - f) + envelope[i0 + 1] * f;
+    (v * talk.gain).clamp(0.0, 1.0)
+}
+
+/// Lid-Faktor fürs Blinzeln (1 = offen, 0.1 = zu).
+pub fn blink_factor(b: &Blink, t: f32) -> f32 {
+    let every = b.every.max(0.5);
+    let hash = |k: i64| {
+        let mut x = (k as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (b.seed as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        x ^= x >> 31;
+        x = x.wrapping_mul(0x94D0_49BB_1331_11EB);
+        ((x >> 40) as f32) / ((1u64 << 24) as f32)
+    };
+    let k = (t / every).floor() as i64;
+    let mut f: f32 = 1.0;
+    for j in k - 1..=k + 1 {
+        let at = j as f32 * every + (hash(j) - 0.5) * 0.7 * every + every * 0.5;
+        let d = t - at;
+        // 0,06 s zu, 0,09 s auf
+        let closed = if (0.0..0.06).contains(&d) {
+            d / 0.06
+        } else if (0.06..0.15).contains(&d) {
+            1.0 - (d - 0.06) / 0.09
+        } else {
+            0.0
+        };
+        f = f.min(1.0 - 0.9 * closed);
+    }
+    f
 }
 
 fn is_zero3(v: &[f32; 3]) -> bool {
@@ -255,6 +347,22 @@ impl Animation {
         check_keys(&self.visible, &format!("\"{id}\" animate.visible"), p);
         check_keys(&self.intensity, &format!("\"{id}\" animate.intensity"), p);
         check_keys(&self.draw, &format!("\"{id}\" animate.draw"), p);
+        if let Some(b) = &self.blink {
+            if b.every < 0.5 {
+                p.push(format!("\"{id}\" animate.blink.every: mindestens 0.5 Sekunden"));
+            }
+        }
+        if !(-0.5..=0.5).contains(&self.breathe) {
+            p.push(format!("\"{id}\" animate.breathe: zwischen -0.5 und 0.5 (0.02 = natürlich)"));
+        }
+        if let Some(tk) = &self.talk {
+            if tk.audio.trim().is_empty() {
+                p.push(format!("\"{id}\" animate.talk.audio fehlt"));
+            }
+            if !(0.0..=1.0).contains(&tk.closed) {
+                p.push(format!("\"{id}\" animate.talk.closed: zwischen 0 und 1"));
+            }
+        }
         if self.opacity.iter().any(|k| !(0.0..=1.0).contains(&k.v)) {
             p.push(format!("\"{id}\" animate.opacity: Werte zwischen 0 und 1"));
         }
@@ -298,10 +406,20 @@ impl Animation {
         for (r, s) in rotation.iter_mut().zip(self.spin) {
             *r += s * t;
         }
+        let mut scale = sample(&self.scale, t).map(ScaleValue::to_array).unwrap_or(base_scale);
+        if self.breathe != 0.0 {
+            let s = (t * std::f32::consts::TAU / 3.6).sin() * self.breathe;
+            scale[1] *= 1.0 + s;
+            scale[0] *= 1.0 - s * 0.5;
+            scale[2] *= 1.0 - s * 0.5;
+        }
+        if let Some(b) = &self.blink {
+            scale[1] *= blink_factor(b, t);
+        }
         ObjectState {
             position,
             rotation,
-            scale: sample(&self.scale, t).map(ScaleValue::to_array).unwrap_or(base_scale),
+            scale,
             color: sample(&self.color, t),
             emissive_strength: sample(&self.emissive_strength, t),
             opacity: sample(&self.opacity, t),
@@ -393,6 +511,33 @@ impl EnvironmentAnimation {
 
     pub fn is_empty(&self) -> bool {
         self.sun_elevation.is_empty() && self.sun_azimuth.is_empty() && self.sun_intensity.is_empty() && self.exposure.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod life_tests {
+    use super::*;
+
+    #[test]
+    fn blink_closes_briefly_and_deterministically() {
+        let b = Blink { every: 3.0, seed: 4 };
+        let samples: Vec<f32> = (0..3000).map(|i| blink_factor(&b, i as f32 * 0.01)).collect();
+        let closed = samples.iter().filter(|f| **f < 0.5).count();
+        assert!(closed > 5 && closed < 200, "selten und kurz zu: {closed}");
+        assert!(samples.iter().all(|f| (0.1 - 1e-4..=1.0).contains(f)));
+        assert_eq!(blink_factor(&b, 7.31), blink_factor(&b, 7.31));
+        let other = Blink { every: 3.0, seed: 5 };
+        assert!((0..3000).any(|i| (blink_factor(&b, i as f32 * 0.01) - blink_factor(&other, i as f32 * 0.01)).abs() > 0.3));
+    }
+
+    #[test]
+    fn mouth_follows_envelope() {
+        let talk = Talk { audio: "x.wav".into(), start: 1.0, closed: 0.15, gain: 2.0 };
+        let env = vec![0.0, 0.5, 0.25, 0.0];
+        assert_eq!(mouth_open(&env, 10.0, &talk, 0.5), 0.0);
+        assert!((mouth_open(&env, 10.0, &talk, 1.1) - 1.0).abs() < 1e-5, "verstärkt und begrenzt");
+        assert!((mouth_open(&env, 10.0, &talk, 1.15) - 0.75).abs() < 1e-5);
+        assert_eq!(mouth_open(&env, 10.0, &talk, 9.0), 0.0);
     }
 }
 

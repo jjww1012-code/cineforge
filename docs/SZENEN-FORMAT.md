@@ -276,6 +276,9 @@ Vor dem ersten Keyframe gilt dessen Wert, nach dem letzten der letzte.
 | `flicker` | 0–1 | Nur `point_light`: Flackern (0.3 Kerze/Feuer) |
 | `spin` | [Grad/s x,y,z] | Dauerdrehung, z. B. `[0, 90, 0]` |
 | `smooth_path` | true/false | Position als weiche Kurve durch alle Keyframes |
+| `talk` | `{"audio": "max_satz1.wav", "start": 1.2}` | **Lippen-Sync:** der Mund öffnet sich mit der Lautstärke der Stimme (WAV aus `Audio/`, z. B. von `generate_voice`). `start` = wann die Datei in der Szene beginnt; `closed` (0.15) = Höhe des geschlossenen Mundes; `gain` (1) = Verstärkung. Gehört auf das Mund-Objekt (Ursprung = Mundmitte) |
+| `blink` | `{"every": 4, "seed": 1}` | **Blinzeln** in natürlichen, zufälligen Abständen (beide Augen derselbe `seed`, andere Figur anderer `seed`) |
+| `breathe` | 0.015 | **Atmen:** sanftes Heben/Senken – Figuren wirken nie eingefroren |
 
 Hinweise: Skalierung wirkt um den Ursprung des Objekts (Kugel/Box/Zylinder: Mitte; Pyramide,
 Extrusion, Drehkörper: Boden). Zum „Hochwachsen“ vom Boden aus eignen sich `extrude`/`lathe`

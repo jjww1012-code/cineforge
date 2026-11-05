@@ -134,7 +134,11 @@ fn animate_objects(
         if let (Some(mut light), Some(i)) = (light, a.anim.light_intensity_at(a.base_intensity, t)) {
             light.intensity = i;
         }
-        let s = a.anim.state_at(a.base_pos, a.base_rot, a.base_scale, t, a.hidden);
+        let mut s = a.anim.state_at(a.base_pos, a.base_rot, a.base_scale, t, a.hidden);
+        if let Some((env, talk)) = &a.talk {
+            let open = cf_scene::animation::mouth_open(env, crate::spawn::TALK_RATE, talk, t);
+            s.scale[1] *= talk.closed + (1.0 - talk.closed) * open;
+        }
         let [rx, ry, rz] = s.rotation.map(f32::to_radians);
         let local = Transform {
             translation: Vec3::from_array(s.position),

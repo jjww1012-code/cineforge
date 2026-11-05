@@ -85,7 +85,12 @@ pub struct Animated {
     pub base_intensity: f32,
     /// Einblendung: Faktor, um den die Farbe gegen die Tonwertkurve angehoben wird.
     pub overlay: Option<f32>,
+    /// Lippen-Sync: Lautstärke-Hüllkurve (100 Werte/s) + Angaben.
+    pub talk: Option<(std::sync::Arc<Vec<f32>>, cf_scene::animation::Talk)>,
 }
+
+/// Werte pro Sekunde der Lippen-Sync-Hüllkurve.
+pub const TALK_RATE: f32 = 100.0;
 
 /// Statistik und Warnungen für die Anzeige.
 #[derive(Resource, Default, Debug)]
@@ -142,6 +147,9 @@ fn object_fingerprint(o: &Object, scene: &Scene, project: &ActiveProject, librar
         };
         if let Some(t) = &o.material.texture {
             file(crate::media::IMAGES, t, key);
+        }
+        if let Some(tk) = o.animate.as_ref().and_then(|a| a.talk.as_ref()) {
+            file(crate::media::AUDIO, &tk.audio, key);
         }
         match &o.kind {
             Kind::Group { children } => {
@@ -224,6 +232,7 @@ fn rebuild_scene(
         texture_cache: HashMap::new(),
         mesh_cache: HashMap::new(),
         svg_cache: HashMap::new(),
+        talk_cache: HashMap::new(),
         stats: SceneStats::default(),
     };
     let mut rebuilt = 0;
@@ -354,6 +363,7 @@ struct Builder<'a, 'w, 's> {
     texture_cache: HashMap<String, (Handle<Image>, Option<Handle<Image>>)>,
     mesh_cache: HashMap<String, (Handle<Mesh>, usize)>,
     svg_cache: HashMap<String, (Handle<Image>, f32)>,
+    talk_cache: HashMap<String, std::sync::Arc<Vec<f32>>>,
     stats: SceneStats,
 }
 
@@ -465,6 +475,13 @@ impl Builder<'_, '_, '_> {
         let material = mat_override.unwrap_or(&o.material);
         let animated_material = o.animate.as_ref().is_some_and(|a| a.affects_material());
         if let Some(anim) = &o.animate {
+            let talk = anim.talk.as_ref().and_then(|tk| match self.talk_envelope(&tk.audio) {
+                Ok(env) => Some((env, tk.clone())),
+                Err(e) => {
+                    self.stats.warnings.push(format!("\"{full_id}\" talk: {e}"));
+                    None
+                }
+            });
             self.commands.entity(entity).insert(Animated {
                 anim: anim.clone(),
                 base_pos: o.position,
@@ -489,6 +506,7 @@ impl Builder<'_, '_, '_> {
                     _ => 0.0,
                 },
                 overlay: None,
+                talk,
             });
         }
 
@@ -724,6 +742,20 @@ impl Builder<'_, '_, '_> {
             Pickable::IGNORE,
             ChildOf(entity),
         ));
+    }
+
+    /// Lautstärke-Hüllkurve einer Audiodatei (für Lippen-Sync), zwischengespeichert.
+    fn talk_envelope(&mut self, file: &str) -> Result<std::sync::Arc<Vec<f32>>, String> {
+        let path = crate::media::resolve(self.project, crate::media::AUDIO, file)?;
+        let key = format!("talk|{}", file_stamp(&path));
+        if let Some(e) = self.talk_cache.get(&key) {
+            return Ok(e.clone());
+        }
+        let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let (sr, mono) = cf_audio::read_wav(&bytes).map_err(|e| format!("{file}: {e} (für Lippen-Sync bitte WAV verwenden)"))?;
+        let env = std::sync::Arc::new(cf_audio::envelope(&mono, sr, TALK_RATE));
+        self.talk_cache.insert(key, env.clone());
+        Ok(env)
     }
 
     /// SVG → Textur (vormultipliziertes Alpha, Mipmaps). Liefert auch Höhe/Breite.
