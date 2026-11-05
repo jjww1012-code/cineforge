@@ -24,6 +24,31 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 ![Die Oberfläche](docs/bilder/oberflaeche.png)
 
+## Was Claude damit kann
+
+- **Ganze Filme**: Storyboard mit Shots, Szenen aus 12 fertigen Vorlagen (Wiese, Dorf, Wald, Strand,
+  Nacht, Studio, Weltraum, Zimmer, Cartoon-2D, Schloss, Unterwasser, Stadt), Export bis 4K und 1 Stunde+,
+  Übergänge (Schnitt, Abblende, Überblendung, Wisch-, Schiebe-, Kreisblende), Qualität „best“ mit Supersampling.
+- **Figuren im Pixar-Stil** aus einer Zeile: Frisur, Farben, Statur, Kleid, Hut, Brille, Schal, Rucksack,
+  Gegenstände in der Hand; Aktionen (gehen, rennen, winken, springen, tanzen, sprechen …), Mimik im
+  Zeitverlauf, Blickkontakt, Lippen-Sync, Blinzeln, Atmen. Menschenmengen mit lauter Varianten.
+- **Tiere**: Hund, Katze, Hase, Vogel, Fisch – laufen, wedeln, fliegen, schwimmen.
+- **Dialoge in einem Schritt**: Stimmen, Timing, Lippen-Sync, Gesten, Untertitel, Schuss/Gegenschuss.
+- **Ton**: eigene Musik und Geräusche (Synthese, kein KI-Klang), automatische Geräusche zur Handlung
+  (Schritte, Sprünge, Flügel, Feuer, Regen), Sprecher mit Systemstimmen, Ton in der Vorschau.
+- **Kamera wie im Film**: Einstellungsgrößen (Totale bis Großaufnahme), folgen, umkreisen, Schnitte
+  in der Szene, Tiefenschärfe, Bewegungsunschärfe, Handkamera.
+- **Welten**: Gelände, Bäume (5 Arten, Wind, Wälder), Wasser mit Wellen, Sternenhimmel, Mond,
+  Lichtstrahlen, Nebel, Partikel (Feuer, Rauch, Funken, Regen, Schnee, Explosion, Magie), 12 fertige
+  Bibliotheks-Objekte (Haus, Auto, Laterne, Brunnen …).
+- **Detaillierte Modelle**: Extrusion, Drehkörper, Röhren, 3D-Text, Abrunden/Unterteilen, Verformen
+  (verdrehen, biegen, Rauschen), Muster mit Struktur, Glas, Metall, Cartoon-Umrisse; Import von
+  PNG, SVG und 3D-Modellen (GLB/glTF).
+- **2D**: SVG-Grafiken in voller Qualität (Verläufe, Schatten, Text), 2D-Kamera, Cartoon-Farbstil,
+  2D-Figuren als „Pappaufsteller“ in 3D-Welten.
+- **Schnell und sicher**: Fehlermeldungen mit genauer Stelle und Lösungsvorschlag, Änderungen ohne
+  Neuladen, mehrere Claude-Agenten parallel, Logbuch zum Weitermachen nach Pausen.
+
 ## Die Oberfläche
 
 Aufgebaut wie ein Schnittprogramm (ähnlich CapCut):

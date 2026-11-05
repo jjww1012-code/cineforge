@@ -17,6 +17,7 @@ Jede Etappe endet mit etwas, das man ausprobieren kann.
 | 6b | Lange Filme | Shot-Cache, Fortsetzen, Video-Clips, Bilder, Einblendungen, ffmpeg mitgeliefert | ✅ |
 | 6c | 2D & Cartoons | SVG-Grafiken, 2D-Kamera, Cartoon-Farbstil ✅ · Figuren mit Gelenken, Lippen-Sync | teilweise |
 | 6d | Oberfläche | Übersichtliche Oberfläche wie CapCut (Spuren, Medien, Eigenschaften), inkrementelle Updates | ✅ (Ausbau folgt) |
+| 6e | Disney-Werkzeuge | Figuren-Generator, Tiere, Dialoge, Foley, Kamera-Automatik, Vorlagen, Bibliothek, Menschenmengen, Übergänge | ✅ |
 | 7 | Produkt | Konten, Abo, Credits, Claude über eigenen Server, Auto-Update, signierte Installer | |
 | 8 | Teams | Gemeinsames Arbeiten in Echtzeit, Vorlagen-Bibliothek / Marktplatz | |
 | 9 | Lange Filme | Regie-Agent schreibt Storyboard, mehrere Claude-Instanzen bauen Szenen parallel, 1-h-Filme | |
