@@ -102,7 +102,7 @@ claude mcp add --transport http cineforge http://127.0.0.1:47800/mcp
 | `list_shots` | Storyboard seitenweise (für lange Filme) |
 | `list_media`, `generate_voice` | Medien (Audio/, Clips/, Bilder/, Modelle/) anzeigen, Sprechertext vertonen |
 | `dialogue` | Dialog in einem Schritt: Stimmen, Timing, Lippen-Sync, Gesten, Untertitel, Shot-Ton |
-| `foley` | Geräusche automatisch zur Handlung (Schritte, Sprünge, Flügel, Feuer, Regen, Titel-Effekte) |
+| `foley` | Geräusche automatisch zur Handlung (Schritte, Sprünge, Flügel, Feuer, Regen, Titel-Effekte) und passende Umgebung (Vögel, Grillen, Meer, Bach, Stadt, Unterwasser, Wind) |
 | `create_sound` | Eigene Geräusche erzeugen (Vorlagen oder Rezept aus Klangschichten) |
 | `create_music` | Eigene Musik erzeugen (Stil, Tempo, Akkorde, Abschnitte) |
 | `save_asset`, `list_assets`, `get_asset` | Objekt-Bibliothek |

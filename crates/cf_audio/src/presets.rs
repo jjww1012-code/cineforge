@@ -56,7 +56,25 @@ pub const NAMES: &[(&str, &str)] = &[
     ("rope", "Seilspringen (Schwung und Aufprall)"),
     ("crowd_cheer", "kurzer Jubel einer kleinen Gruppe"),
     ("drone", "dunkle, ruhige Fläche (Länge über length)"),
+    ("birds", "Vogelgezwitscher am Tag (Länge über length)"),
+    ("crickets", "Grillen in der Nacht (Länge über length)"),
+    ("waves", "Meeresrauschen mit Wellen (Länge über length)"),
+    ("stream", "plätschernder Bach/Brunnen (Länge über length)"),
+    ("city", "Stadt-Atmosphäre: fernes Rauschen, vorbeifahrende Autos (Länge über length)"),
+    ("underwater", "unter Wasser: dumpfes Rauschen und Blubbern (Länge über length)"),
 ];
+
+/// Kleiner deterministischer Zufall für Umgebungsklänge (gleiche Variante = gleicher Klang).
+struct Lcg(u32);
+impl Lcg {
+    fn next(&mut self) -> f32 {
+        self.0 = self.0.wrapping_mul(1664525).wrapping_add(1013904223);
+        (self.0 >> 8) as f32 / (1u32 << 24) as f32
+    }
+    fn range(&mut self, a: f32, b: f32) -> f32 {
+        a + (b - a) * self.next()
+    }
+}
 
 fn l() -> Layer {
     Layer::default()
@@ -223,6 +241,150 @@ pub fn preset(name: &str, t: &Tweak) -> Result<Recipe, String> {
             seed: t.seed,
             ..Default::default()
         },
+        "birds" => {
+            let d = 4.0 * len;
+            let mut r = Lcg(t.seed.wrapping_mul(7919) ^ 0xb1d5);
+            let mut layers = vec![
+                // leises Blätterrauschen als Bett
+                Layer { wave: Pink, attack: 0.5, length: d - 1.0, sustain: 1.0, release: 0.5, gain: 0.12, filter: filt(Bandpass, 2500.0 * br, 2500.0 * br, 0.6), ..l() },
+            ];
+            // einzelne Vögel: Zwitschern, Triller, Pfiff – zufällig verteilt, links/rechts
+            let n = (d * 1.6) as usize + 2;
+            for _ in 0..n {
+                let start = r.range(0.0, (d - 0.8).max(0.1));
+                let f = r.range(2600.0, 4800.0) * p;
+                let pan = r.range(-0.8, 0.8);
+                let gain = r.range(0.25, 0.6) * (0.5 + int);
+                match (r.next() * 3.0) as u32 {
+                    0 => layers.push(Layer {
+                        wave: Sine, start, freq: [f, f * r.range(1.15, 1.5)], length: 0.03, decay: 0.05, release: 0.02, gain, pan,
+                        fm: Some(Fm { ratio: 0.5, index: [0.6, 0.1] }),
+                        repeat: Some(Repeat { count: 2 + (r.next() * 3.0) as u32, interval: r.range(0.08, 0.14), decay: 0.9, pitch: r.range(0.95, 1.08), jitter: 0.01 }),
+                        ..l()
+                    }),
+                    1 => layers.push(Layer {
+                        wave: Sine, start, freq: [f * 1.1, f * 0.9], length: 0.012, decay: 0.02, gain: gain * 0.8, pan,
+                        repeat: Some(Repeat { count: 6 + (r.next() * 8.0) as u32, interval: r.range(0.035, 0.05), decay: 0.97, pitch: 1.0, jitter: 0.004 }),
+                        ..l()
+                    }),
+                    _ => layers.push(Layer {
+                        wave: Sine, start, freq: [f * 0.7, f * 0.95], length: 0.18, decay: 0.12, release: 0.05, gain: gain * 0.7, pan,
+                        vibrato: Some([r.range(18.0, 30.0), 0.02]),
+                        ..l()
+                    }),
+                }
+            }
+            Recipe { duration: Some(d), layers, reverb: rev(0.25, 0.6), seed: t.seed, ..Default::default() }
+        }
+        "crickets" => {
+            let d = 4.0 * len;
+            let mut r = Lcg(t.seed.wrapping_mul(104729) ^ 0xc41c);
+            let mut layers = vec![
+                // Nachtluft
+                Layer { wave: Pink, attack: 0.5, length: d - 1.0, sustain: 1.0, release: 0.5, gain: 0.06, filter: filt(Highpass, 3000.0 * br, 3000.0 * br, 0.7), ..l() },
+            ];
+            // zwei bis drei Grillen mit eigenem Takt: Zirp-Gruppen aus 3–4 Pulsen
+            for k in 0..3 {
+                let f = [4600.0, 5100.0, 4300.0][k] * p;
+                let every = r.range(0.45, 0.75);
+                let pan = [-0.6, 0.5, 0.0][k];
+                let gain = [0.35, 0.25, 0.15][k] * (0.5 + int);
+                let mut g = r.range(0.0, every);
+                while g < d - 0.2 {
+                    layers.push(Layer {
+                        wave: Sine, start: g, freq: [f; 2], length: 0.012, decay: 0.01, gain, pan,
+                        repeat: Some(Repeat { count: 3 + (r.next() * 2.0) as u32, interval: 0.034, decay: 0.92, pitch: 1.0, jitter: 0.0 }),
+                        ..l()
+                    });
+                    g += every + r.range(-0.05, 0.05);
+                }
+            }
+            Recipe { duration: Some(d), layers, reverb: rev(0.2, 0.5), seed: t.seed, ..Default::default() }
+        }
+        "waves" => {
+            let d = 4.0 * len;
+            let mut r = Lcg(t.seed.wrapping_mul(15485863) ^ 0x3a7e);
+            let mut layers = vec![
+                Layer { wave: Brown, attack: 1.0, length: d - 2.0, sustain: 1.0, release: 1.0, gain: 0.5, filter: filt(Lowpass, 350.0 * br, 350.0 * br, 0.7), ..l() },
+            ];
+            // einzelne Wellen: anschwellen, brechen (heller), auslaufen (Zischen)
+            let mut w = r.range(0.0, 1.5);
+            while w < d - 1.0 {
+                let size = r.range(0.6, 1.0) * (0.5 + int);
+                let pan = r.range(-0.5, 0.5);
+                layers.push(Layer { wave: Pink, start: w, attack: 1.6, length: 0.3, decay: 2.2, release: 0.8, gain: 0.7 * size, pan,
+                    filter: filt(Lowpass, 400.0 * br, 2600.0 * br, 0.8), ..l() });
+                layers.push(Layer { wave: Noise, start: w + 1.5, attack: 0.3, length: 0.2, decay: 2.0, release: 0.6, gain: 0.18 * size, pan: -pan,
+                    filter: filt(Highpass, 2500.0 * br, 5000.0 * br, 0.7), ..l() });
+                w += r.range(4.0, 6.5);
+            }
+            Recipe { duration: Some(d), layers, reverb: rev(0.15, 0.7), seed: t.seed, ..Default::default() }
+        }
+        "stream" => {
+            let d = 4.0 * len;
+            Recipe {
+                duration: Some(d),
+                layers: vec![
+                    Layer { wave: Pink, attack: 0.4, length: d - 0.8, sustain: 1.0, release: 0.4, gain: 0.35, filter: filt(Bandpass, 1400.0 * br, 1400.0 * br, 0.8), ..l() },
+                    // Plätschern: viele kleine, schnelle Tonhöhen-Tropfen
+                    Layer {
+                        wave: Sine, freq: [700.0 * p, 1500.0 * p], length: 0.004, decay: 0.02, gain: 0.18 * (0.5 + int),
+                        repeat: Some(Repeat { count: (d * 22.0) as u32, interval: 1.0 / 22.0, decay: 1.0, pitch: 1.0, jitter: 0.04 }),
+                        ..l()
+                    },
+                    Layer {
+                        wave: Sine, start: 0.017, freq: [1100.0 * p, 2100.0 * p], length: 0.003, decay: 0.015, gain: 0.12 * (0.5 + int), pan: 0.4,
+                        repeat: Some(Repeat { count: (d * 17.0) as u32, interval: 1.0 / 17.0, decay: 1.0, pitch: 1.0, jitter: 0.05 }),
+                        ..l()
+                    },
+                ],
+                reverb: rev(0.15, 0.4),
+                seed: t.seed,
+                ..Default::default()
+            }
+        }
+        "city" => {
+            let d = 4.0 * len;
+            let mut r = Lcg(t.seed.wrapping_mul(2654435761) ^ 0xc17e);
+            let mut layers = vec![
+                Layer { wave: Brown, attack: 1.0, length: d - 2.0, sustain: 1.0, release: 1.0, gain: 0.55, filter: filt(Lowpass, 220.0 * br, 220.0 * br, 0.7), ..l() },
+                Layer { wave: Pink, attack: 1.0, length: d - 2.0, sustain: 1.0, release: 1.0, gain: 0.12, filter: filt(Bandpass, 700.0 * br, 700.0 * br, 0.6), ..l() },
+            ];
+            // vorbeifahrende Autos: anschwellen und abklingen, Tonhöhe sinkt (Doppler)
+            let mut c = r.range(0.3, 2.0);
+            while c < d - 1.0 {
+                let pan = if r.next() < 0.5 { -0.7 } else { 0.7 };
+                layers.push(Layer { wave: Pink, start: c, attack: 1.2, length: 0.2, decay: 1.4, release: 0.4, gain: 0.35 * (0.5 + int), pan,
+                    filter: filt(Bandpass, 900.0 * br, 450.0 * br, 1.2), ..l() });
+                layers.push(Layer { wave: Saw, start: c, freq: [95.0 * p, 70.0 * p], attack: 1.2, length: 0.2, decay: 1.4, release: 0.4, gain: 0.05, pan,
+                    filter: filt(Lowpass, 400.0, 250.0, 0.7), ..l() });
+                c += r.range(2.5, 5.0);
+            }
+            Recipe { duration: Some(d), layers, reverb: rev(0.2, 0.6), seed: t.seed, ..Default::default() }
+        }
+        "underwater" => {
+            let d = 4.0 * len;
+            Recipe {
+                duration: Some(d),
+                layers: vec![
+                    Layer { wave: Brown, attack: 1.0, length: d - 2.0, sustain: 1.0, release: 1.0, gain: 0.7, filter: filt(Lowpass, 300.0 * br, 300.0 * br, 0.9), ..l() },
+                    // Blasen: kurze, aufsteigende Töne
+                    Layer {
+                        wave: Sine, freq: [350.0 * p, 1100.0 * p], length: 0.01, decay: 0.05, gain: 0.25 * (0.5 + int),
+                        repeat: Some(Repeat { count: (d * 5.0) as u32, interval: 0.2, decay: 1.0, pitch: 1.0, jitter: 0.18 }),
+                        ..l()
+                    },
+                    Layer {
+                        wave: Sine, start: 0.09, freq: [500.0 * p, 1600.0 * p], length: 0.008, decay: 0.035, gain: 0.15 * (0.5 + int), pan: -0.4,
+                        repeat: Some(Repeat { count: (d * 7.0) as u32, interval: 1.0 / 7.0, decay: 1.0, pitch: 1.0, jitter: 0.12 }),
+                        ..l()
+                    },
+                ],
+                reverb: rev(0.35, 0.8),
+                seed: t.seed,
+                ..Default::default()
+            }
+        }
         "wind" => Recipe {
             duration: Some(4.0 * len),
             layers: vec![

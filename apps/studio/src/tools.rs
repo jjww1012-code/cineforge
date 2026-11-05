@@ -123,8 +123,8 @@ pub fn definitions() -> Value {
         },
         {
             "name": "foley",
-            "description": "Erzeugt automatisch Geräusche zur Handlung der geöffneten Szene: Schritte im Lauftempo der Figuren und Tiere, Sprünge (Whoosh + Landung), Flügelschlag, Jubel, Feuer/Regen/Wind passend zu Partikeln, Pop/Tippen/Wisch zu Titel-Effekten. Ergebnis: eine Tonspur sfx_<szene>.wav, im Storyboard-Shot eingetragen (volume, Standard 0.7). Nach Änderungen der Handlung erneut aufrufen.",
-            "inputSchema": {"type": "object", "properties": {"volume": {"type": "number"}, "agent": {"type": "string"}}}
+            "description": "Erzeugt automatisch Geräusche zur Handlung der geöffneten Szene: Schritte im Lauftempo der Figuren und Tiere, Sprünge (Whoosh + Landung), Flügelschlag, Jubel, Feuer/Regen/Wind passend zu Partikeln, Pop/Tippen/Wisch zu Titel-Effekten, dazu passende Umgebung (Vögel bei Bäumen am Tag, Grillen nachts, Meer bei Wasser, Plätschern am Brunnen, Stadt bei Autos/Häusern, Blubbern unter Wasser, sonst leiser Wind; ambience: false schaltet ab, ambience_volume Standard 0.35). Ergebnis: eine Tonspur sfx_<szene>.wav, im Storyboard-Shot eingetragen (volume, Standard 0.7). Nach Änderungen der Handlung erneut aufrufen.",
+            "inputSchema": {"type": "object", "properties": {"volume": {"type": "number"}, "ambience": {"type": "boolean"}, "ambience_volume": {"type": "number"}, "agent": {"type": "string"}}}
         },
         {
             "name": "get_selection",
@@ -285,7 +285,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "create_sound",
-            "description": "Erzeugt einen Klang durch echte Synthese (kein KI-Sound) und speichert ihn als WAV in Audio/. Entweder preset (click, tap, pop, whoosh, swoosh, impact, boom, riser, notification, confirm, error, haptic, heartbeat, footstep, wind, rain, fire, typing, shutter, glass, success, coin, swipe, rope, crowd_cheer, drone) mit pitch/length/intensity/brightness/reverb/seed – oder ein eigenes recipe: {\"layers\":[{\"wave\":\"sine|triangle|saw|square|noise|pink|brown\",\"start\":0,\"length\":0.2,\"freq\":[800,120],\"attack\":0.003,\"decay\":0.2,\"sustain\":0,\"release\":0.05,\"gain\":1,\"filter\":{\"type\":\"lowpass|highpass|bandpass\",\"cutoff\":[4000,300],\"q\":0.7},\"drive\":0,\"pan\":0,\"detune\":0,\"fm\":{\"ratio\":3.5,\"index\":[2,0]},\"vibrato\":[5,0.3],\"repeat\":{\"count\":3,\"interval\":0.1,\"decay\":0.7,\"pitch\":1,\"jitter\":0}}],\"reverb\":{\"size\":0.5,\"mix\":0.2},\"echo\":{\"time\":0.2,\"feedback\":0.3,\"mix\":0.2}}. Ohne preset/recipe: Liste der Klänge.",
+            "description": "Erzeugt einen Klang durch echte Synthese (kein KI-Sound) und speichert ihn als WAV in Audio/. Entweder preset (click, tap, pop, whoosh, swoosh, impact, boom, riser, notification, confirm, error, haptic, heartbeat, footstep, wind, rain, fire, typing, shutter, glass, success, coin, swipe, rope, crowd_cheer, drone, birds, crickets, waves, stream, city, underwater) mit pitch/length/intensity/brightness/reverb/seed – oder ein eigenes recipe: {\"layers\":[{\"wave\":\"sine|triangle|saw|square|noise|pink|brown\",\"start\":0,\"length\":0.2,\"freq\":[800,120],\"attack\":0.003,\"decay\":0.2,\"sustain\":0,\"release\":0.05,\"gain\":1,\"filter\":{\"type\":\"lowpass|highpass|bandpass\",\"cutoff\":[4000,300],\"q\":0.7},\"drive\":0,\"pan\":0,\"detune\":0,\"fm\":{\"ratio\":3.5,\"index\":[2,0]},\"vibrato\":[5,0.3],\"repeat\":{\"count\":3,\"interval\":0.1,\"decay\":0.7,\"pitch\":1,\"jitter\":0}}],\"reverb\":{\"size\":0.5,\"mix\":0.2},\"echo\":{\"time\":0.2,\"feedback\":0.3,\"mix\":0.2}}. Ohne preset/recipe: Liste der Klänge.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1966,6 +1966,74 @@ fn foley(a: &Value, cx: &mut Ctx) -> ToolOutput {
             _ => {}
         }
     });
+    // Umgebung (Atmo) passend zur Szene: Vögel am Tag zwischen Bäumen, Grillen nachts, Meer am Wasser,
+    // Plätschern am Brunnen, Stadt bei Autos/Häusern, Blubbern unter Wasser, sonst leiser Wind.
+    let mut ambience: Vec<&'static str> = Vec::new();
+    if a.get("ambience").and_then(Value::as_bool).unwrap_or(true) {
+        let (mut trees, mut water, mut fish, mut fountain, mut cars, mut houses) = (0, 0, 0, 0, 0, 0);
+        scene.walk(&mut |o| match &o.kind {
+            Kind::Tree(_) => trees += 1,
+            Kind::Scatter(sc) => {
+                if matches!(sc.shape.kind, Kind::Tree(_)) {
+                    trees += 10;
+                }
+            }
+            Kind::Water(_) => water += 1,
+            Kind::Animal(an) if an.kind == cf_scene::animal::AnimalKind::Fish => fish += 1,
+            Kind::Particles(pt) if pt.preset == cf_scene::particles::ParticlePreset::Fountain => fountain += 1,
+            Kind::Instance { asset, .. } => match asset.as_str() {
+                "auto" => cars += 1,
+                "haus" => houses += 1,
+                "brunnen" => fountain += 1,
+                _ => {}
+            },
+            _ => {}
+        });
+        let env = &scene.environment;
+        let night = env.stars > 0.0 || env.moon.is_some() || env.sun.elevation < 2.0;
+        let underwater = fish > 0 && water == 0 && env.fog.is_some();
+        if underwater {
+            ambience.push("underwater");
+        } else {
+            if water > 0 {
+                ambience.push("waves");
+            }
+            if night {
+                ambience.push("crickets");
+            } else if trees > 0 {
+                ambience.push("birds");
+            }
+            if fountain > 0 {
+                ambience.push("stream");
+            }
+            if cars > 0 || houses >= 4 {
+                ambience.push("city");
+            }
+            if ambience.is_empty() && matches!(env.sky, cf_scene::Sky::Atmosphere) {
+                ambience.push("wind");
+            }
+        }
+        let amb_gain = a.get("ambience_volume").and_then(Value::as_f64).unwrap_or(0.35) as f32;
+        for (k, name) in ambience.iter().enumerate() {
+            let g = if *name == "wind" { amb_gain * 0.5 } else { amb_gain };
+            cues.push((name, 0.0, g, 1.0, (scene.duration + 0.5) / 4.0, 20 + k as u32));
+        }
+        if !ambience.is_empty() {
+            let de: Vec<&str> = ambience
+                .iter()
+                .map(|n| match *n {
+                    "birds" => "Vögel",
+                    "crickets" => "Grillen",
+                    "waves" => "Meer",
+                    "stream" => "Plätschern",
+                    "city" => "Stadt",
+                    "underwater" => "Unterwasser",
+                    _ => "Wind",
+                })
+                .collect();
+            events.push(format!("Umgebung: {}", de.join(", ")));
+        }
+    }
     for ov in &scene.overlays {
         match ov.effect {
             cf_scene::OverlayEffect::Pop => cues.push(("pop", ov.start, 0.4, 1.0, 1.0, 8)),

@@ -210,6 +210,10 @@
   `character.expressions`; ist die Szenen-Kamera noch Standard, beginnt der Dialog mit einer
   automatisch berechneten Zweier-Einstellung (alle Sprecher im Bild). Posen sad/scared so, dass das
   Gesicht in Nahaufnahmen sichtbar bleibt.
+- **Umgebungsgeräusche:** neue Synthese-Vorlagen `birds`, `crickets`, `waves`, `stream`, `city`,
+  `underwater` (deterministischer Zufall je Variante); `foley` erkennt die Umgebung (Bäume + Tag,
+  Nacht, Wasser, Brunnen/Fontäne, Autos/Häuser, Fische + Nebel ohne Wasser) und mischt sie
+  (`ambience`, `ambience_volume`). Getestet an allen Vorlagen (Pegel −20…−35 dB RMS).
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
@@ -220,6 +224,10 @@
 3. Weitere Regie-Hilfen (z. B. Musik passend zur Stimmung je Shot, Kamerafahrten-Vorlagen).
 
 ## Offene Punkte / Wissenswertes
+
+- **Gegenlicht/Rim-Light:** mit einem zusätzlichen Richtungslicht getestet – wirkt in Bevy nicht
+  (hellt nur den Boden auf, keine Kanten; Lichter lassen sich nicht auf Objekte beschränken).
+  Echter Rim braucht einen eigenen Shader (`ExtendedMaterial` mit Fresnel-Term) – noch offen.
 
 - GitHub: `jjww1012-code/cineforge` (privat). CI-Status noch nicht von hier aus prüfbar
   (gh-Token ungültig) – der Nutzer sieht ihn unter „Actions“.
