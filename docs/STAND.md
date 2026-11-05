@@ -161,6 +161,7 @@
   mit `visible`-Sprüngen; Mundöffnung nur bei `talk`. Einstellungsgrößen an Figurenproportionen angepasst.
 - **Tiere (`cf_scene::animal`, `type: "animal"`):** Hund, Katze, Hase, Vogel, Fisch mit Gelenken,
   Blinzeln, 8 Aktionen, automatischem Bewegen auf Pfaden.
+- **Figuren-Accessoires:** Hüte (cap, beanie, top_hat, crown, party), Brille, Kleid, Schal, Rucksack.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

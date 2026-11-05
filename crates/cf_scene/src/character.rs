@@ -154,6 +154,55 @@ pub struct CharacterSpec {
     /// Gesichtsausdruck wechselt im Lauf der Szene: [{"t": 3, "expression": "surprised"}, …].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub expressions: Vec<ExpressionChange>,
+    /// Kopfbedeckung.
+    #[serde(default, skip_serializing_if = "Hat::is_none")]
+    pub hat: Hat,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hat_color: Option<Rgb>,
+    /// Brille.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub glasses: bool,
+    /// Kleidung: "shirt" (Standard) oder "dress" (Kleid in Hemdfarbe).
+    #[serde(default, skip_serializing_if = "Outfit::is_shirt")]
+    pub outfit: Outfit,
+    /// Schal (Farbe).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scarf: Option<Rgb>,
+    /// Rucksack (Farbe).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backpack: Option<Rgb>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Hat {
+    #[default]
+    None,
+    Cap,
+    Beanie,
+    TopHat,
+    Crown,
+    Party,
+}
+
+impl Hat {
+    pub fn is_none(&self) -> bool {
+        *self == Hat::None
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Outfit {
+    #[default]
+    Shirt,
+    Dress,
+}
+
+impl Outfit {
+    pub fn is_shirt(&self) -> bool {
+        *self == Outfit::Shirt
+    }
 }
 
 /// Wechsel des Gesichtsausdrucks ab Zeitpunkt `t`.
@@ -529,6 +578,48 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
                 "position": [0.0, 0.25 * u, -0.1 * u], "material": hair.clone()}));
         }
     }
+    // ---- Accessoires am Kopf ----
+    let hat_c = spec.hat_color.unwrap_or(match spec.hat {
+        Hat::Crown => Rgb::new(1.0, 0.8, 0.2),
+        Hat::TopHat => Rgb::new(0.12, 0.12, 0.14),
+        _ => Rgb::new(0.85, 0.2, 0.25),
+    });
+    let hm = json!({"color": hat_c.to_hex(), "roughness": if spec.hat == Hat::Crown { 0.25 } else { 0.7 }, "metallic": if spec.hat == Hat::Crown { 1.0 } else { 0.0 }});
+    let top = hr * 0.88;
+    match spec.hat {
+        Hat::None => {}
+        Hat::Cap => {
+            // höher und nach hinten versetzt, damit die Augen frei bleiben
+            head_children.push(json!({"id": format!("{id}_kappe"), "type": "sphere", "radius": hr * 1.05, "position": [0.0, hr * 0.5, -hr * 0.22], "scale": [1.0, 0.72, 1.0], "material": hm}));
+            head_children.push(json!({"id": format!("{id}_schirm"), "type": "cylinder", "radius": hr * 0.5, "height": 0.015 * u, "position": [0.0, hr * 0.52, hr * 0.78], "scale": [1.0, 1.0, 0.75], "rotation": [-10.0, 0.0, 0.0], "material": hm}));
+        }
+        Hat::Beanie => {
+            head_children.push(json!({"id": format!("{id}_muetze"), "type": "sphere", "radius": hr * 1.08, "position": [0.0, hr * 0.45, -hr * 0.27], "scale": [1.0, 0.8, 1.0], "material": hm}));
+            head_children.push(json!({"id": format!("{id}_bommel"), "type": "sphere", "radius": hr * 0.22, "position": [0.0, top + hr * 0.32, -0.03 * u], "material": {"color": "#ffffff", "roughness": 0.9}}));
+        }
+        Hat::TopHat => {
+            head_children.push(json!({"id": format!("{id}_krempe"), "type": "cylinder", "radius": hr * 1.15, "height": 0.02 * u, "position": [0.0, top - hr * 0.05, 0.0], "material": hm}));
+            head_children.push(json!({"id": format!("{id}_zylinder"), "type": "cylinder", "radius": hr * 0.7, "height": hr * 1.0, "position": [0.0, top + hr * 0.45, 0.0], "material": hm}));
+        }
+        Hat::Crown => {
+            head_children.push(json!({"id": format!("{id}_kronenreif"), "type": "cylinder", "radius": hr * 0.62, "height": hr * 0.3, "position": [0.0, top + hr * 0.05, 0.0], "material": hm}));
+            head_children.push(json!({"id": format!("{id}_zacke"), "type": "cone", "radius": hr * 0.14, "height": hr * 0.32, "position": [hr * 0.55, top + hr * 0.32, 0.0],
+                "repeat": {"count": 6, "rotation": [0.0, 60.0, 0.0], "pivot": [-hr * 0.55, 0.0, 0.0]}, "material": hm}));
+        }
+        Hat::Party => {
+            head_children.push(json!({"id": format!("{id}_partyhut"), "type": "cone", "radius": hr * 0.45, "height": hr * 1.1, "position": [0.0, top + hr * 0.45, 0.0], "rotation": [0.0, 0.0, 10.0],
+                "material": {"color": hat_c.to_hex(), "roughness": 0.6, "pattern": {"type": "stripes", "color2": "#ffe14d", "scale": 6.0}}}));
+        }
+    }
+    if spec.glasses {
+        let gm = json!({"color": "#1f1f24", "roughness": 0.3, "metallic": 0.6});
+        for side in [-1.0f32, 1.0] {
+            head_children.push(json!({"id": format!("{id}_brillenglas_{side}"), "type": "torus", "radius": 0.075 * u, "thickness": 0.008 * u,
+                "position": [side * eye_x, 0.035 * u, 0.235 * u], "rotation": [90.0, 0.0, 0.0], "material": gm}));
+        }
+        head_children.push(json!({"id": format!("{id}_brillensteg"), "type": "tube", "radius": 0.006 * u,
+            "path": [[-0.012 * u, 0.04 * u, 0.24 * u], [0.0, 0.05 * u, 0.245 * u], [0.012 * u, 0.04 * u, 0.24 * u]], "material": gm}));
+    }
     let head_y = 0.75 * u; // Hals-Gelenk
     let head = json!({"id": format!("{id}_kopf"), "type": "group", "position": [0.0, head_y, 0.0],
         "rotation": [0.0, if n == 0 { look * 0.7 } else { 0.0 }, 0.0],
@@ -574,9 +665,26 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
           "rotation": keys3(&|p: &Pose| [p.hip_rot_x, p.hip_rot_y, 0.0])
         })
     };
+    let mut body_children = vec![leg(-1.0), leg(1.0), belly, torso, neck, arm(-1.0), arm(1.0), head_rel];
+    if spec.outfit == Outfit::Dress {
+        // Kleid: Glocke von der Taille bis über die Knie
+        body_children.push(json!({"id": format!("{id}_kleid"), "type": "lathe", "segments": 32,
+            "profile": [[0.0, 0.47 * u - hip_y], [0.15 * u * bw, 0.47 * u - hip_y], [0.2 * u * bw, 0.33 * u - hip_y], [0.27 * u * bw, 0.17 * u - hip_y], [0.26 * u * bw, 0.15 * u - hip_y], [0.0, 0.15 * u - hip_y]],
+            "material": mat(spec.shirt, 0.75)}));
+    }
+    if let Some(c) = spec.scarf {
+        body_children.push(json!({"id": format!("{id}_schal"), "type": "torus", "radius": 0.085 * u, "thickness": 0.035 * u,
+            "position": [0.0, head_y - hip_y - 0.03 * u, 0.0], "material": mat(c, 0.9)}));
+        body_children.push(json!({"id": format!("{id}_schalende"), "type": "rounded_box", "size": [0.06 * u, 0.16 * u, 0.03 * u], "radius": 0.012 * u,
+            "position": [0.05 * u, head_y - hip_y - 0.12 * u, 0.12 * u], "rotation": [10.0, 0.0, 8.0], "material": mat(c, 0.9)}));
+    }
+    if let Some(c) = spec.backpack {
+        body_children.push(json!({"id": format!("{id}_rucksack"), "type": "rounded_box", "size": [0.24 * u * bw, 0.26 * u, 0.12 * u], "radius": 0.04 * u,
+            "position": [0.0, 0.56 * u - hip_y, -0.17 * u * bw], "material": mat(c, 0.7)}));
+    }
     let hips = json!({"id": format!("{id}_huefte"), "type": "group", "position": [0.0, hip_y, 0.0], "animate": hip_anim,
         "rotation": [0.0, if n == 0 { look * 0.3 } else { 0.0 }, 0.0],
-        "children": [leg(-1.0), leg(1.0), belly, torso, neck, arm(-1.0), arm(1.0), head_rel]});
+        "children": body_children});
     let root = json!({"id": format!("{id}_figur"), "type": "group", "children": [hips]});
     let mut v = root;
     strip_nulls(&mut v);
