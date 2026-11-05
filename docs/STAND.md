@@ -149,6 +149,9 @@
   gerendert und geprüft; Test validiert sie.
 - **Einstellungsgrößen (`camera.frame`):** wide/full/medium/close/extreme_close, Winkel relativ zur
   Blickrichtung der Figur, Neigung; Abstand aus Bildwinkel und Figurenhöhe.
+- **Kurzfilm Ende-zu-Ende über MCP** (new_project → generate_voice → create_music → new_scene mit
+  Vorlagen → batch mit character/path/follow/frame/dof → update_plan mit Ton → check_film →
+  export_film): 3 Shots, 9 s, Ton ok, 2:42 auf Software-Rendering. Ergebnis `docs/bilder/kurzfilm.mp4`.
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

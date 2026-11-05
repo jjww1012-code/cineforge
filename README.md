@@ -17,6 +17,11 @@ Details: [Claude verbinden](docs/CLAUDE-VERBINDEN.md)
 
 *2D-Figur in einer 3D-Welt – gebaut aus der Szenen-Datei [`scenes/vorzeige.json`](scenes/vorzeige.json).*
 
+![Kurzfilm-Test](docs/bilder/kurzfilm.png)
+
+*Kurzfilm, komplett über die Claude-Schnittstelle gebaut (Vorlagen, Figur, Stimme, Musik, 3 Shots):
+[`docs/bilder/kurzfilm.mp4`](docs/bilder/kurzfilm.mp4)*
+
 ![Die Oberfläche](docs/bilder/oberflaeche.png)
 
 ## Die Oberfläche
