@@ -191,6 +191,8 @@ enum Action {
     OpenExportFolder,
     /// Ausgewähltes Objekt bearbeiten (läuft als Werkzeug-Aufruf „mensch“, rückgängig machbar).
     Edit(Edit),
+    /// Shot im Storyboard verschieben (Index, Richtung −1/+1)
+    MoveShot(usize, i32),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -769,6 +771,18 @@ fn clicks(
                     c.send("cancel_export", serde_json::json!({}));
                 }
             }
+            Action::MoveShot(i, dir) => {
+                let Some(c) = &ui_cmd else { continue };
+                let shots = &project.data.storyboard;
+                let j = i as i64 + dir as i64;
+                if i < shots.len() && j >= 0 && (j as usize) < shots.len() {
+                    // entfernen und an der neuen Stelle wieder einfügen
+                    let mut v = serde_json::to_value(&shots[i]).unwrap_or(serde_json::Value::Null);
+                    v["position"] = serde_json::json!(j);
+                    let id = shots[i].id.clone();
+                    c.send("update_plan", serde_json::json!({"storyboard": [{"id": id, "remove": true}, v]}));
+                }
+            }
             Action::Edit(edit) => {
                 let Some(c) = &ui_cmd else { continue };
                 if let Edit::Undo = edit {
@@ -1083,6 +1097,21 @@ fn rebuild_left(
                     Some(sc) => Action::OpenScene(sc.clone()),
                     None => Action::Select(None),
                 };
+                // Länge: eingetragen oder (ohne Angabe) die der Szene
+                let len = if s.duration > 0.0 {
+                    s.duration
+                } else if is_cur {
+                    src.scene.duration
+                } else {
+                    s.scene
+                        .as_ref()
+                        .and_then(|sc| project.scenes_dir().ok().map(|d| d.join(format!("{sc}.json"))))
+                        .and_then(|p| std::fs::read_to_string(p).ok())
+                        .and_then(|t| cf_scene::Scene::from_json(&t).ok())
+                        .map(|sc| sc.duration)
+                        .unwrap_or(0.0)
+                };
+                let n_shots = shots.len();
                 l.spawn(button(action, if is_cur { SELECTED } else { Color::NONE }, row_node(0))).with_children(|r| {
                     r.spawn(txt(f, format!("{:02}", i + 1), 12.0, DIM, true));
                     let title = if s.title.is_empty() { s.id.clone() } else { s.title.clone() };
@@ -1095,8 +1124,21 @@ fn rebuild_left(
                         Status::Open => ("○", DIM),
                     };
                     let kind = if s.clip.is_some() { "Clip · " } else { "" };
-                    r.spawn(txt(f, format!("{kind}{:.0} s", s.duration), 11.0, DIM, false));
+                    let slow = s.speed.filter(|v| (*v - 1.0).abs() > 1e-3).map(|v| format!(" ×{v}")).unwrap_or_default();
+                    r.spawn(txt(f, format!("{kind}{len:.0} s{slow}"), 11.0, DIM, false));
                     r.spawn(txt(f, mark, 12.0, col, true));
+                    // Umsortieren (nur beim geöffneten Shot, damit die Liste ruhig bleibt)
+                    if is_cur && n_shots > 1 {
+                        for (dir, label) in [(-1, "↑"), (1, "↓")] {
+                            let ok = (dir < 0 && i > 0) || (dir > 0 && i + 1 < n_shots);
+                            if ok {
+                                r.spawn(button(Action::MoveShot(i, dir), PANEL_2, Node { padding: UiRect::axes(px(5), px(1)), border_radius: BorderRadius::all(px(4)), ..default() }))
+                                    .with_children(|b| {
+                                        b.spawn(txt(f, label, 11.0, TEXT, true));
+                                    });
+                            }
+                        }
+                    }
                 });
             }
             // Weitere Szenen-Dateien

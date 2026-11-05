@@ -251,14 +251,15 @@
   Kontaktabzüge wiederholen schwarze Einzelbilder einmal. (`render::is_black`)
 - **Gruppen-Einstellung:** `frame.with` – Mitte aller Beteiligten, Blick senkrecht zur Reihe (Seite, in die
   die Gruppe schaut; bei Blickkontakt Seite der Szenen-Kamera), Abstand mit Perspektive je Mitglied.
+- **Shots umsortieren per Klick:** Reiter „Szenen“ zeigt beim geöffneten Shot ↑ ↓ (update_plan mit
+  remove + position, als „mensch“); Shot-Längen ohne Eintrag = Szenenlänge, Zeitlupe als „×0.5“. Getestet.
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
 ## Nächste Schritte (in dieser Reihenfolge)
 
 1. **Auf echter GPU prüfen** (Mac): SSAO, Tiefenschärfe, Lichtstrahlen, Bewegungsunschärfe im Export.
-2. Oberfläche ausbauen: Farben per Palette ändern, Shots per Ziehen umsortieren, Objekte in der
-   Vorschau ziehen.
+2. Oberfläche ausbauen: Objekte in der Vorschau mit der Maus ziehen, Zahlenwerte direkt eintippen.
 3. Weitere Regie-Hilfen (z. B. Musik passend zur Stimmung je Shot, Kamerafahrten-Vorlagen).
 
 ## Offene Punkte / Wissenswertes
