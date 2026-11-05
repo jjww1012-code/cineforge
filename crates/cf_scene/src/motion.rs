@@ -346,9 +346,58 @@ fn smoothed_position(scene: &Scene, id: &str, t: f32, smooth: f32) -> Option<[f3
     Some(sum.map(|v| v / n as f32))
 }
 
-/// Kamera (Position, Blickpunkt, Bildwinkel) zum Zeitpunkt t inkl. follow/orbit/target.
+/// Harter Kamera-Schnitt innerhalb einer Szene: ab Zeitpunkt `t` gelten diese Einstellungen.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct CameraCut {
+    pub t: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<[f32; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub look_at: Option<[f32; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fov: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<Frame>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow: Option<Follow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orbit: Option<Orbit>,
+}
+
+/// Kamera (Position, Blickpunkt, Bildwinkel) zum Zeitpunkt t inkl. Schnitte, follow/orbit/frame/target.
 pub fn camera_shot(scene: &Scene, t: f32) -> ([f32; 3], [f32; 3], f32) {
-    let cam = &scene.camera;
+    let cut = scene.camera.cuts.iter().filter(|c| c.t <= t + 1e-4).max_by(|a, b| a.t.total_cmp(&b.t));
+    let Some(cut) = cut else { return camera_shot_base(scene, &scene.camera, t) };
+    // Einstellung des Schnitts ersetzt die Grund-Kamera (Kamerafahrt der Grund-Kamera gilt nicht mehr).
+    let mut cam = scene.camera.clone();
+    cam.animate = None;
+    cam.cuts.clear();
+    if cut.position.is_some() || cut.look_at.is_some() || cut.frame.is_some() || cut.follow.is_some() || cut.orbit.is_some() {
+        cam.frame = None;
+        cam.follow = None;
+        cam.orbit = None;
+        cam.target = None;
+    }
+    if let Some(p) = cut.position {
+        cam.position = p;
+    }
+    if let Some(l) = cut.look_at {
+        cam.look_at = l;
+    }
+    if let Some(f) = cut.fov {
+        cam.fov = f;
+    }
+    cam.target = cut.target.clone().or(cam.target);
+    cam.frame = cut.frame.clone().or(cam.frame);
+    cam.follow = cut.follow.clone().or(cam.follow);
+    cam.orbit = cut.orbit.clone().or(cam.orbit);
+    camera_shot_base(scene, &cam, t)
+}
+
+fn camera_shot_base(scene: &Scene, cam: &crate::model::CameraSpec, t: f32) -> ([f32; 3], [f32; 3], f32) {
     let (mut pos, mut look, fov) = camera_at(cam, t);
     let offset = cam.target_offset;
     let add = |a: [f32; 3], b: [f32; 3]| [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -427,6 +476,17 @@ mod tests {
         let wide = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character"}], "camera": {"frame": {"target": "max", "shot": "wide", "angle": 90}}}"#).unwrap();
         let (p2, _, _) = camera_shot(&wide, 0.0);
         assert!(p2[0] > 3.0, "von rechts und weit weg: {p2:?}");
+    }
+
+    #[test]
+    fn camera_cuts_switch_setups() {
+        let s = Scene::from_json(r#"{"objects": [{"id": "a", "type": "character", "position": [-2, 0, 0]}, {"id": "b", "type": "character", "position": [2, 0, 0]}],
+            "camera": {"position": [0, 2, 10], "look_at": [0, 1, 0],
+              "cuts": [{"t": 2, "frame": {"target": "a", "shot": "close"}}, {"t": 4, "frame": {"target": "b", "shot": "close"}}, {"t": 6, "position": [0, 5, 20], "look_at": [0, 0, 0]}]}}"#).unwrap();
+        assert_eq!(camera_shot(&s, 1.0).0, [0.0, 2.0, 10.0]);
+        assert!((camera_shot(&s, 2.5).1[0] + 2.0).abs() < 1e-3, "Nah auf a");
+        assert!((camera_shot(&s, 4.0).1[0] - 2.0).abs() < 1e-3, "Nah auf b");
+        assert_eq!(camera_shot(&s, 7.0).0, [0.0, 5.0, 20.0]);
     }
 
     #[test]

@@ -155,6 +155,8 @@
 - **Dialog-Werkzeug (`dialogue`):** Zeilen → Stimmen (synthesize, auf 48 kHz umgerechnet), Timing
   (start, gap, pause), je Sprecher `dlg_<szene>_<id>.wav`, Figuren: talk + talk-Aktionen (+ action),
   andere Objekte: animate.talk; Untertitel (y −0.82 + Box, ersetzt frühere), Szenenlänge, Shot-Ton.
+- **Kamera-Schnitte (`camera.cuts`)** in einer Szene; `dialogue` mit `camera_cuts: true` setzt
+  Schuss/Gegenschuss automatisch; Figuren-`look_at` (Kopf/Oberkörper zum Ziel, Startpositionen).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

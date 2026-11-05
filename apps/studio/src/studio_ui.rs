@@ -1498,6 +1498,8 @@ fn rebuild_tracks(
             k
         })
         .unwrap_or_default();
+    let mut cam_keys = cam_keys;
+    cam_keys.extend(scene.camera.cuts.iter().map(|c| c.t));
     let cam_bar = match (cam_keys.first(), cam_keys.last()) {
         (Some(a), Some(b)) if b > a => vec![(*a, *b, "Kamerafahrt".to_string())],
         (Some(_), _) => vec![],

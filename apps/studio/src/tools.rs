@@ -116,8 +116,8 @@ pub fn definitions() -> Value {
         },
         {
             "name": "dialogue",
-            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Hi Max!\", \"pause\": 0.3}]. Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. Ersetzt einen früheren Dialog derselben Szene.",
-            "inputSchema": {"type": "object", "properties": {"lines": {"type": "array", "items": obj}, "start": {"type": "number"}, "gap": {"type": "number"}, "subtitles": {"type": "boolean"}, "voices": obj, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["lines"]}
+            "description": "Dialog in einem Schritt: lines = [{\"who\": \"max\", \"text\": \"Hallo Lena!\", \"action\": \"wave\"}, {\"who\": \"lena\", \"text\": \"Hi Max!\", \"pause\": 0.3}]. Erzeugt die Stimmen (voices: {\"max\": \"Anna\"} oder voice je Zeile), legt die Sätze hintereinander (start, gap), macht je Sprecher eine Tonspur mit Lippen-Sync (character: talk + Sprech-Gesten; andere Objekte: animate.talk auf dem Mund), Untertitel (subtitles: true) und trägt den Ton im Storyboard-Shot ein. camera_cuts: true setzt automatisch Schnitte (Nahaufnahme auf den Sprecher, Schuss/Gegenschuss). Ersetzt einen früheren Dialog derselben Szene.",
+            "inputSchema": {"type": "object", "properties": {"lines": {"type": "array", "items": obj}, "start": {"type": "number"}, "gap": {"type": "number"}, "subtitles": {"type": "boolean"}, "camera_cuts": {"type": "boolean"}, "voices": obj, "scene": {"type": "string"}, "agent": {"type": "string"}}, "required": ["lines"]}
         },
         {
             "name": "get_selection",
@@ -1630,7 +1630,17 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
         }
     }
     let duration = scene.duration.max(end + 0.8);
-    scene = ops::update_settings(&scene, &serde_json::json!({"overlays": overlays, "duration": duration}))?;
+    let mut settings = serde_json::json!({"overlays": overlays, "duration": duration});
+    // Automatische Schnitte: Halbtotale am Anfang, dann Nahaufnahme auf den, der spricht
+    if a.get("camera_cuts").and_then(Value::as_bool).unwrap_or(false) {
+        let mut cuts = vec![serde_json::json!({"t": 0.0, "position": scene.camera.position, "look_at": scene.camera.look_at})];
+        for (k, l) in out.iter().enumerate() {
+            let side = if k % 2 == 0 { -25.0 } else { 25.0 };
+            cuts.push(serde_json::json!({"t": (l.at - 0.15).max(0.0), "frame": {"target": l.who, "shot": "close", "angle": side}}));
+        }
+        settings["camera"] = serde_json::json!({"cuts": cuts});
+    }
+    scene = ops::update_settings(&scene, &settings)?;
     // 5. Storyboard: Ton und Länge des Shots
     if let Some(shot) = cx.project.data.storyboard.iter_mut().find(|s| s.scene.as_deref() == Some(scene_name)) {
         shot.audio.retain(|c| !c.file.starts_with(&format!("dlg_{scene_key}_")));

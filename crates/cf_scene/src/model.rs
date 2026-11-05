@@ -286,6 +286,9 @@ pub struct CameraSpec {
     /// Einstellungsgröße auf ein Objekt (Totale, Halbnah, Nah, Großaufnahme …).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frame: Option<crate::motion::Frame>,
+    /// Harte Schnitte innerhalb der Szene (Schuss/Gegenschuss): ab `t` gilt die Einstellung.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cuts: Vec<crate::motion::CameraCut>,
 }
 
 fn is_zero3(v: &[f32; 3]) -> bool {
@@ -363,6 +366,7 @@ impl Default for CameraSpec {
             follow: None,
             orbit: None,
             frame: None,
+            cuts: Vec::new(),
         }
     }
 }
@@ -1031,7 +1035,10 @@ impl Scene {
             .iter()
             .chain(self.camera.follow.as_ref().map(|f| &f.target))
             .chain(self.camera.orbit.as_ref().and_then(|o| o.target.as_ref()))
-            .chain(self.camera.frame.as_ref().map(|f| &f.target));
+            .chain(self.camera.frame.as_ref().map(|f| &f.target))
+            .chain(self.camera.cuts.iter().flat_map(|c| {
+                c.target.iter().chain(c.frame.as_ref().map(|f| &f.target)).chain(c.follow.as_ref().map(|f| &f.target)).chain(c.orbit.as_ref().and_then(|o| o.target.as_ref()))
+            }));
         for id in cam_ids {
             if crate::ops::find(self, id).is_none() {
                 problems.push(format!("camera: Objekt „{id}“ gibt es nicht"));
