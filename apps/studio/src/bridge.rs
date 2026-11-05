@@ -72,11 +72,13 @@ fn wait_until_ready(base: &str, max: Duration) -> bool {
 
 fn launch_app() {
     let Ok(exe) = std::env::current_exe() else { return };
-    let _ = std::process::Command::new(exe)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn();
+    // Ausgaben der App: normalerweise verworfen; mit CINEFORGE_APP_LOG=<Datei> zur Fehlersuche gespeichert.
+    let log = std::env::var_os("CINEFORGE_APP_LOG").and_then(|p| std::fs::File::create(p).ok());
+    let (out, err) = match log.and_then(|f| f.try_clone().ok().map(|g| (f, g))) {
+        Some((f, g)) => (std::process::Stdio::from(f), std::process::Stdio::from(g)),
+        None => (std::process::Stdio::null(), std::process::Stdio::null()),
+    };
+    let _ = std::process::Command::new(exe).stdin(std::process::Stdio::null()).stdout(out).stderr(err).spawn();
 }
 
 fn error_reply(line: &str, msg: &str) -> Option<String> {

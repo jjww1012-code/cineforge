@@ -155,6 +155,22 @@ pub fn update_settings(scene: &Scene, changes: &Value) -> OpResult {
         return Err("Objekte bitte mit add_objects / update_object / remove_objects ändern".into());
     }
     let mut v = to_value(scene);
+    // Licht-Stimmung per Stichwort: erst die Stimmung, dann die eigenen environment-Angaben darüber
+    if let Some(name) = map.get("lighting") {
+        let name = name.as_str().ok_or("lighting muss ein Name sein, z. B. \"golden_hour\"")?;
+        let Some(env) = crate::lighting::preset(name) else {
+            let names = crate::lighting::names();
+            let hint = crate::diagnose::suggest(name, names.iter().copied()).map(|s| format!(" Meintest du „{s}“?")).unwrap_or_default();
+            return Err(format!("Licht-Stimmung „{name}“ gibt es nicht.{hint} Vorhanden: {}", names.join(", ")));
+        };
+        merge_patch(&mut v, &serde_json::json!({"environment": env}));
+        let mut rest = changes.clone();
+        if let Some(m) = rest.as_object_mut() {
+            m.remove("lighting");
+        }
+        merge_patch(&mut v, &rest);
+        return from_value(v);
+    }
     merge_patch(&mut v, changes);
     from_value(v)
 }

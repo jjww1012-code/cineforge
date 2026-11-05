@@ -241,6 +241,11 @@
   Lider als hautfarbene Kugeln vor dem Auge (tief genug, um Iris/Pupille zu verdecken). Menschenmengen
   variieren jetzt auch mit lachenden/begeisterten Gesichtern.
 - **Neue Frisuren:** `ponytail`, `pigtails`, `afro` (auch in Menschenmengen-Varianten).
+- **Licht-Stimmungen (`cf_scene::lighting`):** `update_scene_settings` mit `lighting` (morning, noon,
+  golden_hour, sunset, blue_hour, night, overcast, magic, spooky) → Merge-Patch auf environment, eigene
+  Angaben gehen vor; Tippfehler mit Vorschlag. Alle Stimmungen gerendert und auf Lesbarkeit abgestimmt.
+- **Diagnose:** `CINEFORGE_APP_LOG=<Datei>` – die von der Brücke (`cineforge mcp`) gestartete App schreibt
+  ihre Ausgaben dorthin (sonst verworfen).
 - **Ganzen Film in einem Schritt anlegen:** Storyboard-Einträge in `update_plan` dürfen `template`
   oder `copy_scene` enthalten → Szenen-Dateien werden gleich mit angelegt (Länge = duration).
 
@@ -252,6 +257,10 @@
 3. Weitere Regie-Hilfen (z. B. Musik passend zur Stimmung je Shot, Kamerafahrten-Vorlagen).
 
 ## Offene Punkte / Wissenswertes
+
+- **Sporadischer Absturz im Test (lavapipe):** Zweimal starb die von der Brücke gestartete App beim
+  zweiten Licht-Wechsel + Screenshot (kein Rust-Panic, kein absturz.txt → vermutlich Treiber). Mit
+  `CINEFORGE_APP_LOG` bzw. selbst gestarteter App nicht reproduzierbar. Auf echter GPU beobachten.
 
 - **GitHub Actions startet keine Builds mehr (seit 2026-11-05 ~01:20 UTC):** „recent account payments have
   failed or your spending limit needs to be increased“. Letzter erfolgreicher Build: 00:21 UTC

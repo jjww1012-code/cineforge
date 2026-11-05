@@ -92,6 +92,7 @@ Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tr
 Abspann: Einblendung mit effect \"scroll\" (mehrzeiliger Text läuft von start bis end durchs Bild). Geräusche zur Handlung: foley (je Szene, nach dem Bauen). Dialoge: Werkzeug dialogue (Stimmen + Lippen-Sync + Untertitel in einem Schritt).
 Figuren: type \"character\" erzeugt eine fertige Pixar-artige Figur (Frisur, Farben, Ausdruck, actions wie walk/wave/jump/talk/clap/bow/laugh/scared/look_around/shrug/sad/excited, talk = Lippen-Sync). Laufen: animate.path (Beine bewegen sich automatisch). Kamera: camera.follow / camera.target / camera.orbit statt Keyframes rechnen.
 Cartoon-Figuren leben lassen: Mund mit animate.talk (Lippen-Sync zur Stimme aus generate_voice), Augen mit animate.blink, Körper mit animate.breathe.
+Licht in einem Wort: update_scene_settings mit lighting (morning, noon, golden_hour, sunset, blue_hour, night, overcast, magic, spooky).
 Qualität: Für Kino-/Pixar-Look den Abschnitt „Kino-Qualität“ aus get_guide befolgen (Licht, dof, motion_blur, light_rays, grade, rounded-Formen, Bewegung mit out_back). Detaillierte 2D-Figuren als SVG mit Verläufen, weichen Schatten und Konturen; in 3D-Welten mit billboard, 3D-Objekte mit material.outline passend zum Cartoon-Stil.
 Medien: Bilder (PNG/JPG/SVG) in Bilder/, 3D-Modelle (glTF/GLB) in Modelle/ (type \"model\"). 2D-Grafiken zeichnest du selbst als SVG (type \"svg\"), Geräusche mit create_sound, Musik mit create_music. Cartoons: 2D-Kamera (camera.orthographic) + SVG-Figuren, siehe get_guide.
 Einheiten: Meter und Grad, Y zeigt nach oben. Jedes Objekt braucht eine eindeutige, sprechende id.";
@@ -188,7 +189,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "update_scene_settings",
-            "description": "Ändert name, description, environment (Himmel, Sonne, Nebel, Belichtung, Bloom) oder camera per Merge-Patch. Beispiel: {\"changes\":{\"environment\":{\"sun\":{\"elevation\":5}}}}",
+            "description": "Ändert name, description, environment (Himmel, Sonne, Nebel, Belichtung, Bloom) oder camera per Merge-Patch. Beispiel: {\"changes\":{\"environment\":{\"sun\":{\"elevation\":5}}}}. Licht-Stimmung per Stichwort: {\"changes\":{\"lighting\":\"golden_hour\"}} – morning, noon, golden_hour, sunset, blue_hour, night, overcast, magic, spooky (setzt Sonne, Lichtfarbe, Dunst, Sterne/Mond, Farbkorrektur; eigene environment-Angaben im selben Aufruf gehen vor).",
             "inputSchema": {"type": "object", "properties": {"scene": {"type": "string", "description": "Optional: andere Szene des Projekts (Name) bearbeiten, ohne sie zu öffnen"}, "agent": {"type": "string"}, "changes": obj}, "required": ["changes"]}
         },
         {

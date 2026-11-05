@@ -7,6 +7,13 @@ optional und hat sinnvolle Standardwerte. **Einheiten:** Meter, Grad, Sekunden.
 Die App lädt die Datei bei jeder Änderung automatisch neu. Ist die neue Fassung
 fehlerhaft, bleibt die alte sichtbar und der Fehler wird angezeigt.
 
+## Licht-Stimmungen
+
+`update_scene_settings` mit `{"changes": {"lighting": "golden_hour"}}` setzt eine fertige Stimmung:
+`morning`, `noon`, `golden_hour`, `sunset`, `blue_hour`, `night`, `overcast`, `magic`, `spooky` –
+Sonnenstand, Lichtfarbe, Dunst, Sterne/Mond und Farbkorrektur auf einmal. Eigene `environment`-Angaben
+im selben Aufruf gehen vor (z. B. `"lighting": "sunset", "environment": {"sun": {"azimuth": 90}}`).
+
 ## Schnellstart mit Vorlagen
 
 `new_scene` mit `"template"` legt eine fertig ausgeleuchtete Umgebung an: `wiese`, `dorf`, `wald`,

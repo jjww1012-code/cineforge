@@ -9,6 +9,7 @@ pub mod animation;
 pub mod color;
 pub mod diagnose;
 pub mod library;
+pub mod lighting;
 pub mod model;
 pub mod modeling;
 pub mod noise;
