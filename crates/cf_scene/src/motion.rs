@@ -295,32 +295,76 @@ pub struct Frame {
     /// Höhe des Objekts in Metern (bei Figuren automatisch).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f32>,
+    /// Kamerabewegung: Einstellung am Ende (Heranfahren, Wegfahren, Bogen, Kran). Ohne `start`/`end`
+    /// läuft sie über die ganze Einstellung (bis zum nächsten Schnitt bzw. Szenenende).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<FrameTo>,
+}
+
+/// Ziel einer Kamerabewegung bei `frame`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(deny_unknown_fields)]
+pub struct FrameTo {
+    /// Einstellungsgröße am Ende (wide → close = Heranfahren).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shot: Option<ShotSize>,
+    /// Blickwinkel am Ende (Grad) – Kamera fährt im Bogen um das Objekt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub angle: Option<f32>,
+    /// Kamerahöhe am Ende (Grad) – z. B. 40 = Kran nach oben.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<f32>,
+    /// Zusätzlicher Zoom am Ende: 1.15 = 15 % näher (sanftes „Push-in“), 0.85 = weiter weg.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zoom: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<f32>,
+    #[serde(default)]
+    pub ease: crate::animation::Ease,
+}
+
+fn shot_view(shot: ShotSize, h: f32) -> (f32, f32) {
+    // (sichtbare Bildhöhe, Blickpunkt-Höhe) relativ zur Objekthöhe
+    match shot {
+        ShotSize::Wide => (h * 4.0, h * 0.5),
+        ShotSize::Full => (h * 1.35, h * 0.5),
+        ShotSize::Medium => (h * 0.95, h * 0.66),
+        ShotSize::Close => (h * 0.74, h * 0.76),
+        ShotSize::ExtremeClose => (h * 0.42, h * 0.8),
+    }
 }
 
 fn find_obj<'a>(objs: &'a [Object], id: &str) -> Option<&'a Object> {
     objs.iter().find_map(|o| if o.id == id { Some(o) } else if let Kind::Group { children } = &o.kind { find_obj(children, id) } else { None })
 }
 
-/// Kamera (Position, Blickpunkt) für eine Einstellungsgröße.
-fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32) -> Option<([f32; 3], [f32; 3])> {
+/// Kamera (Position, Blickpunkt) für eine Einstellungsgröße; `span` = Zeitraum der Einstellung
+/// (für Kamerabewegungen ohne eigene start/end).
+fn framed(scene: &Scene, f: &Frame, fov: f32, t: f32, span: (f32, f32)) -> Option<([f32; 3], [f32; 3])> {
     let p = world_position(scene, &f.target, t)?;
     let obj = find_obj(&scene.objects, &f.target)?;
     let h = f.height.unwrap_or(match &obj.kind {
         Kind::Character(c) => c.height * obj.scale.to_array()[1],
         _ => d_frame_height().min(2.0) * obj.scale.to_array()[1],
     });
-    // (sichtbare Bildhöhe, Blickpunkt-Höhe) relativ zur Objekthöhe
-    let (view, look_y) = match f.shot {
-        ShotSize::Wide => (h * 4.0, h * 0.5),
-        ShotSize::Full => (h * 1.35, h * 0.5),
-        ShotSize::Medium => (h * 0.95, h * 0.66),
-        ShotSize::Close => (h * 0.7, h * 0.73),
-        ShotSize::ExtremeClose => (h * 0.42, h * 0.8),
-    };
+    let (mut view, mut look_y) = shot_view(f.shot, h);
+    let (mut angle, mut tilt) = (f.angle, f.tilt);
+    if let Some(to) = &f.to {
+        let (a, b) = (to.start.unwrap_or(span.0), to.end.unwrap_or(span.1));
+        let u = to.ease.apply(if b > a + 1e-4 { (t - a) / (b - a) } else { 1.0 });
+        let lerp = |x: f32, y: f32| x + (y - x) * u;
+        let (v1, l1) = shot_view(to.shot.unwrap_or(f.shot), h);
+        view = lerp(view, v1 / to.zoom.unwrap_or(1.0).clamp(0.2, 5.0));
+        look_y = lerp(look_y, l1);
+        angle = lerp(angle, to.angle.unwrap_or(f.angle));
+        tilt = lerp(tilt, to.tilt.unwrap_or(f.tilt));
+    }
     let dist = (view / 2.0) / (fov.to_radians() / 2.0).tan().max(0.05);
     // Blickrichtung des Objekts (Gier) berücksichtigen: „von vorne“ heißt vor seinem Gesicht.
-    let yaw = (facing_yaw(scene, obj, t) + f.angle).to_radians();
-    let tilt = f.tilt.to_radians();
+    let yaw = (facing_yaw(scene, obj, t) + angle).to_radians();
+    let tilt = tilt.to_radians();
     let look = [p[0], p[1] + look_y, p[2]];
     let pos = [
         look[0] + dist * tilt.cos() * yaw.sin(),
@@ -395,7 +439,11 @@ pub struct CameraCut {
 /// Kamera (Position, Blickpunkt, Bildwinkel) zum Zeitpunkt t inkl. Schnitte, follow/orbit/frame/target.
 pub fn camera_shot(scene: &Scene, t: f32) -> ([f32; 3], [f32; 3], f32) {
     let cut = scene.camera.cuts.iter().filter(|c| c.t <= t + 1e-4).max_by(|a, b| a.t.total_cmp(&b.t));
-    let Some(cut) = cut else { return camera_shot_base(scene, &scene.camera, t) };
+    // Zeitraum der aktuellen Einstellung: vom Schnitt bis zum nächsten Schnitt (bzw. Szenenende)
+    let start = cut.map(|c| c.t).unwrap_or(0.0);
+    let end = scene.camera.cuts.iter().map(|c| c.t).filter(|&x| x > start + 1e-4).fold(scene.duration, f32::min);
+    let span = (start, end.max(start));
+    let Some(cut) = cut else { return camera_shot_base(scene, &scene.camera, t, span) };
     // Einstellung des Schnitts ersetzt die Grund-Kamera (Kamerafahrt der Grund-Kamera gilt nicht mehr).
     let mut cam = scene.camera.clone();
     cam.animate = None;
@@ -419,10 +467,10 @@ pub fn camera_shot(scene: &Scene, t: f32) -> ([f32; 3], [f32; 3], f32) {
     cam.frame = cut.frame.clone().or(cam.frame);
     cam.follow = cut.follow.clone().or(cam.follow);
     cam.orbit = cut.orbit.clone().or(cam.orbit);
-    camera_shot_base(scene, &cam, t)
+    camera_shot_base(scene, &cam, t, span)
 }
 
-fn camera_shot_base(scene: &Scene, cam: &crate::model::CameraSpec, t: f32) -> ([f32; 3], [f32; 3], f32) {
+fn camera_shot_base(scene: &Scene, cam: &crate::model::CameraSpec, t: f32, span: (f32, f32)) -> ([f32; 3], [f32; 3], f32) {
     let (mut pos, mut look, fov) = camera_at(cam, t);
     let offset = cam.target_offset;
     let add = |a: [f32; 3], b: [f32; 3]| [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -451,7 +499,7 @@ fn camera_shot_base(scene: &Scene, cam: &crate::model::CameraSpec, t: f32) -> ([
         }
     }
     if let Some(f) = &cam.frame {
-        if let Some((p, l)) = framed(scene, f, fov, t) {
+        if let Some((p, l)) = framed(scene, f, fov, t, span) {
             pos = p;
             look = l;
         }
@@ -496,7 +544,7 @@ mod tests {
         let s = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character", "height": 1.2, "position": [2, 0, 0]}],
             "camera": {"fov": 40, "frame": {"target": "max", "shot": "close"}}}"#).unwrap();
         let (pos, look, _) = camera_shot(&s, 0.0);
-        assert!((look[1] - 0.876).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
+        assert!((look[1] - 0.912).abs() < 0.01 && (look[0] - 2.0).abs() < 1e-4, "{look:?}");
         assert!(pos[2] > 0.5 && pos[2] < 1.5 && (pos[0] - 2.0).abs() < 1e-3, "nah vor dem Gesicht: {pos:?}");
         let wide = Scene::from_json(r#"{"objects": [{"id": "max", "type": "character"}], "camera": {"frame": {"target": "max", "shot": "wide", "angle": 90}}}"#).unwrap();
         let (p2, _, _) = camera_shot(&wide, 0.0);
@@ -510,6 +558,24 @@ mod tests {
             "camera": {"frame": {"target": "max", "shot": "close"}}}"#).unwrap();
         let (pos, _, _) = camera_shot(&s, 0.0);
         assert!(pos[0] > 0.5 && pos[2].abs() < 0.2, "Kamera vor Max' Gesicht (rechts): {pos:?}");
+    }
+
+    #[test]
+    fn frame_to_pushes_in_and_arcs() {
+        let s = Scene::from_json(r#"{"duration": 4, "objects": [{"id": "max", "type": "character"}],
+            "camera": {"frame": {"target": "max", "shot": "wide", "to": {"shot": "close", "angle": 90}}}}"#).unwrap();
+        let (p0, _, _) = camera_shot(&s, 0.0);
+        let (p1, _, _) = camera_shot(&s, 4.0);
+        let d = |p: [f32; 3]| (p[0] * p[0] + p[2] * p[2]).sqrt();
+        assert!(d(p0) > 3.0 * d(p1), "fährt heran: {p0:?} → {p1:?}");
+        assert!(p0[2] > 1.0 && p0[0].abs() < 1e-3, "Start von vorne: {p0:?}");
+        assert!(p1[0] > 0.5 && p1[2].abs() < 0.05, "Ende von rechts (90°): {p1:?}");
+        // in einem Schnitt: Bewegung bis zum nächsten Schnitt
+        let c = Scene::from_json(r#"{"duration": 6, "objects": [{"id": "max", "type": "character"}],
+            "camera": {"cuts": [{"t": 1, "frame": {"target": "max", "shot": "medium", "to": {"zoom": 1.5}}}, {"t": 3, "position": [0, 5, 20]}]}}"#).unwrap();
+        let near = d(camera_shot(&c, 2.99).0);
+        let far = d(camera_shot(&c, 1.0).0);
+        assert!(near < far * 0.75, "Push-in bis zum Schnitt: {far} → {near}");
     }
 
     #[test]

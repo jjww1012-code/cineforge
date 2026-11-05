@@ -85,7 +85,7 @@ Arbeitsweise:
 7. „Das hier“, „dieses Objekt“: get_selection sagt, was der Mensch im Fenster angeklickt hat. Mit select_object kannst du ihm umgekehrt ein Objekt zeigen.
 8. Vor dem Export: contact_sheet mit film: true zeigt alle Shots des Films in EINEM Bild – Anschlüsse, Farben, Figuren und Reihenfolge prüfen.
 9. Schneller arbeiten: batch für viele Änderungen auf einmal, duplicate_object und repeat für Wiederholungen, Bibliothek (save_asset/instance) für wiederkehrende Objekte.
-Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}.
+Schnell schöne Szenen: new_scene mit template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d, schloss, unterwasser, stadt). Kamera ohne Rechnen: camera.frame {target, shot: wide|full|medium|close|extreme_close, angle, tilt}; Kamerabewegung mit frame.to {shot, angle, tilt, zoom} (Heranfahren, Bogen, Kran, Push-in).
 Fertige Objekte: list_assets (haus, auto, laterne, bank, zaun, tisch, stuhl, wolke, brunnen, blume, busch, felsen) und per type \"instance\" einsetzen.
 Tiere: type \"animal\" (dog, cat, bunny, bird, fish; actions walk/run/wag/jump/sit/fly/swim).
 Natur: type \"tree\" (oak/pine/palm/birch/lollipop, wind), Wald = scatter mit tree-Shape, type \"water\" mit Wellen; Nacht: environment.stars + environment.moon.
@@ -1742,7 +1742,8 @@ fn dialogue(base: &Scene, a: &Value, scene_name: &str, cx: &mut Ctx) -> Result<S
             last = Some(&l.who);
             let k = speakers.iter().position(|w| *w == l.who).unwrap_or(0);
             let side = if k % 2 == 0 { -28.0 } else { 28.0 };
-            cuts.push(serde_json::json!({"t": (l.at - 0.15).max(0.0), "frame": {"target": l.who, "shot": "close", "angle": side, "tilt": 4.0}}));
+            // sanftes Push-in während des Satzes wirkt lebendiger als eine starre Nahaufnahme
+            cuts.push(serde_json::json!({"t": (l.at - 0.15).max(0.0), "frame": {"target": l.who, "shot": "close", "angle": side, "tilt": 4.0, "to": {"zoom": 1.1}}}));
         }
         settings["camera"] = serde_json::json!({"cuts": cuts});
     }
