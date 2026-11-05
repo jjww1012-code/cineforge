@@ -37,22 +37,27 @@ Stimmen, Lippen-Sync, Mimik und Schuss/Gegenschuss, Verfolgerkamera im Wald, Tit
   Dorf, Wald, Strand, Nacht, Studio, Weltraum, Zimmer, Cartoon-2D, Schloss, Unterwasser, Stadt, Bauernhof,
   Winter), Export bis
   4K und 1 Stunde+, Übergänge (Schnitt, Abblende, Überblendung, Wisch-, Schiebe-, Kreisblende), Qualität
-  „best“ mit Supersampling. **Film-Übersicht**: alle Shots in einem Bild; **Bildkontrolle** rechnet nach,
-  ob Figuren im Bild sind, wenn sie handeln oder sprechen.
+  „best“ mit Supersampling, Zeitlupe/Zeitraffer je Shot, rollender Abspann. **Besetzungsliste**: jede Figur
+  einmal festlegen, gleich in allen Szenen. **Film-Übersicht**: alle Shots in einem Bild; **Bildkontrolle**
+  rechnet nach, ob Figuren im Bild sind, wenn sie handeln oder sprechen.
 - **Figuren im Pixar-Stil** aus einer Zeile: Frisur, Farben, Statur, Kleid, Hut, Brille, Schal, Rucksack,
   Gegenstände in der Hand; 21 Aktionen (gehen, rennen, winken, springen, tanzen, sprechen, klatschen,
   verbeugen, lachen, erschrecken, Schultern zucken, traurig, aufgeregt hüpfen …) mit Zeichentrick-Prinzipien
-  (Ausholen, Stauchen & Strecken), Mimik im Zeitverlauf, Blickkontakt, Lippen-Sync, Blinzeln, Atmen.
-  Menschenmengen mit lauter Varianten.
+  (Ausholen, Stauchen & Strecken), 9 Gesichtsausdrücke (auch lachend, begeistert, verschlafen,
+  zwinkernd) im Zeitverlauf, 9 Frisuren (auch Pferdeschwanz, Zöpfe, Afro), Blickkontakt, Lippen-Sync,
+  Blinzeln, Atmen. Menschenmengen mit lauter Varianten.
 - **Tiere**: Hund, Katze, Hase, Vogel, Fisch, Kuh, Schwein, Schaf, Pferd, Huhn – laufen, wedeln, fliegen, schwimmen.
 - **Dialoge in einem Schritt**: Stimmen, Timing, Lippen-Sync, Gesten, Mimik je Satz, Untertitel,
   Zweier-Einstellung und Schuss/Gegenschuss nach der 180°-Regel mit sanftem Heranfahren.
 - **Ton**: eigene Musik und Geräusche (Synthese, kein KI-Klang), automatische Geräusche zur Handlung
-  (Schritte, Sprünge, Flügel, Feuer, Regen) und passende Umgebung (Vögel, Grillen, Meer, Bach, Stadt,
-  Unterwasser), Sprecher mit Systemstimmen, Ton in der Vorschau, Wellenformen in der Zeitleiste.
+  (Schritte, Hufe, Sprünge, Flügel, Feuer, Regen) und passende Umgebung (Vögel, Grillen, Meer, Bach, Stadt,
+  Unterwasser), Musik nach Stimmung (fröhlich, traurig, Abenteuer, spannend, magisch …) genau so lang wie
+  der Film, Sprecher mit Systemstimmen, Ton in der Vorschau, Wellenformen in der Zeitleiste.
 - **Kamera wie im Film**: Einstellungsgrößen (Totale bis Großaufnahme), Kamerafahrten ohne Rechnen
-  (Heranfahren, Bogen, Kran, Push-in), folgen, umkreisen, Schnitte in der Szene, Tiefenschärfe,
-  Bewegungsunschärfe, Handkamera.
+  (Heranfahren, Bogen, Kran, Push-in), Gruppen-Einstellungen (alle Figuren automatisch im Bild), folgen,
+  umkreisen, Schnitte in der Szene, Tiefenschärfe, Bewegungsunschärfe, Handkamera.
+- **Licht in einem Wort**: Morgen, Mittag, goldene Stunde, Sonnenuntergang, blaue Stunde, Nacht, bewölkt,
+  magisch, unheimlich.
 - **Welten**: Gelände, Bäume (5 Arten, Wind, Wälder), Wasser mit Wellen, Sternenhimmel, Mond,
   Lichtstrahlen, Nebel, Partikel (Feuer, Rauch, Funken, Regen, Schnee, Explosion, Magie), 12 fertige
   Bibliotheks-Objekte (Haus, Auto, Laterne, Brunnen …).
@@ -61,6 +66,8 @@ Stimmen, Lippen-Sync, Mimik und Schuss/Gegenschuss, Verfolgerkamera im Wald, Tit
   PNG, SVG und 3D-Modellen (GLB/glTF).
 - **2D**: SVG-Grafiken in voller Qualität (Verläufe, Schatten, Text), 2D-Kamera, Cartoon-Farbstil,
   2D-Figuren als „Pappaufsteller“ in 3D-Welten.
+- **Robust**: Stürzt die App ab, startet sie beim nächsten Mal im sicheren Modus und nennt den Grund;
+  unfertige (schwarze) Kontrollbilder werden automatisch wiederholt.
 - **Schnell und sicher**: Fehlermeldungen mit genauer Stelle und Lösungsvorschlag, Änderungen ohne
   Neuladen, mehrere Claude-Agenten parallel, Logbuch zum Weitermachen nach Pausen.
 
