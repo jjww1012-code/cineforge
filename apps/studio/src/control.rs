@@ -280,10 +280,22 @@ fn prompt_get(params: &Value) -> Result<Value, String> {
                 .ok_or("Argument \"idee\" fehlt")?;
             format!(
                 "Erstelle in CineForge einen Film zu dieser Idee:\n\n{idee}\n\n\
-                 Vorgehen: 1) get_guide lesen. 2) new_project mit Ziel und Stil. \
-                 3) update_plan mit einem Storyboard (Shots mit Titel, Beschreibung, Dauer). \
-                 4) update_tasks mit konkreten Aufgaben. 5) Shot für Shot eine Szene bauen (new_scene), \
-                 jeweils mit screenshot prüfen und verbessern, dann Shot und Aufgabe abhaken. \
+                 Arbeite wie ein Regie-Team (Pixar-Qualität), Schritt für Schritt:\n\
+                 1) get_guide lesen (besonders „Figuren“, „Kino-Qualität“, „Schnellstart mit Vorlagen“).\n\
+                 2) Geschichte: kurze Handlung mit Anfang, Problem, Höhepunkt, Ende; Figuren mit Namen, Aussehen, Charakter.\n\
+                 3) new_project mit Ziel und Stil (Farben, Stimmung, Look film oder cartoon).\n\
+                 4) update_plan: Storyboard – je Shot Titel, Beschreibung, Dauer (3–8 s), Szene s01, s02 …; update_tasks mit Aufgaben.\n\
+                 5) Je Shot: new_scene mit passendem template (wiese, dorf, wald, strand, nacht, studio, weltraum, zimmer, cartoon_2d).\n\
+                 6) Figuren als type \"character\" (immer gleiche Farben/Frisur je Figur in allen Szenen!), Tiere als type \"animal\"; \
+                 Handlung mit actions (walk, wave, jump, talk …), Wege mit animate.path, Mimik mit expressions, look_at zum Gesprächspartner.\n\
+                 7) Dialoge mit dialogue (Stimmen, Lippen-Sync, Untertitel; camera_cuts: true für Schuss/Gegenschuss).\n\
+                 8) Kamera wie im Film: camera.frame (wide zum Einführen, medium/close für Gefühle), follow für Bewegung, cuts innerhalb der Szene, \
+                 dof mit focus auf die Hauptfigur, langsame Fahrten.\n\
+                 9) Licht und Look: Tageszeit passend zur Stimmung, light_rays/fog für Atmosphäre, grade (saturation 1.1, vignette 0.3).\n\
+                 10) Jede Szene mit screenshot oder contact_sheet prüfen und verbessern (Komposition, Größenverhältnisse, Lesbarkeit).\n\
+                 11) Ton: create_music (Stil passend, als soundtrack mit volume 0.3–0.5), create_sound für Effekte (Schritte, Whoosh, Pop) als audio im Shot.\n\
+                 12) Titel und Abspann mit overlays (effect pop/typewriter, shadow).\n\
+                 13) check_film, dann export_film. Shots und Aufgaben abhaken.\n\
                  Setze vor jedem größeren Schritt next_step, damit nach einer Unterbrechung nahtlos weitergearbeitet werden kann."
             )
         }
