@@ -202,7 +202,14 @@ enum Edit {
     ToggleHidden,
     Delete,
     Undo,
+    /// Farbe aus der Palette (Index in PALETTE)
+    Color(usize),
 }
+
+/// Farbpalette im Eigenschaften-Bereich: kräftige Cartoon-Farben plus Neutrale.
+const PALETTE: [&str; 14] = [
+    "#e63946", "#f4a261", "#ffbe0b", "#8ac926", "#2a9d8f", "#3a86ff", "#8338ec", "#ff70a6", "#8d5b3b", "#f1faee", "#adb5bd", "#495057", "#1d1d1f", "#ffffff",
+];
 
 /// Hintergrundfarbe je nach Zustand (normal / Maus darüber).
 #[derive(Component, Clone, Copy)]
@@ -791,6 +798,17 @@ fn clicks(
                         sel.id = None;
                     }
                     Edit::Undo => {}
+                    Edit::Color(i) => {
+                        let hex = PALETTE[i.min(PALETTE.len() - 1)];
+                        // Figuren: Oberteil, Tiere: Fell, Bäume: Blätter, sonst die Materialfarbe
+                        let changes = match &o.kind {
+                            Kind::Character(_) => serde_json::json!({"shirt": hex}),
+                            Kind::Animal(_) => serde_json::json!({"color": hex}),
+                            Kind::Tree(_) => serde_json::json!({"leaves": hex}),
+                            _ => serde_json::json!({"material": {"color": hex}}),
+                        };
+                        c.send("update_object", serde_json::json!({"id": id, "changes": changes}));
+                    }
                 }
             }
             Action::OpenExportFolder => {
@@ -1325,6 +1343,21 @@ fn edit_bar(p: &mut ChildSpawnerCommands, f: &UiFonts, hidden: bool) {
         &[(Edit::Duplicate, "Duplizieren"), (Edit::ToggleHidden, if hidden { "Zeigen" } else { "Verstecken" }), (Edit::Delete, "Löschen"), (Edit::Undo, "Rückgängig")],
     ];
     p.spawn(Node { flex_direction: FlexDirection::Column, row_gap: px(4), padding: UiRect::vertical(px(4)), flex_shrink: 0.0, ..default() }).with_children(|col| {
+        // Farbpalette
+        col.spawn(Node { flex_direction: FlexDirection::Row, column_gap: px(3), flex_wrap: FlexWrap::Wrap, row_gap: px(3), ..default() }).with_children(|r| {
+            for (i, hex) in PALETTE.iter().enumerate() {
+                let c = cf_scene::Rgb::parse_hex(hex).map(crate::environment::color).unwrap_or(Color::WHITE);
+                // Beim Darüberfahren etwas heller statt grau (die Farbe bleibt erkennbar)
+                r.spawn((
+                    Action::Edit(Edit::Color(i)),
+                    Node { width: px(17), height: px(17), border_radius: BorderRadius::all(px(4)), border: UiRect::all(px(1)), ..default() },
+                    BackgroundColor(c),
+                    HoverBg { normal: c, hover: c.mix(&Color::WHITE, 0.25) },
+                    Hovered::default(),
+                    BorderColor::all(LINE),
+                ));
+            }
+        });
         for row in rows {
             col.spawn(Node { flex_direction: FlexDirection::Row, column_gap: px(4), flex_wrap: FlexWrap::Wrap, ..default() }).with_children(|r| {
                 for (edit, label) in row {
