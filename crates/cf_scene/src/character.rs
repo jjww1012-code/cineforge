@@ -33,6 +33,12 @@ pub enum Hair {
     Bun,
     Curly,
     Bald,
+    /// Pferdeschwanz
+    Ponytail,
+    /// Zwei Zöpfe
+    Pigtails,
+    /// Große, lockige Afro-Frisur
+    Afro,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -501,7 +507,7 @@ pub fn vary(spec: &CharacterSpec, seed: u32) -> CharacterSpec {
     s.shirt = Rgb::parse_hex(clothes[pick(&mut r, clothes.len())]).unwrap_or(s.shirt);
     s.pants = Rgb::parse_hex(pants[pick(&mut r, pants.len())]).unwrap_or(s.pants);
     s.shoes = Rgb::parse_hex(clothes[pick(&mut r, clothes.len())]).unwrap_or(s.shoes);
-    s.hair = [Hair::Short, Hair::Spiky, Hair::Long, Hair::Bun, Hair::Curly, Hair::Bald][pick(&mut r, 6)];
+    s.hair = [Hair::Short, Hair::Spiky, Hair::Long, Hair::Bun, Hair::Curly, Hair::Bald, Hair::Ponytail, Hair::Pigtails, Hair::Afro][pick(&mut r, 9)];
     s.build = [Build::Slim, Build::Normal, Build::Normal, Build::Round][pick(&mut r, 4)];
     s.height = spec.height * r.range(0.85, 1.25);
     s.expression = [Expression::Happy, Expression::Happy, Expression::Neutral, Expression::Surprised, Expression::Laugh, Expression::Excited][pick(&mut r, 6)];
@@ -760,6 +766,25 @@ pub fn build_looking(obj: &Object, spec: &CharacterSpec, look_yaw: f32) -> Objec
             head_children.push(json!({"id": format!("{id}_dutt"), "type": "sphere", "radius": 0.095 * u,
                 "position": [0.0, 0.25 * u, -0.1 * u], "material": hair.clone()}));
         }
+        Hair::Ponytail => {
+            head_children.push(cap(json!({})));
+            head_children.push(json!({"id": format!("{id}_haargummi"), "type": "torus", "radius": 0.035 * u, "thickness": 0.014 * u,
+                "position": [0.0, 0.12 * u, -0.245 * u], "rotation": [70.0, 0.0, 0.0], "material": {"color": "#e8485a", "roughness": 0.5}}));
+            head_children.push(json!({"id": format!("{id}_pferdeschwanz"), "type": "tube", "radius": 0.05 * u, "radius_end": 0.018 * u,
+                "path": [[0.0, 0.12 * u, -0.25 * u], [0.0, 0.08 * u, -0.34 * u], [0.0, -0.06 * u, -0.36 * u], [0.0, -0.2 * u, -0.31 * u]], "material": hair.clone()}));
+        }
+        Hair::Pigtails => {
+            head_children.push(cap(json!({})));
+            for side in [-1.0f32, 1.0] {
+                head_children.push(json!({"id": format!("{id}_zopfgummi_{side}"), "type": "sphere", "radius": 0.025 * u,
+                    "position": [side * 0.235 * u, 0.04 * u, -0.08 * u], "material": {"color": "#e8485a", "roughness": 0.5}}));
+                head_children.push(json!({"id": format!("{id}_zopf_{side}"), "type": "tube", "radius": 0.042 * u, "radius_end": 0.018 * u,
+                    "path": [[side * 0.24 * u, 0.04 * u, -0.08 * u], [side * 0.31 * u, -0.04 * u, -0.1 * u], [side * 0.31 * u, -0.17 * u, -0.08 * u], [side * 0.27 * u, -0.27 * u, -0.05 * u]],
+                    "material": hair.clone()}));
+            }
+        }
+        Hair::Afro => head_children.push(cap(json!({"radius": hr * 1.38, "position": [0.0, 0.11 * u, -0.07 * u], "scale": [1.0, 0.92, 0.95], "subdivide": 2,
+            "deform": [{"type": "noise", "amount": 0.03 * u, "scale": 11.0 / u, "octaves": 2, "seed": 5}]}))),
     }
     // ---- Accessoires am Kopf ----
     let hat_c = spec.hat_color.unwrap_or(match spec.hat {

@@ -209,7 +209,7 @@ Brauen, Mund (Lippen-Sync), Frisur und Kleidung. Vorderseite schaut nach +Z, Fü
 |---|---|---|
 | `height` | 1.2 | Größe in Metern (Kind 1.0–1.3, Erwachsene 1.6–1.9) |
 | `build` | normal | `slim`, `normal`, `round` |
-| `hair` | short | `short`, `spiky`, `long`, `bun`, `curly`, `bald` |
+| `hair` | short | `short`, `spiky`, `long`, `bun`, `curly`, `bald`, `ponytail` (Pferdeschwanz), `pigtails` (Zöpfe), `afro` |
 | `skin`, `hair_color`, `shirt`, `pants`, `shoes`, `eye_color` | – | Farben |
 | `expression` | happy | `neutral`, `happy`, `sad`, `angry`, `surprised`, `laugh` (lacht, Augen zu), `excited` (begeistert), `sleepy` (müde), `wink` (zwinkert) |
 | `outline` | false | gezeichnete Umrisslinie |
