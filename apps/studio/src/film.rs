@@ -46,7 +46,26 @@ pub struct FilmTask {
     pub fade_in: bool,
     pub fade_out: bool,
     pub cache: PathBuf,
+    /// Überblendung zum nächsten Shot (ffmpeg-xfade-Art, Dauer).
+    pub xfade: Option<(&'static str, f32)>,
 }
+
+/// Dauer einer Überblendung (Sekunden).
+pub const XFADE_SECONDS: f32 = 0.6;
+
+/// Übergangs-Name → ffmpeg-xfade-Art (None = harter Schnitt bzw. Abblende über Schwarz).
+pub fn xfade_kind(name: &str) -> Option<&'static str> {
+    match name {
+        "dissolve" | "ueberblenden" | "überblenden" => Some("fade"),
+        "wipe" | "wischen" => Some("wipeleft"),
+        "slide" | "schieben" => Some("slideleft"),
+        "circle" | "kreis" | "iris" => Some("circleopen"),
+        _ => None,
+    }
+}
+
+/// Alle erlaubten Übergänge (für Prüfung und Hilfe).
+pub const TRANSITIONS: &str = "cut, fade, dissolve, wipe, slide, circle";
 
 /// Ton mit absoluter Startzeit im Film.
 #[derive(Debug, Clone)]
@@ -147,6 +166,8 @@ pub struct PlanOptions {
     pub fps: Option<u32>,
     pub quality: Quality,
     pub fade_all: bool,
+    /// Übergang für alle Shots (dissolve, wipe, slide, circle), sonst je Shot.
+    pub transition_all: Option<String>,
     pub output: PathBuf,
 }
 
@@ -212,6 +233,11 @@ pub fn build_plan(project: &ActiveProject, library: &mut Library, opt: PlanOptio
     let fps = fps.unwrap_or(30).clamp(1, 120);
     for (i, (shot, scene)) in data.storyboard.iter().zip(loaded).enumerate() {
         let fade = |at: usize| data.storyboard.get(at).and_then(|s| s.transition.as_deref()) == Some("fade");
+        let trans_name = opt.transition_all.clone().or_else(|| shot.transition.clone()).unwrap_or_else(|| "cut".into());
+        if !matches!(trans_name.as_str(), "cut" | "fade") && xfade_kind(&trans_name).is_none() {
+            problems.push(format!("Shot {}: Übergang „{trans_name}“ unbekannt ({TRANSITIONS})", shot.id));
+        }
+        let xfade = if i + 1 < n { xfade_kind(&trans_name).map(|k| (k, XFADE_SECONDS)) } else { None };
         let fade_in = i == 0 || opt.fade_all || (i > 0 && fade(i - 1));
         let fade_out = i + 1 == n || opt.fade_all || fade(i);
         let mut h = DefaultHasher::new();
@@ -305,8 +331,10 @@ pub fn build_plan(project: &ActiveProject, library: &mut Library, opt: PlanOptio
             fade_in,
             fade_out,
             cache: cache_dir.join(format!("{safe_id}_{:016x}.mp4", h.finish())),
+            xfade,
         });
-        film_t += duration;
+        // Bei Überblendung beginnt der nächste Shot schon während dieser ausklingt.
+        film_t += duration - xfade.map(|(_, d)| d.min(duration * 0.5)).unwrap_or(0.0);
     }
     for a in &data.soundtrack {
         match resolve_audio(project, a, 0.0) {
@@ -400,8 +428,9 @@ fn step(plan: &mut FilmPlan, queue: &mut RenderQueue) {
                 let shared: Shared = Arc::new(Mutex::new(None));
                 let (s2, tasks, audio, out, total) =
                     (shared.clone(), plan.tasks.clone(), plan.audio.clone(), plan.output.clone(), plan.total);
+                let enc = (plan.width, plan.height, plan.fps, plan.quality);
                 std::thread::spawn(move || {
-                    let r = finalize(&tasks, &audio, &out, total);
+                    let r = finalize(&tasks, &audio, &out, total, enc);
                     *s2.lock().expect("Status") = Some(r);
                 });
                 plan.state = State::Finalizing(shared);
@@ -557,7 +586,10 @@ fn transcode_clip(
 }
 
 /// Fügt alle Shots zusammen und mischt den Ton dazu.
-fn finalize(tasks: &[FilmTask], audio: &[MixClip], out: &Path, total: f32) -> Result<(), String> {
+fn finalize(tasks: &[FilmTask], audio: &[MixClip], out: &Path, total: f32, enc: (u32, u32, u32, Quality)) -> Result<(), String> {
+    if tasks.iter().any(|t| t.xfade.is_some()) {
+        return finalize_xfade(tasks, audio, out, total, enc);
+    }
     let list = out.with_extension("liste.txt");
     let body: String = tasks
         .iter()
@@ -587,11 +619,77 @@ fn finalize(tasks: &[FilmTask], audio: &[MixClip], out: &Path, total: f32) -> Re
     std::fs::rename(&tmp, out).map_err(|e| e.to_string())
 }
 
+/// Mit Überblendungen: Shots über xfade/concat-Filter verbinden (Video wird neu kodiert).
+fn finalize_xfade(tasks: &[FilmTask], audio: &[MixClip], out: &Path, total: f32, enc: (u32, u32, u32, Quality)) -> Result<(), String> {
+    let (w, h, fps, quality) = enc;
+    let ff = video::find_ffmpeg().ok_or("ffmpeg nicht gefunden")?;
+    let encoder = video::best_encoder(&ff);
+    let mut args: Vec<String> = ["-y", "-hide_banner", "-loglevel", "error"].map(String::from).to_vec();
+    for t in tasks {
+        args.push("-i".into());
+        args.push(t.cache.to_string_lossy().into());
+    }
+    for a in audio {
+        args.push("-i".into());
+        args.push(a.path.to_string_lossy().into());
+    }
+    let filter = xfade_filter(tasks);
+    let mut full = filter;
+    if !audio.is_empty() {
+        full.push(';');
+        full.push_str(&audio_filter_from(audio, total, tasks.len()));
+    }
+    args.push("-filter_complex".into());
+    args.push(full);
+    args.extend(["-map", "[vout]"].map(String::from));
+    if !audio.is_empty() {
+        args.extend(["-map", "[aout]", "-c:a", "aac", "-b:a", "192k"].map(String::from));
+    }
+    args.extend(video::encoder_args(&encoder, w, h, fps, quality));
+    let tmp = out.with_extension("tmp.mp4");
+    args.push(tmp.to_string_lossy().into());
+    run_ffmpeg(args)?;
+    std::fs::rename(&tmp, out).map_err(|e| e.to_string())
+}
+
+/// Filter-Kette: Shot für Shot anhängen – mit xfade (Überblendung) oder concat (Schnitt).
+pub fn xfade_filter(tasks: &[FilmTask]) -> String {
+    let mut parts = Vec::new();
+    let mut acc = "[0:v]".to_string();
+    let mut t_end = tasks.first().map(|t| t.duration).unwrap_or(0.0);
+    for (k, next) in tasks.iter().enumerate().skip(1) {
+        let prev = &tasks[k - 1];
+        let label = if k + 1 == tasks.len() { "[vout]".to_string() } else { format!("[v{k}]") };
+        match prev.xfade {
+            Some((kind, d)) => {
+                let d = d.min(prev.duration * 0.5).min(next.duration * 0.5);
+                let offset = (t_end - d).max(0.0);
+                parts.push(format!("{acc}[{k}:v]xfade=transition={kind}:duration={d:.3}:offset={offset:.3}{label}"));
+                t_end = offset + next.duration;
+            }
+            None => {
+                parts.push(format!("{acc}[{k}:v]concat=n=2:v=1:a=0{label}"));
+                t_end += next.duration;
+            }
+        }
+        acc = label;
+    }
+    if tasks.len() == 1 {
+        parts.push("[0:v]null[vout]".into());
+    }
+    parts.join(";")
+}
+
 /// ffmpeg-Filter: jeden Ton zuschneiden, ein-/ausblenden, Lautstärke, an die richtige Stelle schieben, mischen.
 pub fn audio_filter(audio: &[MixClip], total: f32) -> String {
+    audio_filter_from(audio, total, 1)
+}
+
+/// Wie [`audio_filter`], die Ton-Eingänge beginnen bei Eingang `first`.
+pub fn audio_filter_from(audio: &[MixClip], total: f32, first: usize) -> String {
     let mut parts = Vec::new();
     for (i, a) in audio.iter().enumerate() {
-        let mut chain = format!("[{}:a]atrim=start={:.3}", i + 1, a.offset.max(0.0));
+        let mut chain = format!("[{}:a]atrim=start={:.3}", i + first, a.offset.max(0.0));
         if let Some(d) = a.duration {
             chain += &format!(":duration={:.3}", d.max(0.01));
         }
@@ -618,6 +716,24 @@ pub fn audio_filter(audio: &[MixClip], total: f32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn xfade_chain_offsets() {
+        let t = |d: f32, x: Option<(&'static str, f32)>| FilmTask {
+            shot_id: "s".into(),
+            kind: TaskKind::Clip { file: PathBuf::new(), offset: 0.0 },
+            duration: d,
+            fade_in: false,
+            fade_out: false,
+            cache: PathBuf::new(),
+            xfade: x,
+        };
+        let f = xfade_filter(&[t(3.0, Some(("fade", 0.6))), t(4.0, None), t(2.0, None)]);
+        assert!(f.contains("[0:v][1:v]xfade=transition=fade:duration=0.600:offset=2.400[v1]"), "{f}");
+        assert!(f.contains("[v1][2:v]concat=n=2:v=1:a=0[vout]"), "{f}");
+        assert_eq!(xfade_kind("circle"), Some("circleopen"));
+        assert_eq!(xfade_kind("cut"), None);
+    }
 
     #[test]
     fn audio_filter_places_and_mixes() {

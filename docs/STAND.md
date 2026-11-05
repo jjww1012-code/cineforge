@@ -175,6 +175,9 @@
 - **Menschenmengen/Herden:** `scatter` mit character/animal-Shape; `character::vary` (Farben, Frisur,
   Größe, Statur, Ausdruck, Hut/Brille, versetzte Aktionen).
 - **Gegenstände halten:** `character.hold`/`hold_left` (beliebiges Objekt an der Hand, wird mitgeprüft).
+- **Übergänge im Film:** `dissolve`, `wipe`, `slide`, `circle` über ffmpeg-xfade (0,6 s Überlappung,
+  Shot-Startzeiten und Ton entsprechend verschoben, Video wird beim Zusammenfügen neu kodiert);
+  `cut`/`fade` wie bisher verlustfrei. Test prüft Filterkette, Export geprüft (12,75 s).
 - **Vorzeige-Szene** `scenes/vorzeige.json` (Bild `docs/bilder/vorzeige.png`).
 - **Start nie mehr stumm abbrechen:** Ist die zuletzt geöffnete Szene nicht ladbar, öffnet die App
   die Demo und zeigt den Grund (Banner, `resume`). Abstürze/Startprobleme landen in

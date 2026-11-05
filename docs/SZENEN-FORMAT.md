@@ -404,8 +404,11 @@ in Gruppen, mit `repeat` und in Bibliotheks-Objekten.
 - `export_video` – die geöffnete Szene als MP4 bis 4K (`export_status` für Fortschritt);
   `quality`: `draft` (schnell), `standard`, `high`, `best` (doppelt so groß gerendert und weich
   verkleinert – glatteste Kanten, für das fertige Video)
-- `export_film` – der ganze Film: alle Storyboard-Shots (je `scene` + `duration`) hintereinander,
-  mit harten Schnitten oder Abblenden (`transition: "fade"`)
+- `export_film` – der ganze Film: alle Storyboard-Shots (je `scene` + `duration`) hintereinander.
+  Übergänge (je Shot `transition` oder für alle im Export): `cut` (Schnitt), `fade` (über Schwarz),
+  `dissolve` (weiche Überblendung), `wipe` (Wischblende), `slide` (Schieben), `circle` (Kreisblende,
+  klassischer Cartoon-Abschluss). Überblendungen dauern 0,6 s; der nächste Shot beginnt entsprechend
+  früher, Ton bleibt synchron.
 
 ## Kino-Qualität (Pixar-/Disney-Look) – so geht's
 

@@ -237,7 +237,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "export_film",
-            "description": "Rendert den ganzen Film (auch 1 Stunde und mehr): alle Shots des Storyboards in Reihenfolge – Szenen (scene) oder Video-Clips (clip) – mit Ton (Soundtrack + audio je Shot) als ein MP4. Jeder Shot wird zwischengespeichert: unveränderte Shots werden nicht neu gerendert, abgebrochene Exporte gehen weiter. transition: cut (Standard) oder fade für alle Übergänge; einzelne Übergänge über transition im Shot.",
+            "description": "Rendert den ganzen Film (auch 1 Stunde und mehr): alle Shots des Storyboards in Reihenfolge – Szenen (scene) oder Video-Clips (clip) – mit Ton (Soundtrack + audio je Shot) als ein MP4. Jeder Shot wird zwischengespeichert: unveränderte Shots werden nicht neu gerendert, abgebrochene Exporte gehen weiter. transition: cut (Standard), fade (über Schwarz), dissolve, wipe, slide oder circle für alle Übergänge (sonst je Shot transition); einzelne Übergänge über transition im Shot.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1183,10 +1183,12 @@ fn generate_voice(a: &Value, cx: &mut Ctx) -> ToolOutput {
 
 fn film_options(a: &Value, cx: &Ctx) -> Result<crate::film::PlanOptions, String> {
     let quality = crate::video::Quality::parse(a.get("quality").and_then(Value::as_str))?;
-    let fade_all = match a.get("transition").and_then(Value::as_str).unwrap_or("cut") {
-        "cut" | "schnitt" => false,
-        "fade" | "blende" => true,
-        other => return Err(format!("Unbekannter Übergang \"{other}\" (cut oder fade)")),
+    let trans = a.get("transition").and_then(Value::as_str).unwrap_or("cut");
+    let (fade_all, transition_all) = match trans {
+        "cut" | "schnitt" => (false, None),
+        "fade" | "blende" => (true, None),
+        other if crate::film::xfade_kind(other).is_some() => (false, Some(other.to_string())),
+        other => return Err(format!("Unbekannter Übergang \"{other}\" ({})", crate::film::TRANSITIONS)),
     };
     let even = |v: u64| ((v as u32).clamp(64, 3840) / 2) * 2;
     let width = even(a.get("width").and_then(Value::as_u64).unwrap_or(1920));
@@ -1209,6 +1211,7 @@ fn film_options(a: &Value, cx: &Ctx) -> Result<crate::film::PlanOptions, String>
         fps: a.get("fps").and_then(Value::as_u64).map(|v| v as u32),
         quality,
         fade_all,
+        transition_all,
         output,
     })
 }
